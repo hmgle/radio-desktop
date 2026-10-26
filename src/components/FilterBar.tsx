@@ -1,0 +1,135 @@
+import { useState } from "react";
+import { useRadio, type SortKey } from "../store";
+import { FacetSelect } from "./ui";
+
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: "popularity", label: "热度" },
+  { key: "votes", label: "票数" },
+  { key: "name", label: "名称" },
+  { key: "bitrate", label: "码率" },
+  { key: "random", label: "随机" },
+];
+
+const BITRATES = [0, 64, 96, 128, 192, 320];
+
+export function FilterBar() {
+  const { query, setQuery, country, language, tag, minBitrate, sort, setFilter, total, source } =
+    useRadio();
+
+  const [countryLabel, setCountryLabel] = useState("");
+  const [languageLabel, setLanguageLabel] = useState("");
+  const [tagLabel, setTagLabel] = useState("");
+
+  const hasFilter = country || language || tag || minBitrate > 0;
+
+  return (
+    <div className="flex flex-col gap-2 border-b border-neutral-200 bg-white/70 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="absolute top-2.5 left-2.5 h-4 w-4 text-neutral-400">
+            <circle cx="9" cy="9" r="5.5" />
+            <path d="m13.5 13.5 3 3" strokeLinecap="round" />
+          </svg>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={
+              source === "all"
+                ? "搜索电台、国家、语言、标签…"
+                : source === "favorites"
+                  ? "在收藏中搜索…"
+                  : source === "history"
+                    ? "在最近播放中搜索…"
+                    : "在我的电台中搜索…"
+            }
+            className="h-9 w-full rounded-xl border border-neutral-300 bg-white pr-3 pl-8 text-sm outline-none transition-colors focus:border-[var(--accent)] dark:border-neutral-700 dark:bg-neutral-900"
+          />
+        </div>
+        <span className="shrink-0 text-xs text-neutral-400">{total.toLocaleString()} 个结果</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <FacetSelect
+          label="国家"
+          kind="country"
+          value={country}
+          display={countryLabel}
+          onChange={(v, label) => {
+            setCountryLabel(label);
+            setFilter({ country: v });
+          }}
+        />
+        <FacetSelect
+          label="语言"
+          kind="language"
+          value={language}
+          display={languageLabel}
+          onChange={(v, label) => {
+            setLanguageLabel(label);
+            setFilter({ language: v });
+          }}
+        />
+        <FacetSelect
+          label="标签"
+          kind="tag"
+          value={tag}
+          display={tagLabel}
+          onChange={(v, label) => {
+            setTagLabel(label);
+            setFilter({ tag: v });
+          }}
+        />
+        <div className="relative">
+          <select
+            value={minBitrate}
+            onChange={(e) => setFilter({ minBitrate: Number(e.target.value) })}
+            className={`h-8 appearance-none rounded-lg border px-2.5 pr-6 text-xs transition-colors ${
+              minBitrate > 0
+                ? "border-[var(--accent)]/50 bg-[var(--accent)]/10 text-[var(--accent)]"
+                : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            }`}
+          >
+            {BITRATES.map((b) => (
+              <option key={b} value={b}>
+                {b === 0 ? "码率不限" : `≥ ${b}kbps`}
+              </option>
+            ))}
+          </select>
+          <svg viewBox="0 0 16 16" className="pointer-events-none absolute top-2.5 right-1.5 h-3 w-3 opacity-60" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M4 6l4 4 4-4" strokeLinecap="round" />
+          </svg>
+        </div>
+        <div className="relative">
+          <select
+            value={sort}
+            onChange={(e) => setFilter({ sort: e.target.value as SortKey })}
+            className="h-8 appearance-none rounded-lg border border-neutral-300 bg-white px-2.5 pr-6 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            {SORTS.map((s) => (
+              <option key={s.key} value={s.key}>
+                按{s.label}
+              </option>
+            ))}
+          </select>
+          <svg viewBox="0 0 16 16" className="pointer-events-none absolute top-2.5 right-1.5 h-3 w-3 opacity-60" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M4 6l4 4 4-4" strokeLinecap="round" />
+          </svg>
+        </div>
+        {hasFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setCountryLabel("");
+              setLanguageLabel("");
+              setTagLabel("");
+              setFilter({ country: "", language: "", tag: "", minBitrate: 0 });
+            }}
+            className="h-8 rounded-lg px-2 text-xs text-neutral-500 hover:bg-neutral-200/60 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          >
+            重置
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
