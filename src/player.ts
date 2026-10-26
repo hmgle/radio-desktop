@@ -44,6 +44,7 @@ class RadioPlayer {
     this.audio = a;
 
     a.addEventListener("playing", () => {
+      this.emit("playing");
       if (this.reported) return;
       this.reported = true;
       const uuid = this.info?.station.stationuuid ?? "";
