@@ -30,10 +30,13 @@ bun run typecheck    # 前端类型检查
 ## 构建
 
 ```sh
-bun run build        # 产出 build/darwin-arm64/ 下的 .app 与 .dmg
+bun run build                          # 当前平台（macOS 产出 .app 与 .dmg）
+./node_modules/.bin/mygo build -platform linux/amd64   # 交叉编译 Linux
 ```
 
-数据目录：`~/Library/Application Support/radio-desktop/`（`radio.db`）。
+Linux 产物在 `build/linux-amd64/`：可执行文件、`.desktop`、tar.gz（含用户级 `install.sh`）和 `.deb`（依赖自动安装 `libwebkit2gtk-4.1-0` 与 `libgtk-3-0`）。Linux 运行需要 WebKitGTK 4.1（deb/tar.gz 之外的手动安装：Debian/Ubuntu `apt install libwebkit2gtk-4.1-0 libgtk-3-0`，Fedora `dnf install webkit2gtk4.1 gtk3`）。
+
+数据目录：macOS `~/Library/Application Support/radio-desktop/`，Linux `~/.config/radio-desktop/`（内含 `radio.db`）。
 
 ## 架构
 
