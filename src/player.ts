@@ -23,11 +23,21 @@ const BACKOFF_MS = [1000, 3000, 7000];
 const WINDOW_MS = 60_000;
 const MAX_RECONNECTS = 6;
 const ATTEMPTS_PER_CANDIDATE = 3;
+// Pause fades the music out, resume and station switches fade it in, as
+// mygo-cloudmusic's fader does, with the same cosine ease.
+const FADE_OUT_MS = 180;
+const FADE_IN_MS = 260;
 
 class RadioPlayer {
   readonly audio: HTMLAudioElement;
   private gen = 0;
   private info: PlayInfo | null = null;
+  // Fade level between 0 and 1: the audio element's volume is the
+  // listener's volume times this level. fadeGen counts fades so one
+  // overtaken by a newer play/pause stops applying.
+  private level = 1;
+  private fadeGen = 0;
+  private userVolume = 80;
   private candIdx = 0;
   private candidateFails = 0;
   private reconnects: number[] = [];
@@ -45,6 +55,7 @@ class RadioPlayer {
 
     a.addEventListener("playing", () => {
       this.emit("playing");
+      if (this.level < 1) this.fade(1, FADE_IN_MS);
       if (this.reported) return;
       this.reported = true;
       const uuid = this.info?.station.stationuuid ?? "";
@@ -61,7 +72,8 @@ class RadioPlayer {
     // 'stalled'/'waiting' only mean buffering; ignore them.
   }
 
-  /** Starts playing a station from its candidate list. */
+  /** Starts playing a station from its candidate list, fading out
+   *  whatever played first. */
   play(info: PlayInfo) {
     this.gen++;
     this.clearTimer();
@@ -70,7 +82,13 @@ class RadioPlayer {
     this.candidateFails = 0;
     this.reconnects = [];
     this.reported = false;
-    this.loadCurrent("connecting");
+    if (this.lastState === "playing" || this.lastState === "connecting") {
+      this.fade(0, FADE_OUT_MS, () => {
+        if (this.info === info) this.loadCurrent("connecting");
+      });
+    } else {
+      this.loadCurrent("connecting");
+    }
   }
 
   /** Marks a station as selected without starting audio (session resume). */
@@ -89,8 +107,10 @@ class RadioPlayer {
   toggle() {
     switch (this.state) {
       case "playing":
-        this.audio.pause();
-        this.emit("paused");
+        this.fade(0, FADE_OUT_MS, () => {
+          this.audio.pause();
+          if (this.lastState === "playing") this.emit("paused");
+        });
         break;
       case "connecting":
         this.stop();
@@ -109,6 +129,8 @@ class RadioPlayer {
     this.gen++;
     this.clearTimer();
     this.info = null;
+    this.fadeGen++; // cancel any running fade
+    this.level = 1;
     this.audio.removeAttribute("src");
     this.audio.load();
     this.emit("idle");
@@ -126,7 +148,29 @@ class RadioPlayer {
   }
 
   setVolume(v100: number) {
-    this.audio.volume = Math.min(1, Math.max(0, v100 / 100));
+    this.userVolume = Math.min(100, Math.max(0, v100));
+    this.applyVolume();
+  }
+
+  private applyVolume() {
+    this.audio.volume = Math.min(1, Math.max(0, (this.userVolume / 100) * this.level));
+  }
+
+  /** Ramps the fade level to `to` over `ms` with a cosine ease, calling
+   *  `done` at the end unless a newer fade overtook this one. */
+  private fade(to: number, ms: number, done?: () => void) {
+    const gen = ++this.fadeGen;
+    const from = this.level;
+    const start = performance.now();
+    const step = (now: number) => {
+      if (gen !== this.fadeGen) return;
+      const t = Math.min(1, ms > 0 ? (now - start) / ms : 1);
+      this.level = from + (to - from) * (0.5 - 0.5 * Math.cos(Math.PI * t));
+      this.applyVolume();
+      if (t < 1) requestAnimationFrame(step);
+      else done?.();
+    };
+    requestAnimationFrame(step);
   }
 
   /** Loads candidates[candIdx]; failures advance through the fallback
@@ -141,6 +185,8 @@ class RadioPlayer {
       return;
     }
     this.emit(next);
+    this.level = 0; // fades in as playback actually starts
+    this.applyVolume();
     this.audio.src = url;
     const p = this.audio.play();
     if (p) {
