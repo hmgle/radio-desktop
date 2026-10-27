@@ -2,7 +2,10 @@ module radio-desktop
 
 go 1.27.3
 
-require github.com/egoist/mygo v0.6.4
+require (
+	github.com/egoist/mygo v0.6.5-0.20261027003719-e9f98e4255b7
+	modernc.org/sqlite v1.61.0
+)
 
 require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
@@ -17,5 +20,6 @@ require (
 	modernc.org/libc v1.79.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
-	modernc.org/sqlite v1.61.0 // indirect
 )
+
+tool github.com/egoist/mygo/cmd/mygo
