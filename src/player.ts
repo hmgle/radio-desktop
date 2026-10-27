@@ -221,7 +221,7 @@ class RadioPlayer {
       this.reconnects = [];
     }
     this.candidateFails++;
-    if (this.candidateFails > ATTEMPTS_PER_CANDIDATE) {
+    if (this.candidateFails >= ATTEMPTS_PER_CANDIDATE) {
       this.candIdx++;
       this.candidateFails = 1;
       const candidates = this.info?.candidates ?? [];
