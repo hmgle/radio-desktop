@@ -18,6 +18,12 @@ import (
 // "toggle" (play/pause), the only command meaningful for a live stream.
 var EventMediaCommand = mygo.NewEvent[string]("mediaCommand")
 
+// EventUICommand carries app-menu and tray actions to the frontend:
+// "toggle", "random" (play a random station), "favorite" (toggle the
+// current station's favorite mark), "stop", "add" and "playURL" (open
+// their dialogs).
+var EventUICommand = mygo.NewEvent[string]("uiCommand")
+
 // nowPlaying mirrors what the app plays into the system's media controls
 // (Control Center, media keys, lock screen), as mygo-cloudmusic does: the
 // ICY track title as the title, the station as the artist, and the track

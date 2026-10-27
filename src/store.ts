@@ -26,6 +26,7 @@ interface RadioState {
   status: Status | null;
   syncProgress: Progress | null;
   lastSyncResult: SyncResult | null;
+  dialog: "add" | "url" | null;
 
   // playback
   playState: PlayState;
@@ -36,6 +37,8 @@ interface RadioState {
   volume: number;
 
   // actions
+  openDialog: (d: "add" | "url" | null) => void;
+  handleUICommand: (action: string) => void;
   setSource: (s: Source) => void;
   setQuery: (q: string) => void;
   setFilter: (patch: Partial<Pick<RadioState, "country" | "language" | "tag" | "minBitrate" | "sort">>) => void;
@@ -70,6 +73,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   status: null,
   syncProgress: null,
   lastSyncResult: null,
+  dialog: null,
 
   playState: "idle",
   station: null,
@@ -77,6 +81,50 @@ export const useRadio = create<RadioState>((set, get) => ({
   icyName: "",
   artworkUrl: "",
   volume: 80,
+
+  openDialog: (dialog) => set({ dialog }),
+
+  handleUICommand: (action) => {
+    const s = get();
+    switch (action) {
+      case "toggle":
+        s.togglePlay();
+        break;
+      case "random": {
+        // A random station over the whole catalog, ignoring filters.
+        void Service.search({
+          query: "",
+          country: "",
+          language: "",
+          tag: "",
+          minBitrate: 0,
+          sort: "random",
+          source: "all",
+          limit: 1,
+          offset: 0,
+        })
+          .then((res) => {
+            const station = res.items[0];
+            if (station) return s.playStation(station);
+          })
+          .catch((e) => console.error("random play failed", e));
+        break;
+      }
+      case "favorite":
+        if (s.station) void s.toggleFavorite(s.station);
+        break;
+      case "stop":
+        player.stop();
+        Service.stopPlayback().catch(() => {});
+        break;
+      case "add":
+        set({ dialog: "add" });
+        break;
+      case "playURL":
+        set({ dialog: "url" });
+        break;
+    }
+  },
 
   setSource: (source) => {
     set({ source });
@@ -229,6 +277,9 @@ export const useRadio = create<RadioState>((set, get) => ({
     events.mediaCommand.on((action: string) => {
       if (action === "toggle") get().togglePlay();
     });
+
+    // Menu-bar and tray actions arrive here too.
+    events.uiCommand.on((action: string) => get().handleUICommand(action));
 
     events.icyMeta.on((m: Meta) => {
       set((st) => ({

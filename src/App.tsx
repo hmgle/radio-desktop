@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRadio } from "./store";
 import { player } from "./player";
 import { Sidebar } from "./components/Sidebar";
@@ -9,7 +9,8 @@ import { AddStationDialog, PlayURLDialog } from "./components/Dialogs";
 
 export default function App() {
   const init = useRadio((s) => s.init);
-  const [dialog, setDialog] = useState<"add" | "url" | null>(null);
+  const dialog = useRadio((s) => s.dialog);
+  const openDialog = useRadio((s) => s.openDialog);
 
   useEffect(() => {
     void init();
@@ -40,18 +41,15 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
-        <Sidebar
-          onAddStation={() => setDialog("add")}
-          onPlayURL={() => setDialog("url")}
-        />
+        <Sidebar onAddStation={() => openDialog("add")} onPlayURL={() => openDialog("url")} />
         <main className="flex min-w-0 flex-1 flex-col">
           <FilterBar />
           <StationList />
         </main>
       </div>
       <PlayerBar />
-      {dialog === "add" && <AddStationDialog onClose={() => setDialog(null)} />}
-      {dialog === "url" && <PlayURLDialog onClose={() => setDialog(null)} />}
+      {dialog === "add" && <AddStationDialog onClose={() => openDialog(null)} />}
+      {dialog === "url" && <PlayURLDialog onClose={() => openDialog(null)} />}
     </div>
   );
 }

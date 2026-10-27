@@ -73,11 +73,54 @@ type Service struct {
 	dir   *directory.Client
 	np    *nowPlaying
 
-	mu         sync.Mutex
-	sidecar    *icy.Sidecar
-	playingURL string
-	syncing    bool
-	syncCancel context.CancelFunc
+	// OnUIStateChange, when set, runs after anything the tray and the
+	// menu bar show changes: the current station, its playback state or
+	// its favorite mark.
+	OnUIStateChange func()
+
+	mu          sync.Mutex
+	currentUUID string
+	sidecar     *icy.Sidecar
+	playingURL  string
+	syncing     bool
+	syncCancel  context.CancelFunc
+}
+
+// uiChanged fires the state hook, if any.
+func (s *Service) uiChanged() {
+	if s.OnUIStateChange != nil {
+		s.OnUIStateChange()
+	}
+}
+
+// PlayingNow reports whether the frontend reported audio playing.
+func (s *Service) PlayingNow() bool {
+	s.np.mu.Lock()
+	defer s.np.mu.Unlock()
+	return s.np.state == mygo.PlaybackPlaying
+}
+
+// CurrentStationName is the selected station's name, "" without one.
+func (s *Service) CurrentStationName() string {
+	s.np.mu.Lock()
+	defer s.np.mu.Unlock()
+	return s.np.station
+}
+
+// CurrentFavorite reports whether the current station is favorited;
+// false without a current station.
+func (s *Service) CurrentFavorite() bool {
+	s.mu.Lock()
+	uuid := s.currentUUID
+	s.mu.Unlock()
+	if uuid == "" {
+		return false
+	}
+	st, ok, err := s.store.GetStation(uuid)
+	if err != nil || !ok {
+		return false
+	}
+	return st.Favorite
 }
 
 // New creates the service.
@@ -154,10 +197,18 @@ func (s *Service) Tags(prefix string) ([]store.Facet, error) {
 // ---- favorites ----
 
 // AddFavorite marks a station favorite.
-func (s *Service) AddFavorite(uuid string) error { return s.store.AddFavorite(uuid) }
+func (s *Service) AddFavorite(uuid string) error {
+	err := s.store.AddFavorite(uuid)
+	s.uiChanged()
+	return err
+}
 
 // RemoveFavorite unmarks a station.
-func (s *Service) RemoveFavorite(uuid string) error { return s.store.RemoveFavorite(uuid) }
+func (s *Service) RemoveFavorite(uuid string) error {
+	err := s.store.RemoveFavorite(uuid)
+	s.uiChanged()
+	return err
+}
 
 // ---- custom stations ----
 
@@ -213,9 +264,13 @@ func (s *Service) PlayStation(uuid string) (PlayInfo, error) {
 		return PlayInfo{}, errors.New("该电台没有可播放的 http(s) 地址")
 	}
 	s.startSidecar(info.Candidates[0])
+	s.mu.Lock()
+	s.currentUUID = uuid
+	s.mu.Unlock()
 	s.np.setStation(info.Station.Name, info.Station.Country)
 	s.np.setArtURL(info.Station.Favicon)
 	go s.np.announce()
+	s.uiChanged()
 	if err := s.store.SetMeta("pref_last_station", uuid); err != nil {
 		log.Printf("save last station: %v", err)
 	}
@@ -233,9 +288,13 @@ func (s *Service) PlayURL(url string) (PlayInfo, error) {
 	st.TagsList = []string{}
 	info := PlayInfo{Station: st, Candidates: candidates}
 	s.startSidecar(candidates[0])
+	s.mu.Lock()
+	s.currentUUID = ""
+	s.mu.Unlock()
 	s.np.setStation(st.Name, "")
 	s.np.setArtURL("")
 	go s.np.announce()
+	s.uiChanged()
 	// Ephemeral streams are not persisted as the last station.
 	return info, nil
 }
@@ -265,7 +324,9 @@ func (s *Service) StopPlayback() {
 		s.sidecar = nil
 	}
 	s.playingURL = ""
+	s.currentUUID = ""
 	s.np.clear()
+	s.uiChanged()
 }
 
 // ReportPlaybackState mirrors the frontend audio element's state into
@@ -279,9 +340,11 @@ func (s *Service) ReportPlaybackState(state string) {
 		s.np.setState(mygo.PlaybackPaused)
 	default: // idle, failed
 		s.np.clear()
+		s.uiChanged()
 		return
 	}
 	s.np.announce()
+	s.uiChanged()
 }
 
 // SetVolume persists the volume preference.

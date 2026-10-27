@@ -113,6 +113,17 @@ export const Service = {
     return call("Service.Countries", prefix);
   },
   /**
+   * CurrentFavorite reports whether the current station is favorited;
+   * false without a current station.
+   */
+  currentFavorite(): Promise<boolean> {
+    return call("Service.CurrentFavorite");
+  },
+  /** CurrentStationName is the selected station's name, "" without one. */
+  currentStationName(): Promise<string> {
+    return call("Service.CurrentStationName");
+  },
+  /**
    * GetPlayInfo returns a station with its candidate URLs without starting
    * playback — used to arm the last session's station on startup.
    */
@@ -142,6 +153,10 @@ export const Service = {
   /** PlayURL plays an arbitrary stream URL without adding it to the catalog. */
   playURL(url: string): Promise<PlayInfo> {
     return call("Service.PlayURL", url);
+  },
+  /** PlayingNow reports whether the frontend reported audio playing. */
+  playingNow(): Promise<boolean> {
+    return call("Service.PlayingNow");
   },
   /** RemoveCustomStation deletes a user-defined station. */
   removeCustomStation(uuid: string): Promise<void> {
@@ -210,6 +225,13 @@ export const events = {
    * "toggle" (play/pause), the only command meaningful for a live stream.
    */
   mediaCommand: event<string>("mediaCommand"),
+  /**
+   * EventUICommand carries app-menu and tray actions to the frontend:
+   * "toggle", "random" (play a random station), "favorite" (toggle the
+   * current station's favorite mark), "stop", "add" and "playURL" (open
+   * their dialogs).
+   */
+  uiCommand: event<string>("uiCommand"),
   /** EventICYMeta carries ICY name/genre/title of the playing stream. */
   icyMeta: event<Meta>("icyMeta"),
   /** EventSyncProgress reports catalog sync page progress. */
