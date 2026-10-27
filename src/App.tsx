@@ -7,6 +7,7 @@ import { FilterBar } from "./components/FilterBar";
 import { StationList } from "./components/StationList";
 import { PlayerBar } from "./components/PlayerBar";
 import { AddStationDialog, PlayURLDialog } from "./components/Dialogs";
+import { NowPlayingLayer } from "./components/NowPlayingLayer";
 
 export default function App() {
   const init = useRadio((s) => s.init);
@@ -69,6 +70,7 @@ export default function App() {
         </main>
       </div>
       <PlayerBar />
+      <NowPlayingLayer />
       {dialog === "add" && <AddStationDialog onClose={() => openDialog(null)} />}
       {dialog === "url" && <PlayURLDialog onClose={() => openDialog(null)} />}
     </div>

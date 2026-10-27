@@ -27,6 +27,7 @@ interface RadioState {
   syncProgress: Progress | null;
   lastSyncResult: SyncResult | null;
   dialog: "add" | "url" | null;
+  nowPlayingOpen: boolean;
 
   // playback
   playState: PlayState;
@@ -38,6 +39,7 @@ interface RadioState {
 
   // actions
   openDialog: (d: "add" | "url" | null) => void;
+  openNowPlaying: (v: boolean) => void;
   handleUICommand: (action: string) => void;
   setSource: (s: Source) => void;
   setQuery: (q: string) => void;
@@ -74,6 +76,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   syncProgress: null,
   lastSyncResult: null,
   dialog: null,
+  nowPlayingOpen: false,
 
   playState: "idle",
   station: null,
@@ -83,6 +86,8 @@ export const useRadio = create<RadioState>((set, get) => ({
   volume: 80,
 
   openDialog: (dialog) => set({ dialog }),
+
+  openNowPlaying: (nowPlayingOpen) => set({ nowPlayingOpen }),
 
   handleUICommand: (action) => {
     const s = get();

@@ -47,6 +47,7 @@ function CoverArt(props: { artwork?: string; favicon?: string; playing: boolean 
 export function PlayerBar() {
   const { station, title, icyName, playState, artworkUrl, volume, togglePlay, setVolume, toggleFavorite } =
     useRadio();
+  const openNowPlaying = useRadio((s) => s.openNowPlaying);
 
   const playing = playState === "playing";
   const disabled = !station;
@@ -55,8 +56,13 @@ export function PlayerBar() {
 
   return (
     <footer className="flex h-16 shrink-0 items-center gap-3 border-t border-neutral-200 bg-white/80 px-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/70">
-      {/* Station identity */}
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      {/* Station identity: click for the big Now Playing view */}
+      <button
+        type="button"
+        onClick={() => openNowPlaying(true)}
+        title="查看大图"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-1 py-1 text-left transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40"
+      >
         <CoverArt
           artwork={playing || playState === "connecting" ? artworkUrl : ""}
           favicon={station?.favicon}
@@ -86,7 +92,7 @@ export function PlayerBar() {
             </p>
           </div>
         </div>
-      </div>
+      </button>
 
       {/* Controls */}
       <div className="flex shrink-0 items-center gap-1.5">
