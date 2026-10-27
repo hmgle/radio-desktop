@@ -31,6 +31,7 @@ export function FilterBar() {
             <path d="m13.5 13.5 3 3" strokeLinecap="round" />
           </svg>
           <input
+            id="search-input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { currentWindow } from "mygo-runtime";
 import { useRadio } from "./store";
 import { player } from "./player";
 import { Sidebar } from "./components/Sidebar";
@@ -16,7 +17,8 @@ export default function App() {
     void init();
   }, [init]);
 
-  // Space toggles play/pause unless typing in an input.
+  // Space toggles play/pause and Cmd/Ctrl+F focuses the search box,
+  // unless typing in an input.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
@@ -26,10 +28,29 @@ export default function App() {
         e.preventDefault();
         useRadio.getState().togglePlay();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        const input = document.getElementById("search-input") as HTMLInputElement | null;
+        input?.focus();
+        input?.select();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  // The window says what plays: "ICY 曲名 - 电台名 — Radio Desktop".
+  const titleStation = useRadio((s) => s.station?.name);
+  const titleTrack = useRadio((s) => s.title);
+  const titlePlaying = useRadio((s) => s.playState === "playing");
+  useEffect(() => {
+    let title = "Radio Desktop";
+    if (titleStation) {
+      title = titlePlaying && titleTrack ? `${titleTrack} - ${titleStation}` : titleStation;
+      title += " — Radio Desktop";
+    }
+    currentWindow.setTitle(title).catch(() => {});
+  }, [titleStation, titleTrack, titlePlaying]);
 
   // Stop the ICY sidecar when the page unloads.
   useEffect(() => {

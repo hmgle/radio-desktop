@@ -4,7 +4,8 @@ import type { Station } from "../mygo";
 import { Service } from "../mygo";
 import { EqBars, HeartIcon, RadioIcon, flagEmoji } from "./ui";
 
-function StationRow({ station }: { station: Station }) {
+function StationRow(props: { station: Station; selected: boolean }) {
+  const { station, selected } = props;
   const playStation = useRadio((s) => s.playStation);
   const toggleFavorite = useRadio((s) => s.toggleFavorite);
   const playState = useRadio((s) => s.playState);
@@ -22,12 +23,15 @@ function StationRow({ station }: { station: Station }) {
 
   return (
     <div
+      data-uuid={station.stationuuid}
       onClick={() => void playStation(station)}
       className={`group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
         active
           ? "bg-[var(--accent)]/8 dark:bg-[var(--accent)]/15"
-          : "hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
-      }`}
+          : selected
+            ? "bg-neutral-200/70 dark:bg-neutral-800/70"
+            : "hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60"
+      } ${selected ? "ring-1 ring-[var(--accent)]/40" : ""}`}
     >
       <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-200 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
         {station.favicon && !imgFailed ? (
@@ -110,8 +114,39 @@ function StationRow({ station }: { station: Station }) {
 }
 
 export function StationList() {
-  const { items, total, loading, loadingMore, loadMore, source, refresh } = useRadio();
+  const { items, total, loading, loadingMore, loadMore, source, refresh, playStation } =
+    useRadio();
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [selectedIdx, setSelectedIdx] = useState(-1);
+
+  // A fresh list starts unselected.
+  useEffect(() => setSelectedIdx(-1), [source]);
+
+  // The keyboard selection follows the list into view.
+  useEffect(() => {
+    if (selectedIdx < 0 || !items[selectedIdx]) return;
+    listRef.current
+      ?.querySelector(`[data-uuid="${CSS.escape(items[selectedIdx]!.stationuuid)}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [selectedIdx, items]);
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (items.length === 0) return;
+    const clamp = (i: number) => Math.min(items.length - 1, Math.max(0, i));
+    let next = selectedIdx;
+    if (e.key === "ArrowDown") next = clamp(selectedIdx < 0 ? 0 : selectedIdx + 1);
+    else if (e.key === "ArrowUp") next = clamp(selectedIdx < 0 ? items.length - 1 : selectedIdx - 1);
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = items.length - 1;
+    else if (e.key === "Enter" && selectedIdx >= 0 && items[selectedIdx]) {
+      e.preventDefault();
+      void playStation(items[selectedIdx]!);
+      return;
+    } else return;
+    e.preventDefault();
+    setSelectedIdx(next);
+  };
 
   // Infinite scroll: fetch the next page when the sentinel scrolls in.
   useEffect(() => {
@@ -137,7 +172,13 @@ export function StationList() {
           : "还没有自定义电台，点击左侧“添加电台”";
 
   return (
-    <div className="flex-1 overflow-y-auto px-3 py-3">
+    <div
+      ref={listRef}
+      tabIndex={0}
+      onKeyDown={onKey}
+      aria-label="电台列表"
+      className="flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent)]/30"
+    >
       {loading ? (
         <div className="flex flex-col gap-2 px-0">
           {Array.from({ length: 10 }, (_, i) => (
@@ -160,8 +201,8 @@ export function StationList() {
         </div>
       ) : (
         <div className="flex flex-col gap-1">
-          {items.map((st) => (
-            <StationRow key={st.stationuuid} station={st} />
+          {items.map((st, i) => (
+            <StationRow key={st.stationuuid} station={st} selected={i === selectedIdx} />
           ))}
           <div ref={sentinelRef} className="h-4" />
           <p className="py-2 text-center text-[11px] text-neutral-400">
