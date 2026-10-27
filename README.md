@@ -11,8 +11,11 @@
 - **ICY 曲名与封面**：边车连接解析 `StreamTitle`，实时显示正在播放的曲目；支持 `StreamArtwork` / 图片类 `StreamUrl`（Live365 DAS 等）/ `icy-cover` 响应头下发的曲目封面，播放器栏优先显示封面、无封面回退台标（favicon）
 - **收藏 / 播放历史**（保留最近 1000 条）/ 自定义电台 / 直接播放流链接
 - **会话恢复**：记忆音量与上次电台，启动后一键续播
-- **托盘常驻**：关闭窗口隐藏到菜单栏，电台继续播放
-- 深浅色跟随系统；空格键播放/暂停
+- **系统集成**：Now Playing（控制中心/锁屏，含曲目封面）+ 媒体键播放/暂停；托盘常驻且菜单随播放动态更新（macOS 播放时图标旁显示电台名）；中文应用菜单栏
+- **播放淡入淡出**：暂停 180ms 淡出、起播/切台 260ms 淡入
+- **Now Playing 大图浮层**：点击播放器栏展开大封面视图
+- **键盘**：空格播放/暂停、↑↓/Enter 选择播放、Cmd+F 聚焦搜索；窗口标题随播放更新
+- 深浅色跟随系统
 
 ## 开发
 
@@ -24,14 +27,15 @@ bun run dev          # 启动开发窗口（热更新）
 ```sh
 CGO_ENABLED=0 go test ./internal/...    # 后端单测
 RADIO_LIVE=1 go test -run Live ./internal/directory  # 真实 API 冒烟
+bun run test         # 前端 player 状态机测试（vitest）
 bun run typecheck    # 前端类型检查
 ```
 
 ## 构建
 
 ```sh
-bun run build                          # 当前平台（macOS 产出 .app 与 .dmg）
-./node_modules/.bin/mygo build -platform linux/amd64   # 交叉编译 Linux
+bun run build                              # 当前平台（macOS 产出 .app 与 .dmg）
+go tool mygo build -platform linux/amd64   # 交叉编译 Linux
 ```
 
 Linux 产物在 `build/linux-amd64/`：可执行文件、`.desktop`、tar.gz（含用户级 `install.sh`）和 `.deb`（依赖自动安装 `libwebkit2gtk-4.1-0` 与 `libgtk-3-0`）。Linux 运行需要 WebKitGTK 4.1（deb/tar.gz 之外的手动安装：Debian/Ubuntu `apt install libwebkit2gtk-4.1-0 libgtk-3-0`，Fedora `dnf install webkit2gtk4.1 gtk3`）。
@@ -57,4 +61,4 @@ Linux 产物在 `build/linux-amd64/`：可执行文件、`.desktop`、tar.gz（�
 - **internal/icy**：与 `<audio>` 并行的辅助 HTTP 连接（`Icy-MetaData: 1`），按 `icy-metaint` 解析整个元数据块（`StreamTitle` / `StreamArtwork` / `StreamUrl`），30 秒空闲看门狗 + 指数退避重连，曲名或封面变化时推送给前端
 - **src/player.ts**：`<audio>` 生命周期与回退重试（对齐 radio-cli PlaybackController 的预算策略）
 
-与 radio-cli 的差异：播放从 mpv IPC 换成 WebView `<audio>`（零依赖）+ Go ICY 边车；录音（ffmpeg 流复制）计划在后续版本加入。
+与 radio-cli 的差异：播放从 mpv IPC 换成 WebView `<audio>`（零依赖）+ Go ICY 边车；借鉴 mygo-cloudmusic 的 Now Playing/媒体键、托盘动态菜单、播放淡入淡出与行为测试等。录音（ffmpeg 流复制）计划在后续版本加入。

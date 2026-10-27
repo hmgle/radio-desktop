@@ -14,5 +14,13 @@
         "NSAllowsArbitraryLoads": true
       }
     }
+  },
+  "linux": {
+    "comment": "桌面网络电台播放器",
+    "categories": [
+      "AudioVideo",
+      "Audio",
+      "Player"
+    ]
   }
 }
