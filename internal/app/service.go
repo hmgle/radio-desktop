@@ -71,6 +71,7 @@ type Status struct {
 type Service struct {
 	store *store.Store
 	dir   *directory.Client
+	np    *nowPlaying
 
 	mu         sync.Mutex
 	sidecar    *icy.Sidecar
@@ -81,7 +82,18 @@ type Service struct {
 
 // New creates the service.
 func New(st *store.Store, dir *directory.Client) *Service {
-	return &Service{store: st, dir: dir}
+	np := newNowPlaying()
+	// The media keys and Control Center drive playback through the
+	// frontend's player, the only thing that can touch the audio element.
+	mygo.NowPlaying.OnCommand(func(cmd mygo.MediaCommand, _ time.Duration) {
+		switch cmd {
+		case mygo.MediaPlay, mygo.MediaPause, mygo.MediaStop:
+			if err := EventMediaCommand.Broadcast("toggle"); err != nil {
+				log.Printf("media command: %v", err)
+			}
+		}
+	})
+	return &Service{store: st, dir: dir, np: np}
 }
 
 // StartupSync kicks a background sync when the catalog is empty or stale.
@@ -201,6 +213,9 @@ func (s *Service) PlayStation(uuid string) (PlayInfo, error) {
 		return PlayInfo{}, errors.New("该电台没有可播放的 http(s) 地址")
 	}
 	s.startSidecar(info.Candidates[0])
+	s.np.setStation(info.Station.Name, info.Station.Country)
+	s.np.setArtURL(info.Station.Favicon)
+	go s.np.announce()
 	if err := s.store.SetMeta("pref_last_station", uuid); err != nil {
 		log.Printf("save last station: %v", err)
 	}
@@ -218,6 +233,9 @@ func (s *Service) PlayURL(url string) (PlayInfo, error) {
 	st.TagsList = []string{}
 	info := PlayInfo{Station: st, Candidates: candidates}
 	s.startSidecar(candidates[0])
+	s.np.setStation(st.Name, "")
+	s.np.setArtURL("")
+	go s.np.announce()
 	// Ephemeral streams are not persisted as the last station.
 	return info, nil
 }
@@ -238,7 +256,7 @@ func (s *Service) ReportStarted(uuid string) error {
 	return nil
 }
 
-// StopPlayback stops the ICY sidecar (the audio element stops itself).
+// StopPlayback stops the ICY sidecar and the system's Now Playing entry.
 func (s *Service) StopPlayback() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -247,6 +265,23 @@ func (s *Service) StopPlayback() {
 		s.sidecar = nil
 	}
 	s.playingURL = ""
+	s.np.clear()
+}
+
+// ReportPlaybackState mirrors the frontend audio element's state into
+// the system's media controls: "playing", "paused" or anything else
+// clears them.
+func (s *Service) ReportPlaybackState(state string) {
+	switch state {
+	case "playing":
+		s.np.setState(mygo.PlaybackPlaying)
+	case "paused", "ready", "connecting":
+		s.np.setState(mygo.PlaybackPaused)
+	default: // idle, failed
+		s.np.clear()
+		return
+	}
+	s.np.announce()
 }
 
 // SetVolume persists the volume preference.
@@ -366,6 +401,8 @@ func (s *Service) startSidecar(url string) {
 	s.playingURL = url
 	s.sidecar = icy.Start(url, userAgent, func(m icy.Meta) {
 		EventICYMeta.Broadcast(m)
+		s.np.setMeta(m.Title, m.ArtworkURL)
+		s.np.announce()
 	})
 }
 

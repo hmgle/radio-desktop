@@ -217,9 +217,18 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   init: async () => {
-    // Player snapshots flow into the store.
-    player.onSnapshot = (snap) =>
+    // Player snapshots flow into the store, and their state into the
+    // system's media controls (Now Playing, media keys).
+    player.onSnapshot = (snap) => {
       set({ playState: snap.state, station: snap.station ?? get().station });
+      Service.reportPlaybackState(snap.state).catch(() => {});
+    };
+
+    // The media keys and Control Center toggle playback through the same
+    // path as the play button.
+    events.mediaCommand.on((action: string) => {
+      if (action === "toggle") get().togglePlay();
+    });
 
     events.icyMeta.on((m: Meta) => {
       set((st) => ({

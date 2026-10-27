@@ -152,6 +152,14 @@ export const Service = {
     return call("Service.RemoveFavorite", uuid);
   },
   /**
+   * ReportPlaybackState mirrors the frontend audio element's state into
+   * the system's media controls: "playing", "paused" or anything else
+   * clears them.
+   */
+  reportPlaybackState(state: string): Promise<void> {
+    return call("Service.ReportPlaybackState", state);
+  },
+  /**
    * ReportStarted is called by the frontend once the <audio> element is
    * actually playing: it records history and reports the click to
    * Radio Browser. Ephemeral URL plays pass an empty uuid and do nothing.
@@ -174,7 +182,7 @@ export const Service = {
   startupSync(): Promise<void> {
     return call("Service.StartupSync");
   },
-  /** StopPlayback stops the ICY sidecar (the audio element stops itself). */
+  /** StopPlayback stops the ICY sidecar and the system's Now Playing entry. */
   stopPlayback(): Promise<void> {
     return call("Service.StopPlayback");
   },
@@ -197,6 +205,11 @@ export const Service = {
 
 /** Events sent by the Go side. Subscribe with `events.name.on(listener)`. */
 export const events = {
+  /**
+   * EventMediaCommand carries a media-key or menu action to the frontend:
+   * "toggle" (play/pause), the only command meaningful for a live stream.
+   */
+  mediaCommand: event<string>("mediaCommand"),
   /** EventICYMeta carries ICY name/genre/title of the playing stream. */
   icyMeta: event<Meta>("icyMeta"),
   /** EventSyncProgress reports catalog sync page progress. */
