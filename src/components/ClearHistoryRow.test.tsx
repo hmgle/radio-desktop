@@ -20,10 +20,23 @@ it("requires confirmation and keeps the confirmation open on failure", async () 
   const dialog = screen.getByRole("dialog");
   const confirm = within(dialog).getByRole("button", { name: "Clear" });
   fireEvent.click(confirm);
-  expect(await screen.findByRole("alert")).toBeTruthy();
+  const alert = await screen.findByRole("alert");
+  expect(within(alert).getByText("Could not clear history. Please retry.")).toBeTruthy();
+  const details = alert.querySelector("details")!;
+  expect(details.open).toBe(false);
+  const summary = within(alert).getByText("Error details");
+  // Error details appear dynamically in this modal and must stay in its
+  // keyboard cycle alongside the cancel and retry buttons.
+  confirm.focus();
+  fireEvent.keyDown(confirm, { key: "Tab" });
+  expect(document.activeElement).toBe(summary);
+  fireEvent.click(summary);
+  expect(details.open).toBe(true);
+  expect(within(details).getByText("Error: disk full")).toBeTruthy();
   expect(refresh).not.toHaveBeenCalled();
   fireEvent.click(confirm);
   expect(await screen.findByText("Listening history cleared.")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
   expect(refresh).toHaveBeenCalledOnce();
   expect(document.activeElement).toBe(trigger);
 });

@@ -110,4 +110,3 @@ it.each(["ctrlKey", "metaKey"])("opens station dialogs with unmodified %s shortc
   fireEvent.keyDown(document.body, { key: "l", [modifier]: true });
   expect(useRadio.getState().dialog).toBe("url");
 });
-
