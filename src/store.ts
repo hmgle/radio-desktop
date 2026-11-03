@@ -29,6 +29,8 @@ interface RadioState {
   lastSyncResult: SyncResult | null;
   dialog: "add" | "url" | null;
   nowPlayingOpen: boolean;
+  settingsOpen: boolean;
+  openSettings: (open: boolean) => void;
 
   // playback
   playState: PlayState;
@@ -121,6 +123,8 @@ export const useRadio = create<RadioState>((set, get) => ({
   lastSyncResult: null,
   dialog: null,
   nowPlayingOpen: false,
+  settingsOpen: false,
+  openSettings: (settingsOpen) => set({ settingsOpen, nowPlayingOpen: false, dialog: null }),
 
   playState: "idle",
   playbackError: "",
@@ -138,6 +142,9 @@ export const useRadio = create<RadioState>((set, get) => ({
   handleUICommand: (action) => {
     const s = get();
     switch (action) {
+      case "settings":
+        get().openSettings(true);
+        break;
       case "toggle":
         s.togglePlay();
         break;
@@ -181,7 +188,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   setSource: (source) => {
-    set({ source });
+    set({ source, settingsOpen: false });
     void get().refresh();
   },
 

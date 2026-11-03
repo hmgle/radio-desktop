@@ -994,3 +994,353 @@ func SortBy(label string) string { return In(i18n.Locale()).SortBy(label) }
 func (msgs Messages) SortBy(label string) string {
 	return Catalog.Format(msgs.locale, "sortBy", map[string]any{"label": label})
 }
+
+// Settings says "Settings"
+// in the language the app shows.
+func Settings() string { return In(i18n.Locale()).Settings() }
+
+// Settings says "Settings"
+// in the language of msgs.
+func (msgs Messages) Settings() string {
+	return Catalog.Format(msgs.locale, "settings", nil)
+}
+
+// Back says "Back to stations"
+// in the language the app shows.
+func Back() string { return In(i18n.Locale()).Back() }
+
+// Back says "Back to stations"
+// in the language of msgs.
+func (msgs Messages) Back() string {
+	return Catalog.Format(msgs.locale, "back", nil)
+}
+
+// General says "General"
+// in the language the app shows.
+func General() string { return In(i18n.Locale()).General() }
+
+// General says "General"
+// in the language of msgs.
+func (msgs Messages) General() string {
+	return Catalog.Format(msgs.locale, "general", nil)
+}
+
+// AppearanceGroup says "Appearance"
+// in the language the app shows.
+func AppearanceGroup() string { return In(i18n.Locale()).AppearanceGroup() }
+
+// AppearanceGroup says "Appearance"
+// in the language of msgs.
+func (msgs Messages) AppearanceGroup() string {
+	return Catalog.Format(msgs.locale, "appearanceGroup", nil)
+}
+
+// Appearance says "Color theme"
+// in the language the app shows.
+func Appearance() string { return In(i18n.Locale()).Appearance() }
+
+// Appearance says "Color theme"
+// in the language of msgs.
+func (msgs Messages) Appearance() string {
+	return Catalog.Format(msgs.locale, "appearance", nil)
+}
+
+// System says "Follow system"
+// in the language the app shows.
+func System() string { return In(i18n.Locale()).System() }
+
+// System says "Follow system"
+// in the language of msgs.
+func (msgs Messages) System() string {
+	return Catalog.Format(msgs.locale, "system", nil)
+}
+
+// Light says "Light"
+// in the language the app shows.
+func Light() string { return In(i18n.Locale()).Light() }
+
+// Light says "Light"
+// in the language of msgs.
+func (msgs Messages) Light() string {
+	return Catalog.Format(msgs.locale, "light", nil)
+}
+
+// Dark says "Dark"
+// in the language the app shows.
+func Dark() string { return In(i18n.Locale()).Dark() }
+
+// Dark says "Dark"
+// in the language of msgs.
+func (msgs Messages) Dark() string {
+	return Catalog.Format(msgs.locale, "dark", nil)
+}
+
+// UiLanguage says "Interface language"
+// in the language the app shows.
+func UiLanguage() string { return In(i18n.Locale()).UiLanguage() }
+
+// UiLanguage says "Interface language"
+// in the language of msgs.
+func (msgs Messages) UiLanguage() string {
+	return Catalog.Format(msgs.locale, "uiLanguage", nil)
+}
+
+// LanguageHint says "Applies to the interface, menus and tray immediately."
+// in the language the app shows.
+func LanguageHint() string { return In(i18n.Locale()).LanguageHint() }
+
+// LanguageHint says "Applies to the interface, menus and tray immediately."
+// in the language of msgs.
+func (msgs Messages) LanguageHint() string {
+	return Catalog.Format(msgs.locale, "languageHint", nil)
+}
+
+// AppearanceHint says "Follow your system or always use a light or dark theme."
+// in the language the app shows.
+func AppearanceHint() string { return In(i18n.Locale()).AppearanceHint() }
+
+// AppearanceHint says "Follow your system or always use a light or dark theme."
+// in the language of msgs.
+func (msgs Messages) AppearanceHint() string {
+	return Catalog.Format(msgs.locale, "appearanceHint", nil)
+}
+
+// Saving says "Saving…"
+// in the language the app shows.
+func Saving() string { return In(i18n.Locale()).Saving() }
+
+// Saving says "Saving…"
+// in the language of msgs.
+func (msgs Messages) Saving() string {
+	return Catalog.Format(msgs.locale, "saving", nil)
+}
+
+// SaveFailed says "Could not save. Your settings were kept. Please retry."
+// in the language the app shows.
+func SaveFailed() string { return In(i18n.Locale()).SaveFailed() }
+
+// SaveFailed says "Could not save. Your settings were kept. Please retry."
+// in the language of msgs.
+func (msgs Messages) SaveFailed() string {
+	return Catalog.Format(msgs.locale, "saveFailed", nil)
+}
+
+// InvalidSettings says "Invalid setting value."
+// in the language the app shows.
+func InvalidSettings() string { return In(i18n.Locale()).InvalidSettings() }
+
+// InvalidSettings says "Invalid setting value."
+// in the language of msgs.
+func (msgs Messages) InvalidSettings() string {
+	return Catalog.Format(msgs.locale, "invalidSettings", nil)
+}
+
+// PlaybackGroup says "Playback"
+// in the language the app shows.
+func PlaybackGroup() string { return In(i18n.Locale()).PlaybackGroup() }
+
+// PlaybackGroup says "Playback"
+// in the language of msgs.
+func (msgs Messages) PlaybackGroup() string {
+	return Catalog.Format(msgs.locale, "playbackGroup", nil)
+}
+
+// Resume says "On startup"
+// in the language the app shows.
+func Resume() string { return In(i18n.Locale()).Resume() }
+
+// Resume says "On startup"
+// in the language of msgs.
+func (msgs Messages) Resume() string {
+	return Catalog.Format(msgs.locale, "resume", nil)
+}
+
+// ResumeHint says "Restore your last station and list. Volume is always remembered."
+// in the language the app shows.
+func ResumeHint() string { return In(i18n.Locale()).ResumeHint() }
+
+// ResumeHint says "Restore your last station and list. Volume is always remembered."
+// in the language of msgs.
+func (msgs Messages) ResumeHint() string {
+	return Catalog.Format(msgs.locale, "resumeHint", nil)
+}
+
+// ResumeOff says "Start fresh"
+// in the language the app shows.
+func ResumeOff() string { return In(i18n.Locale()).ResumeOff() }
+
+// ResumeOff says "Start fresh"
+// in the language of msgs.
+func (msgs Messages) ResumeOff() string {
+	return Catalog.Format(msgs.locale, "resumeOff", nil)
+}
+
+// ResumeSelection says "Restore selection"
+// in the language the app shows.
+func ResumeSelection() string { return In(i18n.Locale()).ResumeSelection() }
+
+// ResumeSelection says "Restore selection"
+// in the language of msgs.
+func (msgs Messages) ResumeSelection() string {
+	return Catalog.Format(msgs.locale, "resumeSelection", nil)
+}
+
+// ResumePlay says "Restore and play"
+// in the language the app shows.
+func ResumePlay() string { return In(i18n.Locale()).ResumePlay() }
+
+// ResumePlay says "Restore and play"
+// in the language of msgs.
+func (msgs Messages) ResumePlay() string {
+	return Catalog.Format(msgs.locale, "resumePlay", nil)
+}
+
+// DataGroup says "Catalog and data"
+// in the language the app shows.
+func DataGroup() string { return In(i18n.Locale()).DataGroup() }
+
+// DataGroup says "Catalog and data"
+// in the language of msgs.
+func (msgs Messages) DataGroup() string {
+	return Catalog.Format(msgs.locale, "dataGroup", nil)
+}
+
+// AutoSyncDays says "Update interval (days)"
+// in the language the app shows.
+func AutoSyncDays() string { return In(i18n.Locale()).AutoSyncDays() }
+
+// AutoSyncDays says "Update interval (days)"
+// in the language of msgs.
+func (msgs Messages) AutoSyncDays() string {
+	return Catalog.Format(msgs.locale, "autoSyncDays", nil)
+}
+
+// AutoSyncHint says "Check catalog age at startup; 0 disables automatic updates. The initial catalog is always downloaded."
+// in the language the app shows.
+func AutoSyncHint() string { return In(i18n.Locale()).AutoSyncHint() }
+
+// AutoSyncHint says "Check catalog age at startup; 0 disables automatic updates. The initial catalog is always downloaded."
+// in the language of msgs.
+func (msgs Messages) AutoSyncHint() string {
+	return Catalog.Format(msgs.locale, "autoSyncHint", nil)
+}
+
+// CloseBehavior says "When closing the window"
+// in the language the app shows.
+func CloseBehavior() string { return In(i18n.Locale()).CloseBehavior() }
+
+// CloseBehavior says "When closing the window"
+// in the language of msgs.
+func (msgs Messages) CloseBehavior() string {
+	return Catalog.Format(msgs.locale, "closeBehavior", nil)
+}
+
+// CloseHint says "Reopen the window from the tray while listening in the background."
+// in the language the app shows.
+func CloseHint() string { return In(i18n.Locale()).CloseHint() }
+
+// CloseHint says "Reopen the window from the tray while listening in the background."
+// in the language of msgs.
+func (msgs Messages) CloseHint() string {
+	return Catalog.Format(msgs.locale, "closeHint", nil)
+}
+
+// CloseHide says "Hide and keep playing"
+// in the language the app shows.
+func CloseHide() string { return In(i18n.Locale()).CloseHide() }
+
+// CloseHide says "Hide and keep playing"
+// in the language of msgs.
+func (msgs Messages) CloseHide() string {
+	return Catalog.Format(msgs.locale, "closeHide", nil)
+}
+
+// CloseQuit says "Quit the app"
+// in the language the app shows.
+func CloseQuit() string { return In(i18n.Locale()).CloseQuit() }
+
+// CloseQuit says "Quit the app"
+// in the language of msgs.
+func (msgs Messages) CloseQuit() string {
+	return Catalog.Format(msgs.locale, "closeQuit", nil)
+}
+
+// Shortcuts says "Keyboard shortcuts"
+// in the language the app shows.
+func Shortcuts() string { return In(i18n.Locale()).Shortcuts() }
+
+// Shortcuts says "Keyboard shortcuts"
+// in the language of msgs.
+func (msgs Messages) Shortcuts() string {
+	return Catalog.Format(msgs.locale, "shortcuts", nil)
+}
+
+// ShortcutPlay says "Play / pause (station view, outside controls)"
+// in the language the app shows.
+func ShortcutPlay() string { return In(i18n.Locale()).ShortcutPlay() }
+
+// ShortcutPlay says "Play / pause (station view, outside controls)"
+// in the language of msgs.
+func (msgs Messages) ShortcutPlay() string {
+	return Catalog.Format(msgs.locale, "shortcutPlay", nil)
+}
+
+// ShortcutSearch says "Search stations"
+// in the language the app shows.
+func ShortcutSearch() string { return In(i18n.Locale()).ShortcutSearch() }
+
+// ShortcutSearch says "Search stations"
+// in the language of msgs.
+func (msgs Messages) ShortcutSearch() string {
+	return Catalog.Format(msgs.locale, "shortcutSearch", nil)
+}
+
+// ShortcutAdd says "Add station"
+// in the language the app shows.
+func ShortcutAdd() string { return In(i18n.Locale()).ShortcutAdd() }
+
+// ShortcutAdd says "Add station"
+// in the language of msgs.
+func (msgs Messages) ShortcutAdd() string {
+	return Catalog.Format(msgs.locale, "shortcutAdd", nil)
+}
+
+// ShortcutURL says "Play URL"
+// in the language the app shows.
+func ShortcutURL() string { return In(i18n.Locale()).ShortcutURL() }
+
+// ShortcutURL says "Play URL"
+// in the language of msgs.
+func (msgs Messages) ShortcutURL() string {
+	return Catalog.Format(msgs.locale, "shortcutURL", nil)
+}
+
+// ShortcutSettings says "Open settings"
+// in the language the app shows.
+func ShortcutSettings() string { return In(i18n.Locale()).ShortcutSettings() }
+
+// ShortcutSettings says "Open settings"
+// in the language of msgs.
+func (msgs Messages) ShortcutSettings() string {
+	return Catalog.Format(msgs.locale, "shortcutSettings", nil)
+}
+
+// ShortcutList says "Select a station / play selection"
+// in the language the app shows.
+func ShortcutList() string { return In(i18n.Locale()).ShortcutList() }
+
+// ShortcutList says "Select a station / play selection"
+// in the language of msgs.
+func (msgs Messages) ShortcutList() string {
+	return Catalog.Format(msgs.locale, "shortcutList", nil)
+}
+
+// ShortcutEsc says "Close dialog or Now Playing"
+// in the language the app shows.
+func ShortcutEsc() string { return In(i18n.Locale()).ShortcutEsc() }
+
+// ShortcutEsc says "Close dialog or Now Playing"
+// in the language of msgs.
+func (msgs Messages) ShortcutEsc() string {
+	return Catalog.Format(msgs.locale, "shortcutEsc", nil)
+}

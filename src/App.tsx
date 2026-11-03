@@ -1,3 +1,5 @@
+import { SettingsPage } from "./components/SettingsPage";
+import { useSettings } from "./settings";
 import { useLocale } from "./i18n";
 import { useEffect } from "react";
 import { currentWindow } from "mygo-runtime";
@@ -12,11 +14,13 @@ import { NowPlayingLayer } from "./components/NowPlayingLayer";
 
 export default function App() {
   useLocale();
+  const settingsOpen = useRadio((s) => s.settingsOpen);
   const init = useRadio((s) => s.init);
   const dialog = useRadio((s) => s.dialog);
   const openDialog = useRadio((s) => s.openDialog);
 
   useEffect(() => {
+    void useSettings.getState().load();
     void init();
   }, [init]);
 
@@ -71,8 +75,11 @@ export default function App() {
       <div className="flex min-h-0 flex-1">
         <Sidebar onAddStation={() => openDialog("add")} onPlayURL={() => openDialog("url")} />
         <main className="flex min-w-0 flex-1 flex-col">
-          <FilterBar />
-          <StationList />
+          <div className="flex min-h-0 flex-1 flex-col" hidden={settingsOpen} style={settingsOpen ? { display: "none" } : undefined}>
+            <FilterBar />
+            <StationList />
+          </div>
+          {settingsOpen && <SettingsPage />}
         </main>
       </div>
       <PlayerBar />

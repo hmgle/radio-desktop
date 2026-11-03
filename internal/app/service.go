@@ -85,6 +85,11 @@ type Service struct {
 	// its favorite mark.
 	OnUIStateChange func()
 
+	// OnSettingsChange applies persisted settings outside the settings lock.
+	OnSettingsChange func(Settings)
+	settingsMu       sync.Mutex
+	settings         Settings
+
 	mu          sync.Mutex
 	currentUUID string
 	sidecar     *icy.Sidecar
@@ -144,7 +149,7 @@ func New(st *store.Store, dir *directory.Client) *Service {
 			}
 		}
 	})
-	return &Service{store: st, dir: dir, np: np}
+	return &Service{store: st, dir: dir, np: np, settings: loadSettings(st)}
 }
 
 // StartupSync kicks a background sync when the catalog is empty or stale.

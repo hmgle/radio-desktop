@@ -56,6 +56,30 @@ export interface SearchResult {
   items: Station[];
 }
 
+/**
+ * Settings contains the listener's persistent preferences. Volume stays in
+ * its existing preference so upgrades retain the last listening level.
+ */
+export interface Settings {
+  language: string;
+  appearance: string;
+  resume: string;
+  autoSyncDays: number;
+  closeBehavior: string;
+}
+
+/**
+ * SettingsPatch changes only supplied fields, avoiding lost updates when
+ * different controls save in quick succession.
+ */
+export interface SettingsPatch {
+  language?: string;
+  appearance?: string;
+  resume?: string;
+  autoSyncDays?: number;
+  closeBehavior?: string;
+}
+
 export interface Station {
   stationuuid: string;
   name: string;
@@ -136,6 +160,10 @@ export const Service = {
    */
   getPlayInfo(uuid: string): Promise<PlayInfo> {
     return call("Service.GetPlayInfo", uuid);
+  },
+  /** GetSettings returns the current persisted settings. */
+  getSettings(): Promise<Settings> {
+    return call("Service.GetSettings");
   },
   /** GetStation returns one station by uuid. */
   getStation(uuid: string): Promise<Station> {
@@ -221,6 +249,13 @@ export const Service = {
   tags(prefix: string): Promise<Facet[]> {
     return call("Service.Tags", prefix);
   },
+  /**
+   * UpdateSettings persists a validated patch before publishing it. Failed
+   * writes leave the previous settings active.
+   */
+  updateSettings(p: SettingsPatch): Promise<Settings> {
+    return call("Service.UpdateSettings", p);
+  },
 } as const;
 
 // ---- Events ----
@@ -245,4 +280,5 @@ export const events = {
   syncProgress: event<Progress>("syncProgress"),
   /** EventSyncDone fires when a sync finishes (Error == "" on success). */
   syncDone: event<SyncResult>("syncDone"),
+  settingsChanged: event<Settings>("settingsChanged"),
 } as const;

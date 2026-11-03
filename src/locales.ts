@@ -387,6 +387,146 @@ export interface Messages {
    * `Sort by {label}`
    */
   sortBy(label: string): string;
+  /**
+   * `Settings`
+   */
+  settings(): string;
+  /**
+   * `Back to stations`
+   */
+  back(): string;
+  /**
+   * `General`
+   */
+  general(): string;
+  /**
+   * `Appearance`
+   */
+  appearanceGroup(): string;
+  /**
+   * `Color theme`
+   */
+  appearance(): string;
+  /**
+   * `Follow system`
+   */
+  system(): string;
+  /**
+   * `Light`
+   */
+  light(): string;
+  /**
+   * `Dark`
+   */
+  dark(): string;
+  /**
+   * `Interface language`
+   */
+  uiLanguage(): string;
+  /**
+   * `Applies to the interface, menus and tray immediately.`
+   */
+  languageHint(): string;
+  /**
+   * `Follow your system or always use a light or dark theme.`
+   */
+  appearanceHint(): string;
+  /**
+   * `Saving…`
+   */
+  saving(): string;
+  /**
+   * `Could not save. Your settings were kept. Please retry.`
+   */
+  saveFailed(): string;
+  /**
+   * `Invalid setting value.`
+   */
+  invalidSettings(): string;
+  /**
+   * `Playback`
+   */
+  playbackGroup(): string;
+  /**
+   * `On startup`
+   */
+  resume(): string;
+  /**
+   * `Restore your last station and list. Volume is always remembered.`
+   */
+  resumeHint(): string;
+  /**
+   * `Start fresh`
+   */
+  resumeOff(): string;
+  /**
+   * `Restore selection`
+   */
+  resumeSelection(): string;
+  /**
+   * `Restore and play`
+   */
+  resumePlay(): string;
+  /**
+   * `Catalog and data`
+   */
+  dataGroup(): string;
+  /**
+   * `Update interval (days)`
+   */
+  autoSyncDays(): string;
+  /**
+   * `Check catalog age at startup; 0 disables automatic updates. The initial catalog is always downloaded.`
+   */
+  autoSyncHint(): string;
+  /**
+   * `When closing the window`
+   */
+  closeBehavior(): string;
+  /**
+   * `Reopen the window from the tray while listening in the background.`
+   */
+  closeHint(): string;
+  /**
+   * `Hide and keep playing`
+   */
+  closeHide(): string;
+  /**
+   * `Quit the app`
+   */
+  closeQuit(): string;
+  /**
+   * `Keyboard shortcuts`
+   */
+  shortcuts(): string;
+  /**
+   * `Play / pause (station view, outside controls)`
+   */
+  shortcutPlay(): string;
+  /**
+   * `Search stations`
+   */
+  shortcutSearch(): string;
+  /**
+   * `Add station`
+   */
+  shortcutAdd(): string;
+  /**
+   * `Play URL`
+   */
+  shortcutURL(): string;
+  /**
+   * `Open settings`
+   */
+  shortcutSettings(): string;
+  /**
+   * `Select a station / play selection`
+   */
+  shortcutList(): string;
+  /**
+   * `Close dialog or Now Playing`
+   */
+  shortcutEsc(): string;
 }
 
 const catalog = createCatalog<Messages>({
@@ -493,6 +633,41 @@ const catalog = createCatalog<Messages>({
     "updated": ["date"],
     "searchFacet": ["label"],
     "sortBy": ["label"],
+    "settings": [],
+    "back": [],
+    "general": [],
+    "appearanceGroup": [],
+    "appearance": [],
+    "system": [],
+    "light": [],
+    "dark": [],
+    "uiLanguage": [],
+    "languageHint": [],
+    "appearanceHint": [],
+    "saving": [],
+    "saveFailed": [],
+    "invalidSettings": [],
+    "playbackGroup": [],
+    "resume": [],
+    "resumeHint": [],
+    "resumeOff": [],
+    "resumeSelection": [],
+    "resumePlay": [],
+    "dataGroup": [],
+    "autoSyncDays": [],
+    "autoSyncHint": [],
+    "closeBehavior": [],
+    "closeHint": [],
+    "closeHide": [],
+    "closeQuit": [],
+    "shortcuts": [],
+    "shortcutPlay": [],
+    "shortcutSearch": [],
+    "shortcutAdd": [],
+    "shortcutURL": [],
+    "shortcutSettings": [],
+    "shortcutList": [],
+    "shortcutEsc": [],
   },
   messages: {
     "en": {
@@ -592,6 +767,41 @@ const catalog = createCatalog<Messages>({
       "updated": "Updated {date, date, short} {date, time, short}",
       "searchFacet": "Search {label}…",
       "sortBy": "Sort by {label}",
+      "settings": "Settings",
+      "back": "Back to stations",
+      "general": "General",
+      "appearanceGroup": "Appearance",
+      "appearance": "Color theme",
+      "system": "Follow system",
+      "light": "Light",
+      "dark": "Dark",
+      "uiLanguage": "Interface language",
+      "languageHint": "Applies to the interface, menus and tray immediately.",
+      "appearanceHint": "Follow your system or always use a light or dark theme.",
+      "saving": "Saving…",
+      "saveFailed": "Could not save. Your settings were kept. Please retry.",
+      "invalidSettings": "Invalid setting value.",
+      "playbackGroup": "Playback",
+      "resume": "On startup",
+      "resumeHint": "Restore your last station and list. Volume is always remembered.",
+      "resumeOff": "Start fresh",
+      "resumeSelection": "Restore selection",
+      "resumePlay": "Restore and play",
+      "dataGroup": "Catalog and data",
+      "autoSyncDays": "Update interval (days)",
+      "autoSyncHint": "Check catalog age at startup; 0 disables automatic updates. The initial catalog is always downloaded.",
+      "closeBehavior": "When closing the window",
+      "closeHint": "Reopen the window from the tray while listening in the background.",
+      "closeHide": "Hide and keep playing",
+      "closeQuit": "Quit the app",
+      "shortcuts": "Keyboard shortcuts",
+      "shortcutPlay": "Play / pause (station view, outside controls)",
+      "shortcutSearch": "Search stations",
+      "shortcutAdd": "Add station",
+      "shortcutURL": "Play URL",
+      "shortcutSettings": "Open settings",
+      "shortcutList": "Select a station / play selection",
+      "shortcutEsc": "Close dialog or Now Playing",
     },
     "zh-CN": {
       "all": "全部电台",
@@ -690,6 +900,41 @@ const catalog = createCatalog<Messages>({
       "updated": "更新于 {date, date, short} {date, time, short}",
       "searchFacet": "搜索{label}…",
       "sortBy": "按{label}",
+      "settings": "设置",
+      "back": "返回电台",
+      "general": "通用",
+      "appearanceGroup": "外观",
+      "appearance": "外观模式",
+      "system": "跟随系统",
+      "light": "浅色",
+      "dark": "深色",
+      "uiLanguage": "界面语言",
+      "languageHint": "立即应用于界面、菜单和托盘。",
+      "appearanceHint": "跟随系统，或始终使用浅色、深色外观。",
+      "saving": "正在保存…",
+      "saveFailed": "保存失败，设置未更改。请重试。",
+      "invalidSettings": "设置值无效",
+      "playbackGroup": "播放",
+      "resume": "启动时恢复",
+      "resumeHint": "恢复上次电台及列表来源，音量始终记忆。",
+      "resumeOff": "不恢复",
+      "resumeSelection": "仅恢复选择",
+      "resumePlay": "恢复并播放",
+      "dataGroup": "目录与数据",
+      "autoSyncDays": "自动更新间隔（天）",
+      "autoSyncHint": "启动时检查目录是否过期；0 表示关闭自动更新。首次使用仍会初始化目录。",
+      "closeBehavior": "关闭窗口时",
+      "closeHint": "后台播放时可从托盘重新打开窗口。",
+      "closeHide": "隐藏并继续播放",
+      "closeQuit": "退出应用",
+      "shortcuts": "快捷键",
+      "shortcutPlay": "播放 / 暂停（列表页，非输入时）",
+      "shortcutSearch": "搜索电台",
+      "shortcutAdd": "添加电台",
+      "shortcutURL": "播放链接",
+      "shortcutSettings": "打开设置",
+      "shortcutList": "选择电台 / 播放选中项",
+      "shortcutEsc": "关闭弹窗或播放大图",
     },
   },
 });

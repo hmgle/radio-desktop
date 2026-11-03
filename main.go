@@ -45,6 +45,16 @@ func main() {
 	mygo.Use(fetch.Plugin)
 
 	mygo.App.WhenReady(func() {
+		applySettings := func(v app.Settings) {
+			language := v.Language
+			if language == "system" {
+				language = ""
+			}
+			mygo.App.SetLocale(language)
+			mygo.Theme.SetSource(mygo.ThemeSource(v.Appearance))
+		}
+		applySettings(svc.GetSettings())
+		svc.OnSettingsChange = func(v app.Settings) { mygo.RunOnMain(func() { applySettings(svc.GetSettings()) }) }
 		win := mygo.NewWindow(mygo.WindowOptions{
 			Title:           "Radio Desktop",
 			Width:           1000,

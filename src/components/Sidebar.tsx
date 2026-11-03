@@ -63,6 +63,7 @@ export function Sidebar(props: {
         </button>
       </div>
 
+      <button type="button" onClick={() => useRadio.getState().openSettings(true)} className="mx-2 mb-3 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-neutral-200/60 dark:hover:bg-neutral-800">⚙ {m.settings()}</button>
       <div className="mt-auto border-t border-neutral-200 p-3 text-[11px] leading-relaxed text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
         {syncProgress ? (
           <p className="text-[var(--accent)]">
