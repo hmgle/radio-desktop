@@ -28,7 +28,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       const interactive =
-        el.closest('input, textarea, select, button, summary, [role="button"]') || el.isContentEditable;
+        el.closest?.('input, textarea, select, button, summary, [role="button"]') || el.isContentEditable;
       const state = useRadio.getState();
       const key = e.key.toLowerCase();
       const command = (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;

@@ -88,6 +88,14 @@ it("still toggles playback with Space on the focusable station list", () => {
   expect(event.defaultPrevented).toBe(true);
 });
 
+it("handles playback shortcuts dispatched on document", () => {
+  render(<App />);
+  const event = new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true });
+  fireEvent(document, event);
+  expect(useRadio.getState().togglePlay).toHaveBeenCalledOnce();
+  expect(event.defaultPrevented).toBe(true);
+});
+
 it.each(["ctrlKey", "metaKey"])("closes Now Playing before focusing search with %s+F", async (modifier) => {
   useRadio.setState({ nowPlayingOpen: true });
   render(<App />);
