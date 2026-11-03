@@ -1,5 +1,6 @@
 import type { PlayInfo, Station } from "./mygo";
 import { Service } from "./mygo";
+import { isHlsURL, probeHls } from "./stream-format";
 
 export type PlayState =
   | "idle" // nothing selected
@@ -27,6 +28,7 @@ const ATTEMPTS_PER_CANDIDATE = 3;
 const FADE_OUT_MS = 180;
 const FADE_IN_MS = 260;
 const STALL_MS = 20_000;
+const HLS_PROBE_MS = 5000;
 const MEDIA_ERROR_LABELS: Record<number, string> = {
   1: "音频加载已中止",
   2: "电台网络连接失败，请重试或切换电台",
@@ -52,7 +54,8 @@ class RadioPlayer {
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private buffering = false;
   private hls: { destroy(): void } | null = null;
-  private hlsFallback = new Set<string>();
+  private hlsFallback = new Map<string, boolean>();
+  private hlsProbe: AbortController | null = null;
   private loadID = 0;
   private error = "";
 
@@ -82,15 +85,18 @@ class RadioPlayer {
       const err = a.error;
       console.warn(`audio error code=${err?.code ?? "?"} on ${a.currentSrc}`, err?.message);
       if (!err || this.timer !== null || (this.lastState !== "playing" && this.lastState !== "connecting")) return;
-      // A native decoder can advertise HLS and still reject a particular
-      // stream. Also catches HLS URLs without an extension or catalog flag.
+      this.error = MEDIA_ERROR_LABELS[err.code] || "音频加载失败，请重试或切换电台";
+      // Try hls.js only for identified HLS. Unknown URLs get one bounded
+      // header probe per candidate, including extensionless redirects.
       const url = this.info?.candidates[this.candIdx];
-      if (err?.code === 4 && url && !this.hls && !this.hlsFallback.has(url)) {
-        this.hlsFallback.add(url);
-        this.loadCurrent("connecting");
+      if (err.code === 4 && url && !this.hls && !this.hlsFallback.has(url)) {
+        this.hlsFallback.set(url, false);
+        if (this.hasHlsHint(url) || isHlsURL(a.currentSrc)) {
+          this.hlsFallback.set(url, true);
+          this.loadCurrent("connecting");
+        } else void this.probeHlsFallback(url);
         return;
       }
-      this.error = MEDIA_ERROR_LABELS[err.code] || "音频加载失败，请重试或切换电台";
       this.onStreamEnded(this.gen);
     });
     a.addEventListener("ended", () => this.onStreamEnded(this.gen));
@@ -234,8 +240,7 @@ class RadioPlayer {
     this.level = 0; // fades in as playback actually starts
     this.applyVolume();
     this.watchProgress(myGen);
-    const hlsHint = this.info?.station.hls === 1 || /\.m3u8(?:$|[?#])/i.test(url);
-    if (this.hlsFallback.has(url) || (hlsHint && !this.audio.canPlayType("application/vnd.apple.mpegurl"))) {
+    if (this.hlsFallback.get(url) || (this.hasHlsHint(url) && !this.audio.canPlayType("application/vnd.apple.mpegurl"))) {
       void import("./hls").then(({ attachHls }) => {
         if (loadID !== this.loadID || myGen !== this.gen) return;
         const hls = attachHls(this.audio, url, (reason) => {
@@ -255,6 +260,32 @@ class RadioPlayer {
       this.audio.src = url;
       this.startAudio(myGen, loadID);
     }
+  }
+
+  private hasHlsHint(url: string) {
+    return this.info?.station.hls === 1 || isHlsURL(url);
+  }
+
+  private async probeHlsFallback(url: string) {
+    const myGen = this.gen;
+    const loadID = ++this.loadID; // ignore the rejected native play promise
+    this.clearWatchdog();
+    const controller = this.hlsProbe = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), HLS_PROBE_MS);
+    let hls = false;
+    try {
+      hls = await probeHls(url, controller.signal);
+    } catch {
+      // Failed probes keep the original media error and normal retry path.
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (myGen !== this.gen || loadID !== this.loadID || this.hlsProbe !== controller) return;
+    this.hlsProbe = null;
+    if (hls) {
+      this.hlsFallback.set(url, true);
+      this.loadCurrent("connecting");
+    } else this.onStreamEnded(myGen);
   }
 
   private startAudio(myGen: number, loadID: number) {
@@ -279,6 +310,8 @@ class RadioPlayer {
 
   private releaseSource() {
     this.loadID++;
+    this.hlsProbe?.abort();
+    this.hlsProbe = null;
     this.hls?.destroy();
     this.hls = null;
     this.audio.removeAttribute("src");

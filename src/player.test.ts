@@ -5,11 +5,13 @@
  * transition is pinned down.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fetch as nativeFetch } from "@mygo-plugins/fetch";
 
 vi.mock("./mygo", () => ({
   Service: { reportStarted: vi.fn().mockResolvedValue(undefined) },
 }));
 vi.mock("./hls", () => ({ attachHls: vi.fn(() => ({ destroy: vi.fn() })) }));
+vi.mock("@mygo-plugins/fetch", () => ({ fetch: vi.fn() }));
 
 // The fake element: events fire by hand, play() resolves like a
 // well-behaved stream, and rAF runs its frame immediately so fades
@@ -65,6 +67,7 @@ beforeEach(async () => {
   vi.mocked(Service.reportStarted).mockClear();
   const { attachHls } = await import("./hls");
   vi.mocked(attachHls).mockClear();
+  vi.mocked(nativeFetch).mockReset().mockImplementation(async () => new Response(null, { headers: { "Content-Type": "audio/ogg" } }));
   const mod = fresh as unknown as {
     onSnapshot: ((s: { state: string; station: { name: string } | null; error: string }) => void) | null;
     play(info: { station: { stationuuid: string; name: string }; candidates: string[] }): void;
@@ -270,12 +273,73 @@ describe("player state machine", () => {
 
   it("tries hls.js when native loading rejects an extensionless HLS URL", async () => {
     const { attachHls } = await import("./hls");
+    vi.mocked(nativeFetch).mockResolvedValue(new Response(null, { headers: { "Content-Type": "application/vnd.apple.mpegurl; charset=utf-8" } }));
     playerApi.play(info(["https://a/redirect"]));
     audio.error = { code: 4, message: "unsupported" };
     audio.dispatch("error");
     audio.error = null;
     await vi.advanceTimersByTimeAsync(0);
     expect(attachHls).toHaveBeenCalledWith(audio, "https://a/redirect", expect.any(Function));
+  });
+
+  it("falls back for a known HLS source without probing headers", async () => {
+    const { attachHls } = await import("./hls");
+    audio.canPlayType.mockReturnValue("probably");
+    playerApi.play(info(["https://a/live.m3u8"]));
+    audio.error = { code: 4, message: "" };
+    audio.dispatch("error");
+    audio.error = null;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(attachHls).toHaveBeenCalledWith(audio, "https://a/live.m3u8", expect.any(Function));
+    expect(nativeFetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["ogg", "flac", "mp3"])("does not send unsupported %s audio to hls.js or repeat probes", async (extension) => {
+    const { attachHls } = await import("./hls");
+    playerApi.play(info([`https://a/live.${extension}`]));
+    for (let i = 0; i < 3; i++) {
+      audio.error = { code: 4, message: "" };
+      audio.dispatch("error");
+      audio.error = null;
+      await vi.advanceTimersByTimeAsync(10_000);
+    }
+    expect(attachHls).not.toHaveBeenCalled();
+    expect(nativeFetch).toHaveBeenCalledOnce();
+    expect(states().at(-1)).toBe("failed");
+    expect(snapshots.at(-1)?.error).toBe("当前系统不支持此电台的音频格式");
+  });
+
+  it("limits a stalled format probe and preserves the normal retry path", async () => {
+    const { attachHls } = await import("./hls");
+    vi.mocked(nativeFetch).mockImplementation((_url, options) => new Promise((_resolve, reject) => {
+      options!.signal!.addEventListener("abort", () => reject(new DOMException("timeout", "AbortError")));
+    }));
+    playerApi.play(info(["https://a/unknown"]));
+    audio.error = { code: 4, message: "" };
+    audio.dispatch("error");
+    audio.error = null;
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(vi.mocked(nativeFetch).mock.calls[0]![1]!.signal!.aborted).toBe(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(audio.playCalls).toBe(2);
+    expect(attachHls).not.toHaveBeenCalled();
+    playerApi.stop();
+  });
+
+  it("cancels a format probe on stop and ignores its late HLS response", async () => {
+    const { attachHls } = await import("./hls");
+    let resolve!: (response: Response) => void;
+    vi.mocked(nativeFetch).mockImplementation(() => new Promise((done) => { resolve = done; }));
+    playerApi.play(info(["https://a/unknown"]));
+    audio.error = { code: 4, message: "" };
+    audio.dispatch("error");
+    audio.error = null;
+    playerApi.stop();
+    expect(vi.mocked(nativeFetch).mock.calls[0]![1]!.signal!.aborted).toBe(true);
+    resolve(new Response(null, { headers: { "Content-Type": "application/x-mpegurl" } }));
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(attachHls).not.toHaveBeenCalled();
+    expect(states().at(-1)).toBe("idle");
   });
 
   it("destroys HLS on retry, pause/resume, switch, arm and stop, ignoring old failures", async () => {
