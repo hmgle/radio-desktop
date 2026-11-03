@@ -66,6 +66,20 @@ describe("radio store", () => {
     expect(useRadio.getState().artworkUrl).toBe("");
   });
 
+  it("shows player failure reasons and clears them when playback resumes", async () => {
+    const { Service } = await import("./mygo");
+    const { player } = await import("./player");
+    const { useRadio } = await import("./store");
+    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
+    vi.mocked(Service.search).mockResolvedValue({ items: [], total: 0 });
+    vi.mocked(Service.reportPlaybackState).mockResolvedValue(undefined);
+    await useRadio.getState().init();
+    player.onSnapshot!({ state: "failed", station: { name: "Test" } as Station, error: "播放被系统阻止，请点击播放重试" });
+    expect(useRadio.getState().playbackError).toContain("播放被系统阻止");
+    player.onSnapshot!({ state: "playing", station: { name: "Test" } as Station, error: "" });
+    expect(useRadio.getState().playbackError).toBe("");
+  });
+
   it("applies metadata received before the play response", async () => {
     const { Service, events } = await import("./mygo");
     const { useRadio } = await import("./store");

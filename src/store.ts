@@ -32,6 +32,7 @@ interface RadioState {
 
   // playback
   playState: PlayState;
+  playbackError: string;
   sessionId: number;
   station: Station | null;
   title: string;
@@ -85,7 +86,7 @@ async function startPlayback(load: () => Promise<PlayInfo>, failedStation?: Stat
       return;
     }
     pendingPlayback = false;
-    useRadio.setState({ station: info.station, sessionId: info.sessionId, title: "", icyName: "", artworkUrl: "" });
+    useRadio.setState({ station: info.station, sessionId: info.sessionId, title: "", icyName: "", artworkUrl: "", playbackError: "" });
     player.play(info);
     const meta = pendingMetadata.get(info.sessionId);
     if (meta) applyMetadata(meta);
@@ -96,7 +97,7 @@ async function startPlayback(load: () => Promise<PlayInfo>, failedStation?: Stat
     pendingMetadata.clear();
     if (failedStation) {
       player.stop();
-      useRadio.setState({ station: failedStation, playState: "failed", sessionId: 0, title: "", icyName: "", artworkUrl: "" });
+      useRadio.setState({ station: failedStation, playState: "failed", playbackError: String(e), sessionId: 0, title: "", icyName: "", artworkUrl: "" });
     }
     throw e;
   }
@@ -122,6 +123,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   nowPlayingOpen: false,
 
   playState: "idle",
+  playbackError: "",
   sessionId: 0,
   station: null,
   title: "",
@@ -335,7 +337,7 @@ export const useRadio = create<RadioState>((set, get) => ({
     // Player snapshots flow into the store, and their state into the
     // system's media controls (Now Playing, media keys).
     player.onSnapshot = (snap) => {
-      set({ playState: snap.state, station: snap.station ?? get().station });
+      set({ playState: snap.state, playbackError: snap.error, station: snap.station ?? get().station });
       Service.reportPlaybackState(snap.state, get().sessionId).catch(() => {});
     };
 

@@ -1,6 +1,6 @@
 # Radio Desktop
 
-桌面版网络电台播放器，[radio-cli](https://github.com/hmgle/radio-cli) 的 GUI 姊妹项目，基于 [mygo](https://github.com/egoist/mygo)（Go + 系统 WebView）构建。零外部运行时依赖：不需要 mpv / ffmpeg，音频由 WebView 的 `<audio>` 元素直接播放（AAC / MP3 / HLS），ICY 曲名由 Go 后端的边车连接解析。
+桌面版网络电台播放器，[radio-cli](https://github.com/hmgle/radio-cli) 的 GUI 姊妹项目，基于 [mygo](https://github.com/egoist/mygo)（Go + 系统 WebView）构建。不需要安装 mpv / ffmpeg：AAC / MP3 使用 WebView 的 `<audio>` 播放，HLS 优先使用系统支持，不支持时使用应用内置的 hls.js；音频解码能力取决于系统 WebView。ICY 曲名由 Go 后端的边车连接解析。
 
 ## 功能
 
@@ -8,6 +8,7 @@
 - **秒级可用**：首次启动先拉取点击量 Top 1000，再后台全量同步
 - **搜索与筛选**：关键词（名称/国家/语言/标签）、国家/语言/标签下拉（带计数）、最低码率、热度/票数/名称/码率/随机排序、无限滚动分页
 - **播放**：候选地址回退（url_resolved → url）+ 重连退避（1s/3s/7s，60 秒窗口最多 6 次）
+- **HLS 兼容**：内置 hls.js（需要系统 MediaSource 与相应音频解码支持），清单、分片与密钥经 Go HTTP 客户端加载，不要求电台提供 CORS 响应头；支持托盘与媒体键启动播放
 - **ICY 曲名与封面**：边车连接解析 `StreamTitle`，实时显示正在播放的曲目；支持 `StreamArtwork` / 图片类 `StreamUrl`（Live365 DAS 等）/ `icy-cover` 响应头下发的曲目封面，播放器栏优先显示封面、无封面回退台标（favicon）
 - **收藏 / 播放历史**（保留最近 1000 条）/ 自定义电台 / 直接播放流链接
 - **会话恢复**：记忆音量与上次电台，启动后一键续播
@@ -28,7 +29,7 @@ bun run dev          # 启动开发窗口（热更新）
 CGO_ENABLED=0 go test ./internal/...    # 后端单测
 RADIO_LIVE=1 go test -run Live ./internal/directory  # 真实 API 冒烟
 RADIO_LIVE=1 RADIO_LIVE_URL=https://example.com/stream go test -run Live ./internal/icy  # ICY 流冒烟
-bun run test         # 前端 player 状态机测试（vitest）
+bun run test         # 前端播放状态、HLS 网络加载与界面行为测试（vitest）
 bun run typecheck    # 前端类型检查
 ```
 
@@ -51,7 +52,7 @@ Linux 产物在 `build/linux-amd64/`：可执行文件、`.desktop`、tar.gz（�
 │  ┌──────────────────────────┐    ┌───────────────────────┐ │
 │  │ 列表/搜索/筛选/收藏/历史   │◄──►│ Service (internal/app)│ │
 │  │ 播放器栏（音量/暂停/曲名） │    │ ├ directory 目录同步   │ │
-│  │ <audio> 播流 + 候选回退    │    │ ├ store     SQLite    │ │
+│  │ <audio>/hls.js + 候选回退 │    │ ├ store     SQLite    │ │
 │  └──────────────────────────┘    │ └ icy       曲名边车   │ │
 │                                  └───────────────────────┘ │
 └────────────────────────────────────────────────────────────┘
@@ -61,5 +62,6 @@ Linux 产物在 `build/linux-amd64/`：可执行文件、`.desktop`、tar.gz（�
 - **internal/directory**：Radio Browser 客户端——服务器发现与故障转移、bootstrap（clickcount Top 1000）、全量分页同步（order=name，页大小 1000，上限 20 万行）、起播点击上报
 - **internal/icy**：与 `<audio>` 并行的辅助 HTTP 连接（`Icy-MetaData: 1`），按 `icy-metaint` 解析整个元数据块（`StreamTitle` / `StreamArtwork` / `StreamUrl`），30 秒空闲看门狗 + 指数退避重连，曲名或封面变化时推送给前端
 - **src/player.ts**：`<audio>` 生命周期与回退重试（对齐 radio-cli PlaybackController 的预算策略）
+- **src/hls.ts / src/hls-loader.ts**：按需加载 hls.js，使用 MyGo fetch 插件通过 Go 请求 HLS 资源，处理重定向、Range、超时与取消；切台、重试和停止时销毁旧播放实例
 
-与 radio-cli 的差异：播放从 mpv IPC 换成 WebView `<audio>`（零依赖）+ Go ICY 边车；借鉴 mygo-cloudmusic 的 Now Playing/媒体键、托盘动态菜单、播放淡入淡出与行为测试等。录音（ffmpeg 流复制）计划在后续版本加入。
+与 radio-cli 的差异：播放使用 WebView `<audio>` / 内置 hls.js + Go ICY 边车，无需安装外部播放器。MyGo 的页面配置允许有声自动播放并关闭后台节流，支持异步 IPC 后及隐藏窗口中的起播；恢复上次电台时仍需用户主动点击播放。借鉴 mygo-cloudmusic 的 Now Playing/媒体键、托盘动态菜单、播放淡入淡出与行为测试等。录音（ffmpeg 流复制）计划在后续版本加入。

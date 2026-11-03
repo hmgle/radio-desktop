@@ -12,6 +12,7 @@ export type PlayState =
 export interface PlayerSnapshot {
   state: PlayState;
   station: Station | null;
+  error: string;
 }
 
 // Reconnect policy mirrors radio-cli's PlaybackController: backoff
@@ -44,6 +45,10 @@ class RadioPlayer {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private buffering = false;
+  private hls: { destroy(): void } | null = null;
+  private hlsFallback = new Set<string>();
+  private loadID = 0;
+  private error = "";
 
   onSnapshot: ((s: PlayerSnapshot) => void) | null = null;
 
@@ -70,6 +75,16 @@ class RadioPlayer {
     a.addEventListener("error", () => {
       const err = a.error;
       console.warn(`audio error code=${err?.code ?? "?"} on ${a.currentSrc}`, err?.message);
+      if (!err || this.timer !== null || (this.lastState !== "playing" && this.lastState !== "connecting")) return;
+      // A native decoder can advertise HLS and still reject a particular
+      // stream. Also catches HLS URLs without an extension or catalog flag.
+      const url = this.info?.candidates[this.candIdx];
+      if (err?.code === 4 && url && !this.hls && !this.hlsFallback.has(url)) {
+        this.hlsFallback.add(url);
+        this.loadCurrent("connecting");
+        return;
+      }
+      this.error = err?.message || `音频加载失败（${err?.code ?? "未知错误"}）`;
       this.onStreamEnded(this.gen);
     });
     a.addEventListener("ended", () => this.onStreamEnded(this.gen));
@@ -82,6 +97,8 @@ class RadioPlayer {
     this.gen++;
     this.clearTimer();
     this.info = info;
+    this.hlsFallback.clear();
+    this.error = "";
     this.candIdx = 0;
     this.candidateFails = 0;
     this.reconnects = [];
@@ -104,11 +121,11 @@ class RadioPlayer {
     this.candidateFails = 0;
     this.reconnects = [];
     this.reported = false;
+    this.error = "";
+    this.releaseSource();
     this.fadeGen++;
     this.level = 1;
     this.applyVolume();
-    this.audio.removeAttribute("src");
-    this.audio.load();
     this.emit("ready");
   }
 
@@ -117,6 +134,7 @@ class RadioPlayer {
       case "playing":
         this.fade(0, FADE_OUT_MS, () => {
           this.audio.pause();
+          this.clearWatchdog();
           if (this.lastState === "playing") this.emit("paused");
         });
         break;
@@ -140,11 +158,11 @@ class RadioPlayer {
     this.gen++;
     this.clearTimer();
     this.info = null;
+    this.error = "";
+    this.releaseSource();
     this.fadeGen++; // cancel any running fade
     this.level = 1;
     this.applyVolume();
-    this.audio.removeAttribute("src");
-    this.audio.load();
     this.emit("idle");
   }
 
@@ -198,27 +216,67 @@ class RadioPlayer {
     const candidates = this.info?.candidates ?? [];
     const url = candidates[this.candIdx];
     if (!url) {
+      this.error = "该电台没有可播放的地址";
       this.emit("failed");
       return;
     }
+    this.releaseSource();
+    const loadID = this.loadID;
     this.emit(next);
     this.fadeGen++;
     this.buffering = true;
     this.level = 0; // fades in as playback actually starts
     this.applyVolume();
-    this.audio.src = url;
     this.watchProgress(myGen);
+    const hlsHint = this.info?.station.hls === 1 || /\.m3u8(?:$|[?#])/i.test(url);
+    if (this.hlsFallback.has(url) || (hlsHint && !this.audio.canPlayType("application/vnd.apple.mpegurl"))) {
+      void import("./hls").then(({ attachHls }) => {
+        if (loadID !== this.loadID || myGen !== this.gen) return;
+        const hls = attachHls(this.audio, url, (reason) => {
+          if (loadID !== this.loadID || myGen !== this.gen) return;
+          this.error = reason;
+          this.onStreamEnded(myGen);
+        });
+        if (loadID !== this.loadID || myGen !== this.gen) { hls.destroy(); return; }
+        this.hls = hls;
+        this.startAudio(myGen, loadID);
+      }).catch((e: unknown) => {
+        if (loadID !== this.loadID || myGen !== this.gen) return;
+        this.error = String(e);
+        this.onStreamEnded(myGen);
+      });
+    } else {
+      this.audio.src = url;
+      this.startAudio(myGen, loadID);
+    }
+  }
+
+  private startAudio(myGen: number, loadID: number) {
     const p = this.audio.play();
     if (p) {
-      p.catch(() => {
-        if (myGen !== this.gen) return;
-        // With a media error attached, the 'error' event listener above
-        // drives the reconnect; only a blocked autoplay lands here.
-        if (!this.audio.error) {
-          this.emit("ready");
+      p.catch((e: unknown) => {
+        if (myGen !== this.gen || loadID !== this.loadID) return;
+        const name = e instanceof Error ? e.name : "";
+        console.warn(`audio play rejected: ${name}`, e);
+        if (name === "NotAllowedError") {
+          this.clearTimer();
+          this.releaseSource();
+          this.error = "播放被系统阻止，请点击播放重试";
+          this.emit("failed");
+        } else if (!this.audio.error) {
+          this.error = String(e);
+          this.onStreamEnded(myGen);
         }
       });
     }
+  }
+
+  private releaseSource() {
+    this.loadID++;
+    this.hls?.destroy();
+    this.hls = null;
+    this.audio.removeAttribute("src");
+    this.audio.load();
   }
 
   /** Called on audio error/ended. */
@@ -233,6 +291,7 @@ class RadioPlayer {
   private handleFailure(myGen: number) {
     if (myGen !== this.gen) return;
     this.clearWatchdog();
+    this.releaseSource();
     const now = Date.now();
     this.reconnects = this.reconnects.filter((t) => now - t < WINDOW_MS);
     if (this.reconnects.length >= MAX_RECONNECTS) {
@@ -247,8 +306,7 @@ class RadioPlayer {
       this.candidateFails = 1;
       const candidates = this.info?.candidates ?? [];
       if (this.candIdx >= candidates.length) {
-        this.audio.removeAttribute("src");
-        this.audio.load();
+        if (!this.error) this.error = "连接中断，请重试或切换电台";
         this.emit("failed");
         return;
       }
@@ -297,10 +355,12 @@ class RadioPlayer {
   }
 
   private emit(state: PlayState) {
+    if (state === "playing") this.error = "";
     this.lastState = state;
     this.onSnapshot?.({
       state,
       station: this.info?.station ?? null,
+      error: state === "failed" ? this.error : "",
     });
   }
 

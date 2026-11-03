@@ -46,15 +46,15 @@ function CoverArt(props: { artwork?: string; favicon?: string; playing: boolean 
 }
 
 export function PlayerBar() {
-  const { station, title, icyName, playState, artworkUrl, volume, togglePlay, setVolume, toggleFavorite } =
-    useRadio(useShallow((s) => ({ station: s.station, title: s.title, icyName: s.icyName, playState: s.playState, artworkUrl: s.artworkUrl, volume: s.volume, togglePlay: s.togglePlay, setVolume: s.setVolume, toggleFavorite: s.toggleFavorite })));
+  const { station, title, icyName, playState, playbackError, artworkUrl, volume, togglePlay, setVolume, toggleFavorite } =
+    useRadio(useShallow((s) => ({ station: s.station, title: s.title, icyName: s.icyName, playState: s.playState, playbackError: s.playbackError, artworkUrl: s.artworkUrl, volume: s.volume, togglePlay: s.togglePlay, setVolume: s.setVolume, toggleFavorite: s.toggleFavorite })));
   const openNowPlaying = useRadio((s) => s.openNowPlaying);
 
   const playing = playState === "playing";
   const active = playing || playState === "connecting";
   const disabled = !station;
   const subtitle =
-    title || (icyName && station && icyName !== station.name ? icyName : "") || "—";
+    (playState === "failed" ? playbackError : "") || title || (icyName && station && icyName !== station.name ? icyName : "") || "—";
 
   return (
     <footer className="flex h-16 shrink-0 items-center gap-3 border-t border-neutral-200 bg-white/80 px-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/70">
@@ -90,7 +90,7 @@ export function PlayerBar() {
               }`}
               title={subtitle}
             >
-              {playing || playState === "connecting" ? subtitle : STATE_LABEL[playState] || subtitle}
+              {playing || playState === "connecting" || (playState === "failed" && playbackError) ? subtitle : STATE_LABEL[playState] || subtitle}
             </p>
           </div>
         </div>

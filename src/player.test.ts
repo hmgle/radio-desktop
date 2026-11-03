@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./mygo", () => ({
   Service: { reportStarted: vi.fn().mockResolvedValue(undefined) },
 }));
+vi.mock("./hls", () => ({ attachHls: vi.fn(() => ({ destroy: vi.fn() })) }));
 
 // The fake element: events fire by hand, play() resolves like a
 // well-behaved stream, and rAF runs its frame immediately so fades
@@ -23,6 +24,7 @@ class FakeAudio {
   error: { code: number; message: string } | null = null;
   playCalls = 0;
   pauseCalls = 0;
+  canPlayType = vi.fn(() => "");
   private listeners = new Map<string, Set<() => void>>();
 
   addEventListener(type: string, fn: () => void) {
@@ -47,7 +49,7 @@ class FakeAudio {
 }
 
 let audio: FakeAudio;
-let snapshots: { state: string; station: string | null }[];
+let snapshots: { state: string; station: string | null; error: string }[];
 
 beforeEach(async () => {
   vi.useFakeTimers();
@@ -61,14 +63,16 @@ beforeEach(async () => {
   audio = (fresh as unknown as { audio: FakeAudio }).audio;
   const { Service } = await import("./mygo");
   vi.mocked(Service.reportStarted).mockClear();
+  const { attachHls } = await import("./hls");
+  vi.mocked(attachHls).mockClear();
   const mod = fresh as unknown as {
-    onSnapshot: ((s: { state: string; station: { name: string } | null }) => void) | null;
+    onSnapshot: ((s: { state: string; station: { name: string } | null; error: string }) => void) | null;
     play(info: { station: { stationuuid: string; name: string }; candidates: string[] }): void;
     toggle(): void;
     stop(): void;
   };
   snapshots = [];
-  mod.onSnapshot = (s) => snapshots.push({ state: s.state, station: s.station?.name ?? null });
+  mod.onSnapshot = (s) => snapshots.push({ state: s.state, station: s.station?.name ?? null, error: s.error });
   // A shared handle the tests drive.
   (globalThis as Record<string, unknown>).__player = mod;
   (globalThis as Record<string, unknown>).__audio = audio;
@@ -210,12 +214,104 @@ describe("player state machine", () => {
     expect(audio.playCalls).toBe(1); // the retry never fired
   });
 
-  it("a blocked autoplay arms the station instead of failing", async () => {
+  it("reports blocked autoplay explicitly and cancels the watchdog", async () => {
     audio.play = () => Promise.reject(new DOMException("blocked", "NotAllowedError"));
     playerApi.play(info(["https://a/1"]));
     await vi.advanceTimersByTimeAsync(0);
-    expect(states().slice(-1)).toEqual(["ready"]);
+    expect(states().slice(-1)).toEqual(["failed"]);
+    expect(snapshots.at(-1)?.error).toContain("播放被系统阻止");
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(states().at(-1)).toBe("failed");
     expect(audio.pauseCalls).toBe(0);
+  });
+
+  it("retries a rejected play without a media error instead of calling it ready", async () => {
+    audio.play = vi.fn().mockRejectedValue(new DOMException("unsupported", "NotSupportedError"));
+    playerApi.play(info(["https://a/1"]));
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(audio.play).toHaveBeenCalledTimes(3);
+    expect(states().at(-1)).toBe("failed");
+  });
+
+  it("uses native HLS when supported and hls.js otherwise", async () => {
+    const { attachHls } = await import("./hls");
+    audio.canPlayType.mockReturnValue("probably");
+    playerApi.play(info(["https://a/live.m3u8?token=1"]));
+    expect(audio.src).toBe("https://a/live.m3u8?token=1");
+    expect(attachHls).not.toHaveBeenCalled();
+    playerApi.stop();
+    audio.canPlayType.mockReturnValue("");
+    playerApi.play({ ...info(["https://a/hls"]), station: { ...info([]).station, hls: 1 } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(attachHls).toHaveBeenCalledWith(audio, "https://a/hls", expect.any(Function));
+    audio.dispatch("playing");
+    expect(states().at(-1)).toBe("playing");
+  });
+
+  it("tries hls.js when native loading rejects an extensionless HLS URL", async () => {
+    const { attachHls } = await import("./hls");
+    playerApi.play(info(["https://a/redirect"]));
+    audio.error = { code: 4, message: "unsupported" };
+    audio.dispatch("error");
+    audio.error = null;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(attachHls).toHaveBeenCalledWith(audio, "https://a/redirect", expect.any(Function));
+  });
+
+  it("destroys HLS on retry, pause/resume, switch, arm and stop, ignoring old failures", async () => {
+    const { attachHls } = await import("./hls");
+    playerApi.play(info(["https://a/live.m3u8", "https://b/live.m3u8"]));
+    await vi.advanceTimersByTimeAsync(0);
+    const first = vi.mocked(attachHls).mock.results.at(-1)!.value!;
+    const failed = vi.mocked(attachHls).mock.calls.at(-1)![2];
+    failed("network");
+    expect(first.destroy).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(1000);
+    const second = vi.mocked(attachHls).mock.results.at(-1)!.value!;
+    audio.dispatch("playing");
+    playerApi.toggle();
+    playerApi.toggle();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(second.destroy).toHaveBeenCalledOnce();
+    const third = vi.mocked(attachHls).mock.results.at(-1)!.value!;
+    playerApi.play(info(["https://c/mp3"]));
+    expect(third.destroy).toHaveBeenCalledOnce();
+    failed("old error");
+    expect(audio.src).toBe("https://c/mp3");
+    playerApi.play(info(["https://d/live.m3u8"]));
+    await vi.advanceTimersByTimeAsync(0);
+    const fourth = vi.mocked(attachHls).mock.results.at(-1)!.value!;
+    playerApi.arm(info([]).station, []);
+    expect(fourth.destroy).toHaveBeenCalledOnce();
+    playerApi.play(info(["https://e/live.m3u8"]));
+    await vi.advanceTimersByTimeAsync(0);
+    const fifth = vi.mocked(attachHls).mock.results.at(-1)!.value!;
+    playerApi.stop();
+    expect(fifth.destroy).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(states().at(-1)).toBe("idle");
+  });
+
+  it("does not attach HLS after stop or accept a rejection from an old load", async () => {
+    const { attachHls } = await import("./hls");
+    playerApi.play(info(["https://a/live.m3u8"]));
+    playerApi.stop();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(attachHls).not.toHaveBeenCalled();
+    let reject!: (e: Error) => void;
+    audio.play = () => new Promise<void>((_resolve, fail) => { reject = fail; });
+    playerApi.play(info(["https://a/mp3"]));
+    const rejectOld = reject;
+    audio.dispatch("ended");
+    await vi.advanceTimersByTimeAsync(1000);
+    const rejectNew = reject;
+    rejectOld(new DOMException("old load", "NotAllowedError"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(states().at(-1)).toBe("connecting");
+    playerApi.stop();
+    rejectNew(new DOMException("late", "NotAllowedError"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(states().at(-1)).toBe("idle");
   });
 
   it("switching stations while playing fades out, then loads the new source", () => {

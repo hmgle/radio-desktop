@@ -3,7 +3,7 @@ module radio-desktop
 go 1.27.3
 
 require (
-	github.com/egoist/mygo v0.6.5-0.20261027003719-e9f98e4255b7
+	github.com/egoist/mygo v0.7.4
 	modernc.org/sqlite v1.61.0
 )
 

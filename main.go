@@ -12,6 +12,7 @@ import (
 	"runtime"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/plugins/fetch"
 
 	"radio-desktop/internal/app"
 	"radio-desktop/internal/directory"
@@ -38,6 +39,9 @@ func main() {
 
 	svc := app.New(st, directory.New(directory.Options{UserAgent: "radio-desktop/0.1.0"}))
 	mygo.Bind(svc)
+	// HLS manifests, segments and keys use Go's HTTP client, including
+	// streams whose servers do not provide browser CORS headers.
+	mygo.Use(fetch.Plugin)
 
 	mygo.App.WhenReady(func() {
 		win := mygo.NewWindow(mygo.WindowOptions{
@@ -49,6 +53,10 @@ func main() {
 			BackgroundColor: "light-dark(#f6f7f9, #0f1115)",
 			StateKey:        "main",
 			URL:             "/",
+			Page: mygo.PageOptions{
+				Autoplay:             mygo.AutoplayAllow,
+				BackgroundThrottling: mygo.ThrottlingOff,
+			},
 		})
 
 		// Closing the window keeps the radio playing from the tray — but
