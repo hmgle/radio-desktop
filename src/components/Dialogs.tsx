@@ -13,7 +13,7 @@ export function Modal(props: { title: string; onClose: () => void; children: Rea
   close.current = props.onClose;
   useEffect(() => {
     const previous = previousFocus.current;
-    const focusable = () => [...(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])];
+    const focusable = () => [...(panel.current?.querySelectorAll<HTMLElement>('a[href]:not([tabindex="-1"]), button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])];
     if (!panel.current?.contains(document.activeElement)) (focusable()[0] ?? panel.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.preventDefault(); close.current(); }

@@ -31,12 +31,12 @@ export default function App() {
         el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" ||
         el.tagName === "BUTTON" || el.isContentEditable;
       const state = useRadio.getState();
+      if (state.dialog || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if ((e.metaKey || e.ctrlKey) && e.key === ",") {
         e.preventDefault();
         state.openSettings(true);
         return;
       }
-      if (state.dialog || el.closest('[role="dialog"]')) return;
       if ((e.metaKey || e.ctrlKey) && ["n", "l"].includes(e.key.toLowerCase())) {
         e.preventDefault();
         state.openDialog(e.key.toLowerCase() === "n" ? "add" : "url");
@@ -53,7 +53,10 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         state.openSettings(false);
+        state.openNowPlaying(false);
         requestAnimationFrame(() => {
+          const current = useRadio.getState();
+          if (current.settingsOpen || current.nowPlayingOpen || current.dialog || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
           const input = document.getElementById("search-input") as HTMLInputElement | null;
           input?.focus();
           input?.select();
@@ -92,7 +95,7 @@ export default function App() {
       <div className="flex min-h-0 flex-1">
         <Sidebar onAddStation={() => openDialog("add")} onPlayURL={() => openDialog("url")} />
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col" hidden={settingsOpen} style={settingsOpen ? { display: "none" } : undefined}>
+          <div className="flex min-h-0 flex-1 flex-col" hidden={settingsOpen}>
             <FilterBar />
             <StationList />
           </div>

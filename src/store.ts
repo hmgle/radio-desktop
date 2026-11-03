@@ -165,6 +165,9 @@ export const useRadio = create<RadioState>((set, get) => ({
 
   handleUICommand: (action) => {
     const s = get();
+    // Native menu accelerators can arrive without a DOM keydown event.
+    if (["settings", "add", "playURL"].includes(action) &&
+        (s.dialog || (typeof document !== "undefined" && document.querySelector('[role="dialog"][aria-modal="true"]')))) return;
     switch (action) {
       case "settings":
         get().openSettings(true);
