@@ -235,14 +235,10 @@ export const useRadio = create<RadioState>((set, get) => ({
 
   togglePlay: () => {
     const s = get();
-    if (s.playState === "idle") {
+    if (s.playState === "idle" || s.playState === "failed") {
       if (s.station?.stationuuid) void s.playStation(s.station);
       else if (s.station?.url) void s.playURL(s.station.url).catch(() => {});
       else void s.playLastStation();
-      return;
-    }
-    if (s.playState === "failed" && !player.station && s.station) {
-      void s.playStation(s.station);
       return;
     }
     player.toggle();
