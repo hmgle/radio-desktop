@@ -50,6 +50,7 @@ export function PlayerBar() {
   const openNowPlaying = useRadio((s) => s.openNowPlaying);
 
   const playing = playState === "playing";
+  const active = playing || playState === "connecting";
   const disabled = !station;
   const subtitle =
     title || (icyName && station && icyName !== station.name ? icyName : "") || "—";
@@ -115,9 +116,9 @@ export function PlayerBar() {
           onClick={togglePlay}
           disabled={disabled}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow transition-transform hover:scale-105 active:scale-95 disabled:opacity-30"
-          title={playing ? "暂停" : "播放"}
+          title={active ? "暂停" : "播放"}
         >
-          {playing ? (
+          {active ? (
             <svg viewBox="0 0 24 24" fill="currentColor" className="h-4.5 w-4.5">
               <rect x="6" y="5" width="4" height="14" rx="1" />
               <rect x="14" y="5" width="4" height="14" rx="1" />

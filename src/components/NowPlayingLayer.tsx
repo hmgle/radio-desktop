@@ -26,6 +26,7 @@ export function NowPlayingLayer() {
   if (!open || !station) return null;
 
   const playing = playState === "playing";
+  const active = playing || playState === "connecting";
   const subtitle = title || "—";
 
   return (
@@ -96,9 +97,9 @@ export function NowPlayingLayer() {
             type="button"
             onClick={togglePlay}
             className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-xl transition-transform hover:scale-105 active:scale-95"
-            title={playing ? "暂停" : "播放"}
+            title={active ? "暂停" : "播放"}
           >
-            {playing ? (
+            {active ? (
               <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
                 <rect x="6" y="5" width="4" height="14" rx="1" />
                 <rect x="14" y="5" width="4" height="14" rx="1" />
