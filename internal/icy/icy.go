@@ -88,7 +88,13 @@ func (s *Sidecar) run(ctx context.Context) {
 		if errors.Is(err, errNoMetaInt) {
 			return
 		}
-		time.Sleep(backoff)
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
 		if backoff < 30*time.Second {
 			backoff *= 3
 		}

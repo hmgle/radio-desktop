@@ -203,6 +203,25 @@ func TestSidecarStopIsFastAndIdempotent(t *testing.T) {
 	s.Stop() // must not deadlock
 }
 
+func TestSidecarStopInterruptsBackoff(t *testing.T) {
+	requests := make(chan struct{}, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- struct{}{}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+	s := Start(srv.URL, "test", func(Meta) {})
+	<-requests
+	time.Sleep(50 * time.Millisecond)
+	done := make(chan struct{})
+	go func() { s.Stop(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("Stop did not interrupt reconnect backoff")
+	}
+}
+
 func TestCleanTitleTrims(t *testing.T) {
 	if got := cleanTitle([]byte("  \tHi\n\x00there  ")); got != "Hithere" {
 		t.Fatalf("cleanTitle = %q", got)
