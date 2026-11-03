@@ -228,7 +228,7 @@ func searchWhere(req SearchRequest) (string, []any) {
 	case "custom":
 		conds = append(conds, "custom = 1")
 	case "history":
-		// handled in searchOrder
+		conds = append(conds, "uuid IN (SELECT uuid FROM history)")
 	}
 	return "WHERE " + strings.Join(conds, " AND "), args
 }

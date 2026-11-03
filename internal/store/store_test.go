@@ -142,7 +142,8 @@ func TestFavoritesAndHistorySources(t *testing.T) {
 	s := testStore(t)
 	a := station("aaaaaaaa-1111-2222-3333-444444444444", "A")
 	b := station("bbbbbbbb-1111-2222-3333-444444444444", "B")
-	mustPublish(t, s, a, b)
+	c := station("cccccccc-1111-2222-3333-444444444444", "Unplayed")
+	mustPublish(t, s, a, b, c)
 
 	if err := s.AddFavorite(a.StationUUID); err != nil {
 		t.Fatal(err)
