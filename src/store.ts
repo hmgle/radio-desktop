@@ -279,8 +279,11 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   syncNow: () => {
-    set({ syncProgress: null });
-    Service.syncNow().catch((e) => console.error("sync failed", e));
+    set((s) => ({ syncProgress: null, status: s.status ? { ...s.status, syncing: true } : s.status }));
+    Service.syncNow().catch((e) => {
+      set((s) => ({ status: s.status ? { ...s.status, syncing: false } : s.status }));
+      console.error("sync failed", e);
+    });
   },
 
   init: async () => {
@@ -318,7 +321,7 @@ export const useRadio = create<RadioState>((set, get) => ({
     });
     events.syncProgress.on((p: Progress) => set({ syncProgress: p }));
     events.syncDone.on((r: SyncResult) => {
-      set({ syncProgress: null, lastSyncResult: r });
+      set((s) => ({ syncProgress: null, lastSyncResult: r, status: s.status ? { ...s.status, syncing: r.phase === "bootstrap" } : s.status }));
       if (!r.error) {
         void get().refresh();
         void Service.getStatus().then((status) => set({ status })).catch(() => {});

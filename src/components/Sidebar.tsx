@@ -20,6 +20,7 @@ export function Sidebar(props: {
 
   const catalogSize = status?.catalogSize ?? 0;
   const lastSync = status?.lastSyncAt ? new Date(status.lastSyncAt * 1000) : null;
+  const syncing = !!syncProgress || !!status?.syncing;
 
   return (
     <aside className="flex w-44 shrink-0 flex-col border-r border-neutral-200 bg-white/60 dark:border-neutral-800 dark:bg-neutral-900/40">
@@ -65,6 +66,8 @@ export function Sidebar(props: {
           <p className="text-[var(--accent)]">
             正在同步目录… 已获取 {syncProgress.accepted.toLocaleString()} 台
           </p>
+        ) : syncing ? (
+          <p className="text-[var(--accent)]">正在同步目录…</p>
         ) : lastSyncResult?.error ? (
           <p className="text-red-500" title={lastSyncResult.error}>
             同步失败：{lastSyncResult.error.slice(0, 60)}
@@ -82,10 +85,10 @@ export function Sidebar(props: {
         <button
           type="button"
           onClick={syncNow}
-          disabled={!!syncProgress}
+          disabled={syncing}
           className="mt-1.5 w-full rounded-md border border-neutral-300 py-1 hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
         >
-          {syncProgress ? "同步中…" : "更新电台目录"}
+          {syncing ? "同步中…" : "更新电台目录"}
         </button>
       </div>
     </aside>
