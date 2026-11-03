@@ -56,7 +56,10 @@ export default function App() {
 
   // Stop the ICY sidecar when the page unloads.
   useEffect(() => {
-    const onBeforeUnload = () => player.stop();
+    const onBeforeUnload = () => {
+      void useRadio.getState().flushVolume();
+      player.stop();
+    };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);

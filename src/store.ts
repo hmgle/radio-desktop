@@ -7,6 +7,7 @@ export type Source = "all" | "favorites" | "history" | "custom";
 export type SortKey = "popularity" | "votes" | "name" | "bitrate" | "random";
 
 const PAGE_SIZE = 50;
+const VOLUME_KEY = "radio.volume";
 
 interface RadioState {
   // station list
@@ -52,6 +53,7 @@ interface RadioState {
   playURL: (url: string) => Promise<void>;
   togglePlay: () => void;
   setVolume: (v: number) => void;
+  flushVolume: () => Promise<void>;
   toggleFavorite: (station: Station) => Promise<void>;
   syncNow: () => void;
   init: () => Promise<void>;
@@ -280,10 +282,19 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   setVolume: (volume) => {
+    volume = Math.min(100, Math.max(0, Math.round(volume)));
     set({ volume });
     player.setVolume(volume);
+    try { localStorage.setItem(VOLUME_KEY, String(volume)); } catch { /* storage may be unavailable */ }
     if (volumeTimer) clearTimeout(volumeTimer);
-    volumeTimer = setTimeout(() => void Service.setVolume(volume).catch(() => {}), 500);
+    volumeTimer = setTimeout(() => void get().flushVolume(), 500);
+  },
+
+  flushVolume: async () => {
+    if (volumeTimer === null) return;
+    clearTimeout(volumeTimer);
+    volumeTimer = null;
+    try { await Service.setVolume(get().volume); } catch (e) { console.error("save volume failed", e); }
   },
 
   toggleFavorite: async (station) => {
@@ -354,8 +365,14 @@ export const useRadio = create<RadioState>((set, get) => ({
 
     try {
       const status = await Service.getStatus();
-      set({ volume: status.volume, status });
-      player.setVolume(status.volume);
+      let volume = status.volume;
+      try {
+        const saved = localStorage.getItem(VOLUME_KEY);
+        if (saved !== null && /^\d+$/.test(saved) && Number(saved) <= 100) volume = Number(saved);
+      } catch { /* storage may be unavailable */ }
+      set({ volume, status });
+      player.setVolume(volume);
+      if (volume !== status.volume) void Service.setVolume(volume).catch(() => {});
       // Arm the last station without autoplaying: the play button resumes.
       if (status.lastStationUUID) {
         try {

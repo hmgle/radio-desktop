@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SearchResult, Station } from "./mygo";
 
 vi.mock("./player", () => ({ player: { setVolume: vi.fn(), arm: vi.fn(), stop: vi.fn(), toggle: vi.fn(), play: vi.fn() } }));
 vi.mock("./mygo", () => ({
-  Service: { search: vi.fn(), getStatus: vi.fn(), reportPlaybackState: vi.fn(), playStation: vi.fn(), playURL: vi.fn() },
+  Service: { search: vi.fn(), getStatus: vi.fn(), reportPlaybackState: vi.fn(), playStation: vi.fn(), playURL: vi.fn(), setVolume: vi.fn().mockResolvedValue(undefined) },
   events: Object.fromEntries(["mediaCommand", "uiCommand", "icyMeta", "syncProgress", "syncDone"].map((name) => [name, { on: vi.fn() }])),
 }));
 
@@ -15,6 +15,7 @@ function deferred<T>() {
 
 describe("radio store", () => {
   beforeEach(() => { vi.resetModules(); });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
   it("ignores stale search and pagination responses", async () => {
     const { Service } = await import("./mygo");
@@ -90,5 +91,27 @@ describe("radio store", () => {
     useRadio.getState().handleUICommand("random");
     await Promise.resolve();
     expect(playStation).toHaveBeenCalledWith(expect.objectContaining({ stationuuid: "b" }));
+  });
+
+  it("flushes pending volume and recovers a value newer than the backend", async () => {
+    vi.useFakeTimers();
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", { setItem: (key: string, value: string) => values.set(key, value), getItem: (key: string) => values.get(key) ?? null });
+    const { Service } = await import("./mygo");
+    let { useRadio } = await import("./store");
+    vi.mocked(Service.setVolume).mockClear();
+    useRadio.getState().setVolume(37);
+    expect(values.get("radio.volume")).toBe("37");
+    expect(Service.setVolume).not.toHaveBeenCalled();
+    await useRadio.getState().flushVolume();
+    expect(Service.setVolume).toHaveBeenCalledWith(37);
+    useRadio.getState().setVolume(42);
+    vi.clearAllTimers(); // simulate closing before the debounce fires
+    vi.resetModules();
+    ({ useRadio } = await import("./store"));
+    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 37, lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
+    await useRadio.getState().init();
+    expect(useRadio.getState().volume).toBe(42);
+    expect(Service.setVolume).toHaveBeenLastCalledWith(42);
   });
 });
