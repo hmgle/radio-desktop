@@ -2,6 +2,7 @@ package icy
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -204,6 +205,17 @@ func TestSidecarStopIsFastAndIdempotent(t *testing.T) {
 	s := Start(srv.URL, "radio-desktop-test", func(Meta) {})
 	s.Stop()
 	s.Stop() // must not deadlock
+}
+
+func TestRejectsOversizedMetadataInterval(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("icy-metaint", "1073741824")
+	}))
+	defer srv.Close()
+	s := &Sidecar{url: srv.URL, userAgent: "test"}
+	if err := s.connect(context.Background()); err == nil {
+		t.Fatal("accepted oversized metadata interval")
+	}
 }
 
 func TestSidecarStopInterruptsBackoff(t *testing.T) {

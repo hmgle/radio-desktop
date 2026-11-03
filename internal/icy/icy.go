@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -95,9 +96,7 @@ func (s *Sidecar) run(ctx context.Context) {
 			return
 		case <-timer.C:
 		}
-		if backoff < 30*time.Second {
-			backoff *= 3
-		}
+		backoff = min(backoff*3, 30*time.Second)
 	}
 }
 
@@ -117,7 +116,14 @@ func (s *Sidecar) connect(ctx context.Context) error {
 	// Transparent gzip would shift every frame and misalign metaint.
 	req.Header.Set("Accept-Encoding", "identity")
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		DialContext:         (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	if base, ok := http.DefaultTransport.(*http.Transport); ok {
+		transport = base.Clone()
+	}
 	transport.ResponseHeaderTimeout = 15 * time.Second
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport} // no overall stream timeout
@@ -136,6 +142,9 @@ func (s *Sidecar) connect(ctx context.Context) error {
 		ArtworkURL: headerArtwork(resp.Header.Get("icy-cover")),
 	}
 	metaint, _ := strconv.Atoi(resp.Header.Get("icy-metaint"))
+	if metaint > 16<<20 {
+		return errors.New("icy: metadata interval exceeds 16 MiB")
+	}
 	if metaint <= 0 {
 		if meta.Name != "" || meta.Genre != "" || meta.ArtworkURL != "" {
 			s.onMeta(meta)
