@@ -233,6 +233,26 @@ describe("player state machine", () => {
     expect(states().at(-1)).toBe("failed");
   });
 
+  it.each([
+    [1, "音频加载已中止"],
+    [2, "电台网络连接失败"],
+    [3, "音频解码失败"],
+    [4, "当前系统不支持此电台的音频格式"],
+  ])("shows a Chinese explanation for media error %i", async (code, label) => {
+    // A mounted HLS source also receives native media errors; code 4
+    // must keep its format explanation rather than starting another HLS.
+    playerApi.play(info(["https://a/live.m3u8"]));
+    await vi.advanceTimersByTimeAsync(0);
+    for (let i = 0; i < 3; i++) {
+      audio.error = { code, message: "An engine-specific diagnostic" };
+      audio.dispatch("error");
+      audio.error = null;
+      await vi.advanceTimersByTimeAsync(10_000);
+    }
+    expect(states().at(-1)).toBe("failed");
+    expect(snapshots.at(-1)?.error).toContain(label);
+  });
+
   it("uses native HLS when supported and hls.js otherwise", async () => {
     const { attachHls } = await import("./hls");
     audio.canPlayType.mockReturnValue("probably");

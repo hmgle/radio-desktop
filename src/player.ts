@@ -27,6 +27,12 @@ const ATTEMPTS_PER_CANDIDATE = 3;
 const FADE_OUT_MS = 180;
 const FADE_IN_MS = 260;
 const STALL_MS = 20_000;
+const MEDIA_ERROR_LABELS: Record<number, string> = {
+  1: "音频加载已中止",
+  2: "电台网络连接失败，请重试或切换电台",
+  3: "音频解码失败，请重试或切换电台",
+  4: "当前系统不支持此电台的音频格式",
+};
 
 class RadioPlayer {
   readonly audio: HTMLAudioElement;
@@ -84,7 +90,7 @@ class RadioPlayer {
         this.loadCurrent("connecting");
         return;
       }
-      this.error = err?.message || `音频加载失败（${err?.code ?? "未知错误"}）`;
+      this.error = MEDIA_ERROR_LABELS[err.code] || "音频加载失败，请重试或切换电台";
       this.onStreamEnded(this.gen);
     });
     a.addEventListener("ended", () => this.onStreamEnded(this.gen));
