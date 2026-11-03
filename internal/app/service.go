@@ -166,12 +166,6 @@ func (s *Service) StartupSync() {
 
 // Search runs a station list query.
 func (s *Service) Search(req store.SearchRequest) (store.SearchResult, error) {
-	if req.Limit <= 0 || req.Limit > 500 {
-		req.Limit = 50
-	}
-	if req.Offset < 0 {
-		req.Offset = 0
-	}
 	return s.store.Search(req)
 }
 
