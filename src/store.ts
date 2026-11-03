@@ -1,3 +1,4 @@
+import { useSettings } from "./settings";
 import { create } from "zustand";
 import { Service, events } from "./mygo";
 import type { PlaybackMeta, PlayInfo, Progress, Station, Status, SyncResult } from "./mygo";
@@ -67,6 +68,8 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null;
 let searchSeq = 0;
 let initialized = false;
 let playSeq = 0;
+let restoreSeq = 0;
+let sourceSave = Promise.resolve();
 let pendingPlayback = false;
 const pendingMetadata = new Map<number, PlaybackMeta>();
 
@@ -79,6 +82,7 @@ function applyMetadata(event: PlaybackMeta) {
 }
 
 async function startPlayback(load: () => Promise<PlayInfo>, failedStation?: Station) {
+  restoreSeq++;
   const seq = ++playSeq;
   pendingPlayback = true;
   try {
@@ -172,6 +176,7 @@ export const useRadio = create<RadioState>((set, get) => ({
         if (s.station) void s.toggleFavorite(s.station);
         break;
       case "stop":
+        restoreSeq++;
         playSeq++;
         pendingPlayback = false;
         pendingMetadata.clear();
@@ -188,11 +193,14 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   setSource: (source) => {
+    restoreSeq++;
+    sourceSave = sourceSave.then(() => Service.setLastSource(source)).catch((e) => console.error("save source failed", e));
     set({ source, settingsOpen: false });
     void get().refresh();
   },
 
   setQuery: (query) => {
+    restoreSeq++;
     searchSeq++;
     set({ query });
     // 200ms debounce, like radio-cli's TUI search.
@@ -201,6 +209,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   setFilter: (patch) => {
+    restoreSeq++;
     set(patch);
     void get().refresh();
   },
@@ -280,6 +289,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   togglePlay: () => {
+    restoreSeq++;
     const s = get();
     if (s.playState === "idle" || s.playState === "failed" || s.playState === "ready") {
       if (s.station?.stationuuid) void s.playStation(s.station);
@@ -341,6 +351,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   init: async () => {
     if (initialized) return;
     initialized = true;
+    const restore = restoreSeq;
     // Player snapshots flow into the store, and their state into the
     // system's media controls (Now Playing, media keys).
     player.onSnapshot = (snap) => {
@@ -373,6 +384,8 @@ export const useRadio = create<RadioState>((set, get) => ({
     });
 
     try {
+      await useSettings.getState().load();
+      const resume = useSettings.getState().value.resume;
       const status = await Service.getStatus();
       let volume = status.volume;
       try {
@@ -382,13 +395,19 @@ export const useRadio = create<RadioState>((set, get) => ({
       set({ volume, status });
       player.setVolume(volume);
       if (volume !== status.volume) void Service.setVolume(volume).catch(() => {});
-      // Arm the last station without autoplaying: the play button resumes.
-      if (status.lastStationUUID) {
+      if (resume !== "off" && restore === restoreSeq) {
+        const source = status.lastSource;
+        if (["all", "favorites", "history", "custom"].includes(source)) set({ source: source as Source });
+      }
+      if (resume !== "off" && restore === restoreSeq && status.lastStationUUID) {
         try {
           const info = await Service.getPlayInfo(status.lastStationUUID);
-          if (info.candidates.length > 0) {
-            player.arm(info.station, info.candidates);
-            set({ station: info.station });
+          if (info.candidates.length > 0 && restore === restoreSeq) {
+            if (resume === "play") await get().playStation(info.station);
+            else {
+              player.arm(info.station, info.candidates);
+              set({ station: info.station });
+            }
           }
         } catch {
           // Last station vanished from the catalog; start idle.

@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"radio-desktop/internal/store"
 	"testing"
+	"time"
 )
 
 func TestSettingsDefaultsValidationAndPersistence(t *testing.T) {
@@ -63,5 +64,23 @@ func TestSettingsMissingFieldsAndCorruption(t *testing.T) {
 	expected.Appearance = "dark"
 	if loadSettings(st) != expected {
 		t.Fatal("missing fields did not retain defaults")
+	}
+}
+
+func TestStartupSyncPolicy(t *testing.T) {
+	now := time.Now()
+	for _, tc := range []struct {
+		size, days int
+		last       time.Time
+		want       bool
+	}{
+		{0, 0, now, true},
+		{1, 0, time.Time{}, false},
+		{1, 7, now.Add(-8 * 24 * time.Hour), true},
+		{1, 7, now.Add(-6 * 24 * time.Hour), false},
+	} {
+		if got := shouldStartupSync(tc.size, tc.last, tc.days, now); got != tc.want {
+			t.Fatalf("%+v => %v", tc, got)
+		}
 	}
 }

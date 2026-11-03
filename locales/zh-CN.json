@@ -130,5 +130,6 @@
   "shortcutURL": "播放链接",
   "shortcutSettings": "打开设置",
   "shortcutList": "选择电台 / 播放选中项",
-  "shortcutEsc": "关闭弹窗或播放大图"
+  "shortcutEsc": "关闭弹窗或播放大图",
+  "apply": "应用"
 }

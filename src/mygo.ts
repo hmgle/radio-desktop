@@ -106,6 +106,7 @@ export interface Station {
 /** Status is the startup snapshot for resuming the previous session. */
 export interface Status {
   volume: number;
+  lastSource: string;
   lastStationUUID: string;
   /** unix seconds, 0 = never */
   lastSyncAt: number;
@@ -220,6 +221,10 @@ export const Service = {
   /** Search runs a station list query. */
   search(req: SearchRequest): Promise<SearchResult> {
     return call("Service.Search", req);
+  },
+  /** SetLastSource remembers the selected station list for startup restoration. */
+  setLastSource(source: string): Promise<void> {
+    return call("Service.SetLastSource", source);
   },
   /** SetVolume persists the volume preference. */
   setVolume(volume: number): Promise<void> {

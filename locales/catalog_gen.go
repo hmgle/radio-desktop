@@ -1344,3 +1344,13 @@ func ShortcutEsc() string { return In(i18n.Locale()).ShortcutEsc() }
 func (msgs Messages) ShortcutEsc() string {
 	return Catalog.Format(msgs.locale, "shortcutEsc", nil)
 }
+
+// Apply says "Apply"
+// in the language the app shows.
+func Apply() string { return In(i18n.Locale()).Apply() }
+
+// Apply says "Apply"
+// in the language of msgs.
+func (msgs Messages) Apply() string {
+	return Catalog.Format(msgs.locale, "apply", nil)
+}

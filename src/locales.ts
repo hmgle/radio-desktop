@@ -527,6 +527,10 @@ export interface Messages {
    * `Close dialog or Now Playing`
    */
   shortcutEsc(): string;
+  /**
+   * `Apply`
+   */
+  apply(): string;
 }
 
 const catalog = createCatalog<Messages>({
@@ -668,6 +672,7 @@ const catalog = createCatalog<Messages>({
     "shortcutSettings": [],
     "shortcutList": [],
     "shortcutEsc": [],
+    "apply": [],
   },
   messages: {
     "en": {
@@ -802,6 +807,7 @@ const catalog = createCatalog<Messages>({
       "shortcutSettings": "Open settings",
       "shortcutList": "Select a station / play selection",
       "shortcutEsc": "Close dialog or Now Playing",
+      "apply": "Apply",
     },
     "zh-CN": {
       "all": "全部电台",
@@ -935,6 +941,7 @@ const catalog = createCatalog<Messages>({
       "shortcutSettings": "打开设置",
       "shortcutList": "选择电台 / 播放选中项",
       "shortcutEsc": "关闭弹窗或播放大图",
+      "apply": "应用",
     },
   },
 });

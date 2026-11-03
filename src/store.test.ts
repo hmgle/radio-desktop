@@ -3,8 +3,8 @@ import type { SearchResult, Station } from "./mygo";
 
 vi.mock("./player", () => ({ player: { setVolume: vi.fn(), arm: vi.fn(), stop: vi.fn(), toggle: vi.fn(), play: vi.fn() } }));
 vi.mock("./mygo", () => ({
-  Service: { search: vi.fn(), getStatus: vi.fn(), reportPlaybackState: vi.fn(), playStation: vi.fn(), playURL: vi.fn(), setVolume: vi.fn().mockResolvedValue(undefined) },
-  events: Object.fromEntries(["mediaCommand", "uiCommand", "icyMeta", "syncProgress", "syncDone"].map((name) => [name, { on: vi.fn() }])),
+  Service: { search: vi.fn(), getStatus: vi.fn(), getPlayInfo: vi.fn(), setLastSource: vi.fn().mockResolvedValue(undefined), getSettings: vi.fn().mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide" }), reportPlaybackState: vi.fn(), playStation: vi.fn(), playURL: vi.fn(), setVolume: vi.fn().mockResolvedValue(undefined) },
+  events: Object.fromEntries(["mediaCommand", "uiCommand", "icyMeta", "syncProgress", "syncDone", "settingsChanged"].map((name) => [name, { on: vi.fn() }])),
 }));
 
 function deferred<T>() {
@@ -14,7 +14,7 @@ function deferred<T>() {
 }
 
 describe("radio store", () => {
-  beforeEach(() => { vi.resetModules(); });
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
   afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
   it("ignores stale search and pagination responses", async () => {
@@ -44,7 +44,7 @@ describe("radio store", () => {
   it("registers event handlers once across repeated initialization", async () => {
     const { Service, events } = await import("./mygo");
     const { useRadio } = await import("./store");
-    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
+    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "all", lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
     vi.mocked(Service.search).mockResolvedValue({ items: [], total: 0 });
     await Promise.all([useRadio.getState().init(), useRadio.getState().init()]);
     expect(events.mediaCommand.on).toHaveBeenCalledTimes(1);
@@ -54,7 +54,7 @@ describe("radio store", () => {
   it("rejects stale metadata and clears an empty track title", async () => {
     const { Service, events } = await import("./mygo");
     const { useRadio } = await import("./store");
-    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
+    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "all", lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
     vi.mocked(Service.search).mockResolvedValue({ items: [], total: 0 });
     await useRadio.getState().init();
     const listener = vi.mocked(events.icyMeta.on).mock.calls.at(-1)![0];
@@ -70,7 +70,7 @@ describe("radio store", () => {
     const { Service } = await import("./mygo");
     const { player } = await import("./player");
     const { useRadio } = await import("./store");
-    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
+    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "all", lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
     vi.mocked(Service.search).mockResolvedValue({ items: [], total: 0 });
     vi.mocked(Service.reportPlaybackState).mockResolvedValue(undefined);
     await useRadio.getState().init();
@@ -83,7 +83,7 @@ describe("radio store", () => {
   it("applies metadata received before the play response", async () => {
     const { Service, events } = await import("./mygo");
     const { useRadio } = await import("./store");
-    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
+    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "all", lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
     vi.mocked(Service.search).mockResolvedValue({ items: [], total: 0 });
     await useRadio.getState().init();
     const pending = deferred<Awaited<ReturnType<typeof Service.playURL>>>();
@@ -138,9 +138,45 @@ describe("radio store", () => {
     vi.clearAllTimers(); // simulate closing before the debounce fires
     vi.resetModules();
     ({ useRadio } = await import("./store"));
-    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 37, lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
+    vi.mocked(Service.getStatus).mockResolvedValue({ volume: 37, lastSource: "all", lastStationUUID: "", lastSyncAt: 0, catalogSize: 0, syncing: false });
     await useRadio.getState().init();
     expect(useRadio.getState().volume).toBe(42);
     expect(Service.setVolume).toHaveBeenLastCalledWith(42);
   });
+});
+
+it.each(["off", "selection", "play"])("restores startup mode %s", async (resume) => {
+  vi.resetModules();
+  const { Service } = await import("./mygo");
+  const { player } = await import("./player");
+  const { useRadio } = await import("./store");
+  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume, autoSyncDays: 7, closeBehavior: "hide" });
+  vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "favorites", lastStationUUID: "last", lastSyncAt: 0, catalogSize: 1, syncing: false });
+  const station = { stationuuid: "last", name: "Last" } as Station;
+  vi.mocked(Service.getPlayInfo).mockResolvedValue({ station, candidates: ["https://test/stream"], sessionId: 0 });
+  const play = vi.fn().mockResolvedValue(undefined);
+  useRadio.setState({ playStation: play });
+  vi.mocked(player.arm).mockClear();
+  await useRadio.getState().init();
+  expect(useRadio.getState().source).toBe(resume === "off" ? "all" : "favorites");
+  expect(player.arm).toHaveBeenCalledTimes(resume === "selection" ? 1 : 0);
+  expect(play).toHaveBeenCalledTimes(resume === "play" ? 1 : 0);
+});
+
+it("does not arm an old startup selection after the listener stops", async () => {
+  vi.resetModules();
+  const { Service } = await import("./mygo");
+  const { player } = await import("./player");
+  const { useRadio } = await import("./store");
+  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide" });
+  vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "all", lastStationUUID: "last", lastSyncAt: 0, catalogSize: 1, syncing: false });
+  const info = deferred<Awaited<ReturnType<typeof Service.getPlayInfo>>>();
+  vi.mocked(Service.getPlayInfo).mockReturnValue(info.promise);
+  vi.mocked(player.arm).mockClear();
+  const init = useRadio.getState().init();
+  await vi.waitFor(() => expect(Service.getPlayInfo).toHaveBeenCalled());
+  useRadio.getState().handleUICommand("stop");
+  info.resolve({ station: { stationuuid: "last" } as Station, candidates: ["https://test/stream"], sessionId: 0 });
+  await init;
+  expect(player.arm).not.toHaveBeenCalled();
 });

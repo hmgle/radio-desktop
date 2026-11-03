@@ -1,5 +1,4 @@
 import { SettingsPage } from "./components/SettingsPage";
-import { useSettings } from "./settings";
 import { useLocale } from "./i18n";
 import { useEffect } from "react";
 import { currentWindow } from "mygo-runtime";
@@ -20,7 +19,6 @@ export default function App() {
   const openDialog = useRadio((s) => s.openDialog);
 
   useEffect(() => {
-    void useSettings.getState().load();
     void init();
   }, [init]);
 

@@ -23,9 +23,6 @@ import (
 )
 
 const (
-	// autoSyncDays refreshes a catalog older than this on startup
-	// (radio-cli's auto_sync_days).
-	autoSyncDays = 7
 	// defaultVolume matches radio-cli's default.
 	defaultVolume = 80
 	userAgent     = "radio-desktop/0.1.0"
@@ -67,6 +64,7 @@ type PlaybackMeta struct {
 // Status is the startup snapshot for resuming the previous session.
 type Status struct {
 	Volume          int    `json:"volume"`
+	LastSource      string `json:"lastSource"`
 	LastStationUUID string `json:"lastStationUUID"`
 	LastSyncAt      int64  `json:"lastSyncAt"` // unix seconds, 0 = never
 	CatalogSize     int    `json:"catalogSize"`
@@ -161,8 +159,8 @@ func (s *Service) StartupSync() {
 		log.Printf("startup sync: %v", err)
 		return
 	}
-	stale := time.Since(last) > autoSyncDays*24*time.Hour
-	if size == 0 || stale {
+	days := s.GetSettings().AutoSyncDays
+	if shouldStartupSync(size, last, days, time.Now()) {
 		go s.SyncNow()
 	}
 }
@@ -378,6 +376,10 @@ func (s *Service) GetStatus() (Status, error) {
 		}
 	}
 	lastUUID, _, _ := s.store.GetMeta("pref_last_station")
+	lastSource, _, _ := s.store.GetMeta("pref_last_source")
+	if !validSource(lastSource) {
+		lastSource = "all"
+	}
 	size, err := s.store.CatalogSize()
 	if err != nil {
 		return Status{}, err
@@ -392,6 +394,7 @@ func (s *Service) GetStatus() (Status, error) {
 	s.mu.Unlock()
 	return Status{
 		Volume:          vol,
+		LastSource:      lastSource,
 		LastStationUUID: lastUUID,
 		LastSyncAt:      lastSyncAt,
 		CatalogSize:     size,
@@ -506,4 +509,20 @@ func hostOf(rawURL string) string {
 		return u.Host
 	}
 	return rawURL
+}
+
+func validSource(source string) bool {
+	return source == "all" || source == "favorites" || source == "history" || source == "custom"
+}
+
+// SetLastSource remembers the selected station list for startup restoration.
+func (s *Service) SetLastSource(source string) error {
+	if !validSource(source) {
+		return errors.New("radio:invalidSettings")
+	}
+	return s.store.SetMeta("pref_last_source", source)
+}
+
+func shouldStartupSync(size int, last time.Time, days int, now time.Time) bool {
+	return size == 0 || days > 0 && now.Sub(last) > time.Duration(days)*24*time.Hour
 }

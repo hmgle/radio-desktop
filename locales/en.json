@@ -130,5 +130,6 @@
   "shortcutURL": "Play URL",
   "shortcutSettings": "Open settings",
   "shortcutList": "Select a station / play selection",
-  "shortcutEsc": "Close dialog or Now Playing"
+  "shortcutEsc": "Close dialog or Now Playing",
+  "apply": "Apply"
 }
