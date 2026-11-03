@@ -373,8 +373,8 @@ func (s *Store) Countries(prefix string, limit int) ([]Facet, error) {
 	q := "SELECT country, MAX(countryname), COUNT(*) n FROM stations WHERE active = 1 AND country <> ''"
 	args := []any{}
 	if p := strings.TrimSpace(prefix); p != "" {
-		q += " AND country LIKE ? ESCAPE '\\'"
-		args = append(args, escapeLike(strings.ToUpper(p))+"%")
+		q += " AND (country LIKE ? ESCAPE '\\' OR countryname LIKE ? ESCAPE '\\')"
+		args = append(args, escapeLike(strings.ToUpper(p))+"%", escapeLike(strings.ToLower(p))+"%")
 	}
 	return s.queryFacets(q+" GROUP BY country ORDER BY n DESC, country", limit, args)
 }

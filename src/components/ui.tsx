@@ -56,11 +56,15 @@ export function FacetSelect(props: {
   const { label, kind, value, display, onChange } = props;
   const [open, setOpen] = useState(false);
   const [facets, setFacets] = useState<Facet[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [prefix, setPrefix] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open || facets) return;
+    if (!open) return;
+    let active = true;
+    setFacets(null);
+    setFailed(false);
     const load = async () => {
       try {
         const list =
@@ -69,15 +73,15 @@ export function FacetSelect(props: {
             : kind === "language"
               ? await Service.languages(prefix)
               : await Service.tags(prefix);
-        setFacets(list);
+        if (active) setFacets(list);
       } catch (e) {
         console.error("facets failed", e);
-        setFacets([]);
+        if (active) setFailed(true);
       }
     };
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    const timer = setTimeout(() => void load(), prefix ? 200 : 0);
+    return () => { active = false; clearTimeout(timer); };
+  }, [open, kind, prefix]);
 
   useEffect(() => {
     if (!open) return setPrefix(""), undefined;
@@ -95,9 +99,7 @@ export function FacetSelect(props: {
     };
   }, [open]);
 
-  const shown = (facets ?? []).filter((f) =>
-    prefix ? f.label.toLowerCase().includes(prefix.toLowerCase()) || f.value.toLowerCase().includes(prefix.toLowerCase()) : true,
-  );
+  const shown = facets ?? [];
 
   return (
     <div ref={rootRef} className="relative">
@@ -127,7 +129,9 @@ export function FacetSelect(props: {
             />
           </div>
           <div className="min-h-20 flex-1 overflow-y-auto overscroll-contain py-1">
-            {facets === null ? (
+            {failed ? (
+              <p className="p-3 text-center text-xs text-red-500">加载失败，请重新打开</p>
+            ) : facets === null ? (
               <p className="p-3 text-center text-xs text-neutral-400">加载中…</p>
             ) : shown.length === 0 ? (
               <p className="p-3 text-center text-xs text-neutral-400">无匹配项</p>
