@@ -108,10 +108,9 @@ func main() {
 // showMainWindow also reveals a hidden window: App.Focus alone only
 // activates a visible window on some platforms.
 func showMainWindow() {
-	for _, win := range mygo.Windows() {
-		win.Show()
-		win.Focus()
-		break
+	if windows := mygo.Windows(); len(windows) > 0 {
+		windows[0].Show()
+		windows[0].Focus()
 	}
 	mygo.App.Focus()
 }
