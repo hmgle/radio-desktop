@@ -14,6 +14,8 @@ export function CountryFlag({ code, className = "" }: { code?: string; className
   const cc = (code ?? "").trim().toUpperCase();
   const [failedSrc, setFailedSrc] = useState("");
   if (!/^[A-Z]{2}$/.test(cc)) return null;
+  // "XX" is the directory's placeholder for a station with no country.
+  if (cc === "XX") return null;
   const src = countryFlagUrl(cc);
   if (src && failedSrc !== src) {
     return (

@@ -47,6 +47,11 @@ it("renders nothing for a missing or malformed code", () => {
   expect(render(<CountryFlag code="C1" />).container.innerHTML).toBe("");
 });
 
+it("renders nothing for the unknown-country placeholder code", () => {
+  expect(render(<CountryFlag code="XX" />).container.innerHTML).toBe("");
+  expect(render(<CountryFlag code="xx" />).container.innerHTML).toBe("");
+});
+
 it("keeps the country label and selection accessible in a facet with a decorative flag", async () => {
   const label = "A country with a very long descriptive name";
   vi.mocked(Service.countries).mockResolvedValue([{ value: "UG", label, count: 12 }]);
