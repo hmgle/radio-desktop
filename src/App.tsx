@@ -31,29 +31,35 @@ export default function App() {
         el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" ||
         el.tagName === "BUTTON" || el.isContentEditable;
       const state = useRadio.getState();
+      const key = e.key.toLowerCase();
+      const command = (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
+      const navigation = command && [",", "n", "l", "f"].includes(key);
+      const closeSettings = e.key === "Escape" && state.settingsOpen;
+      const togglePlayback = e.code === "Space" && !typing && !state.settingsOpen;
+      if (!navigation && !closeSettings && !togglePlayback) return;
       if (state.dialog || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+      if (command && key === ",") {
         e.preventDefault();
         state.openSettings(true);
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && ["n", "l"].includes(e.key.toLowerCase())) {
+      if (command && (key === "n" || key === "l")) {
         e.preventDefault();
-        state.openDialog(e.key.toLowerCase() === "n" ? "add" : "url");
+        state.openDialog(key === "n" ? "add" : "url");
         return;
       }
-      if (e.key === "Escape" && state.settingsOpen) {
+      if (closeSettings) {
         state.openSettings(false);
         return;
       }
-      if (e.code === "Space" && !typing && !state.settingsOpen) {
+      if (togglePlayback) {
         e.preventDefault();
         useRadio.getState().togglePlay();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+      if (command && key === "f") {
         e.preventDefault();
+        // Returning to the station view also dismisses Now Playing.
         state.openSettings(false);
-        state.openNowPlaying(false);
         requestAnimationFrame(() => {
           const current = useRadio.getState();
           if (current.settingsOpen || current.nowPlayingOpen || current.dialog || document.querySelector('[role="dialog"][aria-modal="true"]')) return;

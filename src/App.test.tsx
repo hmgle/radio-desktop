@@ -13,7 +13,7 @@ vi.mock("./components/StationList", () => ({ StationList: () => <div>stations</d
 vi.mock("./components/PlayerBar", () => ({ PlayerBar: () => <footer /> }));
 vi.mock("./components/NowPlayingLayer", () => ({ NowPlayingLayer: () => useRadio((s) => s.nowPlayingOpen) ? <button>Now playing</button> : null }));
 vi.mock("./components/SettingsPage", () => ({ SettingsPage: () => <div>preferences</div> }));
-vi.mock("./components/Dialogs", () => ({ AddStationDialog: () => <div role="dialog">add</div>, PlayURLDialog: () => <div role="dialog">url</div> }));
+vi.mock("./components/Dialogs", () => ({ AddStationDialog: () => <div role="dialog" aria-modal="true">add</div>, PlayURLDialog: () => <div role="dialog" aria-modal="true">url</div> }));
 
 beforeEach(() => {
   useRadio.setState({ init: vi.fn().mockResolvedValue(undefined), togglePlay: vi.fn(), settingsOpen: false, nowPlayingOpen: false, dialog: null });
@@ -87,3 +87,27 @@ it("does not move focus behind an overlay opened before the next animation frame
   act(() => nextFrame(0));
   expect(document.activeElement).toBe(overlay);
 });
+
+it.each(["ctrlKey", "metaKey"])("ignores navigation shortcuts with extra modifiers on %s", (modifier) => {
+  render(<App />);
+  for (const extra of ["shiftKey", "altKey"]) {
+    for (const key of ["N", "L", "F", ","]) {
+      const event = new KeyboardEvent("keydown", { key, [modifier]: true, [extra]: true, bubbles: true, cancelable: true });
+      fireEvent(document.body, event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(useRadio.getState().dialog).toBeNull();
+      expect(useRadio.getState().settingsOpen).toBe(false);
+      expect(document.activeElement).not.toBe(screen.getByLabelText("Search"));
+    }
+  }
+});
+
+it.each(["ctrlKey", "metaKey"])("opens station dialogs with unmodified %s shortcuts", (modifier) => {
+  render(<App />);
+  fireEvent.keyDown(document.body, { key: "n", [modifier]: true });
+  expect(useRadio.getState().dialog).toBe("add");
+  act(() => useRadio.getState().openDialog(null));
+  fireEvent.keyDown(document.body, { key: "l", [modifier]: true });
+  expect(useRadio.getState().dialog).toBe("url");
+});
+
