@@ -52,6 +52,7 @@ class RadioPlayer {
   private reported = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
+  private sourceTimer: ReturnType<typeof setTimeout> | null = null;
   private buffering = false;
   private hls: { destroy(): void } | null = null;
   private hlsFallback = new Map<string, boolean>();
@@ -239,8 +240,15 @@ class RadioPlayer {
     this.buffering = true;
     this.level = 0; // fades in as playback actually starts
     this.applyVolume();
-    this.watchProgress(myGen);
     if (this.hlsFallback.get(url) || (this.hasHlsHint(url) && !this.audio.canPlayType("application/vnd.apple.mpegurl"))) {
+      // Module setup has its own deadline; playback progress only starts
+      // counting once a source is attached to the element.
+      this.sourceTimer = setTimeout(() => {
+        this.sourceTimer = null;
+        if (loadID !== this.loadID || myGen !== this.gen) return;
+        this.error = "HLS 播放器初始化超时，请重试";
+        this.onStreamEnded(myGen);
+      }, STALL_MS);
       void import("./hls").then(({ attachHls }) => {
         if (loadID !== this.loadID || myGen !== this.gen) return;
         const hls = attachHls(this.audio, url, (reason) => {
@@ -250,6 +258,7 @@ class RadioPlayer {
         });
         if (loadID !== this.loadID || myGen !== this.gen) { hls.destroy(); return; }
         this.hls = hls;
+        this.clearSourceTimer();
         this.startAudio(myGen, loadID);
       }).catch((e: unknown) => {
         if (loadID !== this.loadID || myGen !== this.gen) return;
@@ -289,6 +298,7 @@ class RadioPlayer {
   }
 
   private startAudio(myGen: number, loadID: number) {
+    this.watchProgress(myGen);
     const p = this.audio.play();
     if (p) {
       p.catch((e: unknown) => {
@@ -310,6 +320,8 @@ class RadioPlayer {
 
   private releaseSource() {
     this.loadID++;
+    this.clearWatchdog();
+    this.clearSourceTimer();
     this.hlsProbe?.abort();
     this.hlsProbe = null;
     this.hls?.destroy();
@@ -362,10 +374,16 @@ class RadioPlayer {
 
   private clearTimer() {
     this.clearWatchdog();
+    this.clearSourceTimer();
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
     }
+  }
+
+  private clearSourceTimer() {
+    if (this.sourceTimer !== null) clearTimeout(this.sourceTimer);
+    this.sourceTimer = null;
   }
 
   private clearWatchdog() {
