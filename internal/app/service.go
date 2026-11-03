@@ -530,3 +530,6 @@ func (s *Service) SetLastSource(source string) error {
 func shouldStartupSync(size int, last time.Time, days int, now time.Time) bool {
 	return size == 0 || days > 0 && now.Sub(last) > time.Duration(days)*24*time.Hour
 }
+
+// ClearHistory deletes listening records and preserves the current selection.
+func (s *Service) ClearHistory() error { return s.store.ClearHistory() }

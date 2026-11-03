@@ -151,6 +151,10 @@ export const Service = {
   addFavorite(uuid: string): Promise<void> {
     return call("Service.AddFavorite", uuid);
   },
+  /** ClearHistory deletes listening records and preserves the current selection. */
+  clearHistory(): Promise<void> {
+    return call("Service.ClearHistory");
+  },
   /** Countries lists country facets for the filter dropdown. */
   countries(prefix: string): Promise<Facet[]> {
     return call("Service.Countries", prefix);

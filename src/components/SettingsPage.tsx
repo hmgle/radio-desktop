@@ -1,4 +1,5 @@
 import { SleepTimerControl } from "./SleepTimerControl";
+import { ClearHistoryRow } from "./ClearHistoryRow";
 import type { ReactNode } from "react";
 import { messages as m } from "../locales";
 import { useSettings } from "../settings";
@@ -61,6 +62,7 @@ export function SettingsPage() {
           </SettingsRow>
         </SettingsGroup>
         <SettingsGroup title={m.dataGroup()}>
+          <ClearHistoryRow />
           <SettingsRow label={m.autoSyncDays()} hint={m.autoSyncHint()}>
             <form onSubmit={(e) => {
               e.preventDefault();

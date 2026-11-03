@@ -137,5 +137,12 @@
   "sleepOff": "Off",
   "sleepFailed": "Could not update the sleep timer. Please retry.",
   "minutes": "{count, number} minutes",
-  "sleepRemaining": "{count, number} minutes left · stops at {date, time, short}"
+  "sleepRemaining": "{count, number} minutes left · stops at {date, time, short}",
+  "clearHistory": "Clear listening history",
+  "clearHistoryHint": "Removes listening records. Keeps favorites, custom stations and current playback.",
+  "confirmClearHistory": "Clear all listening history? This cannot be undone.",
+  "clear": "Clear",
+  "clearing": "Clearing…",
+  "historyCleared": "Listening history cleared.",
+  "clearHistoryFailed": "Could not clear history. Please retry."
 }

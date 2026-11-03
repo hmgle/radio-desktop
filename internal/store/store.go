@@ -308,6 +308,12 @@ func (s *Store) AddPlay(uuid string) error {
 	return err
 }
 
+// ClearHistory removes listening records without changing stations or favorites.
+func (s *Store) ClearHistory() error {
+	_, err := s.db.Exec("DELETE FROM history")
+	return err
+}
+
 // ---- custom stations ----
 
 // AddCustomStation inserts a user-defined station and returns it with its

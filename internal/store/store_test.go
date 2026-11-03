@@ -363,3 +363,35 @@ func TestMetaAndTokensRebuilt(t *testing.T) {
 		t.Fatalf("meta update = %q", v)
 	}
 }
+
+func TestClearHistoryPreservesOtherData(t *testing.T) {
+	s := testStore(t)
+	custom := station("", "Custom")
+	if err := s.AddCustomStation(&custom); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddFavorite(custom.StationUUID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddPlay(custom.StationUUID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetMeta("pref_last_station", custom.StationUUID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ClearHistory(); err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.Search(SearchRequest{Source: "history"})
+	if err != nil || result.Total != 0 {
+		t.Fatalf("history = %+v, %v", result, err)
+	}
+	st, ok, err := s.GetStation(custom.StationUUID)
+	if err != nil || !ok || !st.Favorite || !st.Custom {
+		t.Fatalf("station changed: %+v, %v", st, err)
+	}
+	last, _, err := s.GetMeta("pref_last_station")
+	if err != nil || last != custom.StationUUID {
+		t.Fatal("last selection changed")
+	}
+}

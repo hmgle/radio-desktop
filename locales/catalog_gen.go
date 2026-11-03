@@ -1416,3 +1416,73 @@ func SleepRemaining(count int, date time.Time) string {
 func (msgs Messages) SleepRemaining(count int, date time.Time) string {
 	return Catalog.Format(msgs.locale, "sleepRemaining", map[string]any{"count": count, "date": date})
 }
+
+// ClearHistory says "Clear listening history"
+// in the language the app shows.
+func ClearHistory() string { return In(i18n.Locale()).ClearHistory() }
+
+// ClearHistory says "Clear listening history"
+// in the language of msgs.
+func (msgs Messages) ClearHistory() string {
+	return Catalog.Format(msgs.locale, "clearHistory", nil)
+}
+
+// ClearHistoryHint says "Removes listening records. Keeps favorites, custom stations and current playback."
+// in the language the app shows.
+func ClearHistoryHint() string { return In(i18n.Locale()).ClearHistoryHint() }
+
+// ClearHistoryHint says "Removes listening records. Keeps favorites, custom stations and current playback."
+// in the language of msgs.
+func (msgs Messages) ClearHistoryHint() string {
+	return Catalog.Format(msgs.locale, "clearHistoryHint", nil)
+}
+
+// ConfirmClearHistory says "Clear all listening history? This cannot be undone."
+// in the language the app shows.
+func ConfirmClearHistory() string { return In(i18n.Locale()).ConfirmClearHistory() }
+
+// ConfirmClearHistory says "Clear all listening history? This cannot be undone."
+// in the language of msgs.
+func (msgs Messages) ConfirmClearHistory() string {
+	return Catalog.Format(msgs.locale, "confirmClearHistory", nil)
+}
+
+// Clear says "Clear"
+// in the language the app shows.
+func Clear() string { return In(i18n.Locale()).Clear() }
+
+// Clear says "Clear"
+// in the language of msgs.
+func (msgs Messages) Clear() string {
+	return Catalog.Format(msgs.locale, "clear", nil)
+}
+
+// Clearing says "Clearing…"
+// in the language the app shows.
+func Clearing() string { return In(i18n.Locale()).Clearing() }
+
+// Clearing says "Clearing…"
+// in the language of msgs.
+func (msgs Messages) Clearing() string {
+	return Catalog.Format(msgs.locale, "clearing", nil)
+}
+
+// HistoryCleared says "Listening history cleared."
+// in the language the app shows.
+func HistoryCleared() string { return In(i18n.Locale()).HistoryCleared() }
+
+// HistoryCleared says "Listening history cleared."
+// in the language of msgs.
+func (msgs Messages) HistoryCleared() string {
+	return Catalog.Format(msgs.locale, "historyCleared", nil)
+}
+
+// ClearHistoryFailed says "Could not clear history. Please retry."
+// in the language the app shows.
+func ClearHistoryFailed() string { return In(i18n.Locale()).ClearHistoryFailed() }
+
+// ClearHistoryFailed says "Could not clear history. Please retry."
+// in the language of msgs.
+func (msgs Messages) ClearHistoryFailed() string {
+	return Catalog.Format(msgs.locale, "clearHistoryFailed", nil)
+}

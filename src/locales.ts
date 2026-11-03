@@ -555,6 +555,34 @@ export interface Messages {
    * `{count, number} minutes left · stops at {date, time, short}`
    */
   sleepRemaining(count: number, date: Date): string;
+  /**
+   * `Clear listening history`
+   */
+  clearHistory(): string;
+  /**
+   * `Removes listening records. Keeps favorites, custom stations and current playback.`
+   */
+  clearHistoryHint(): string;
+  /**
+   * `Clear all listening history? This cannot be undone.`
+   */
+  confirmClearHistory(): string;
+  /**
+   * `Clear`
+   */
+  clear(): string;
+  /**
+   * `Clearing…`
+   */
+  clearing(): string;
+  /**
+   * `Listening history cleared.`
+   */
+  historyCleared(): string;
+  /**
+   * `Could not clear history. Please retry.`
+   */
+  clearHistoryFailed(): string;
 }
 
 const catalog = createCatalog<Messages>({
@@ -703,6 +731,13 @@ const catalog = createCatalog<Messages>({
     "sleepFailed": [],
     "minutes": ["count"],
     "sleepRemaining": ["count", "date"],
+    "clearHistory": [],
+    "clearHistoryHint": [],
+    "confirmClearHistory": [],
+    "clear": [],
+    "clearing": [],
+    "historyCleared": [],
+    "clearHistoryFailed": [],
   },
   messages: {
     "en": {
@@ -844,6 +879,13 @@ const catalog = createCatalog<Messages>({
       "sleepFailed": "Could not update the sleep timer. Please retry.",
       "minutes": "{count, number} minutes",
       "sleepRemaining": "{count, number} minutes left · stops at {date, time, short}",
+      "clearHistory": "Clear listening history",
+      "clearHistoryHint": "Removes listening records. Keeps favorites, custom stations and current playback.",
+      "confirmClearHistory": "Clear all listening history? This cannot be undone.",
+      "clear": "Clear",
+      "clearing": "Clearing…",
+      "historyCleared": "Listening history cleared.",
+      "clearHistoryFailed": "Could not clear history. Please retry.",
     },
     "zh-CN": {
       "all": "全部电台",
@@ -984,6 +1026,13 @@ const catalog = createCatalog<Messages>({
       "sleepFailed": "无法更新睡眠定时，请重试。",
       "minutes": "{count, number} 分钟",
       "sleepRemaining": "剩余 {count, number} 分钟 · {date, time, short} 停止",
+      "clearHistory": "清空播放历史",
+      "clearHistoryHint": "仅删除播放记录，保留收藏、自定义电台和当前播放。",
+      "confirmClearHistory": "确定清空全部播放历史？此操作无法撤销。",
+      "clear": "清空",
+      "clearing": "正在清空…",
+      "historyCleared": "播放历史已清空",
+      "clearHistoryFailed": "清空失败，请重试。",
     },
   },
 });

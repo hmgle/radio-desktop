@@ -137,5 +137,12 @@
   "sleepOff": "关闭",
   "sleepFailed": "无法更新睡眠定时，请重试。",
   "minutes": "{count, number} 分钟",
-  "sleepRemaining": "剩余 {count, number} 分钟 · {date, time, short} 停止"
+  "sleepRemaining": "剩余 {count, number} 分钟 · {date, time, short} 停止",
+  "clearHistory": "清空播放历史",
+  "clearHistoryHint": "仅删除播放记录，保留收藏、自定义电台和当前播放。",
+  "confirmClearHistory": "确定清空全部播放历史？此操作无法撤销。",
+  "clear": "清空",
+  "clearing": "正在清空…",
+  "historyCleared": "播放历史已清空",
+  "clearHistoryFailed": "清空失败，请重试。"
 }

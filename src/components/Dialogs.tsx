@@ -1,18 +1,32 @@
 import { errorText } from "../i18n";
 import { messages as m } from "../locales";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Service } from "../mygo";
 import { useRadio } from "../store";
 
-/** Minimal modal shell: closes on backdrop click or Escape. */
-function Modal(props: { title: string; onClose: () => void; children: React.ReactNode }) {
+/** Modal shell with a keyboard focus trap and focus restoration. */
+export function Modal(props: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const titleId = useId();
+  const panel = useRef<HTMLDivElement>(null);
+  const close = useRef(props.onClose);
+  close.current = props.onClose;
   useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const focusable = () => [...(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])];
+    if (!panel.current?.contains(document.activeElement)) (focusable()[0] ?? panel.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") props.onClose();
+      if (e.key === "Escape") { e.preventDefault(); close.current(); }
+      if (e.key === "Tab") {
+        const fields = focusable();
+        const index = fields.indexOf(document.activeElement as HTMLElement);
+        if (!fields.length) { e.preventDefault(); panel.current?.focus(); }
+        else if (e.shiftKey && index <= 0) { e.preventDefault(); fields.at(-1)?.focus(); }
+        else if (!e.shiftKey && (index < 0 || index === fields.length-1)) { e.preventDefault(); fields[0]?.focus(); }
+      }
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [props]);
+    return () => { document.removeEventListener("keydown", onKey); previous?.focus(); };
+  }, []);
 
   return (
     <div
@@ -21,8 +35,8 @@ function Modal(props: { title: string; onClose: () => void; children: React.Reac
         if (e.target === e.currentTarget) props.onClose();
       }}
     >
-      <div className="w-88 rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
-        <h2 className="mb-3 text-sm font-semibold">{props.title}</h2>
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="w-88 max-w-[calc(100vw-2rem)] rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+        <h2 id={titleId} className="mb-3 text-sm font-semibold">{props.title}</h2>
         {props.children}
       </div>
     </div>
