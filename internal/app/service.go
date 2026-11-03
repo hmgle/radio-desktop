@@ -224,7 +224,7 @@ func (s *Service) AddCustomStation(name, url, homepage string) (model.Station, e
 		URL:      url,
 		Homepage: strings.TrimSpace(homepage),
 	}
-	if st.StreamCandidates(nil) == nil {
+	if len(st.StreamCandidates(nil)) == 0 {
 		return model.Station{}, errors.New("URL 必须是 http(s) 地址")
 	}
 	if err := s.store.AddCustomStation(&st); err != nil {
@@ -318,13 +318,13 @@ func (s *Service) ReportStarted(uuid string) error {
 // StopPlayback stops the ICY sidecar and the system's Now Playing entry.
 func (s *Service) StopPlayback() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.sidecar != nil {
 		s.sidecar.Stop()
 		s.sidecar = nil
 	}
 	s.playingURL = ""
 	s.currentUUID = ""
+	s.mu.Unlock()
 	s.np.clear()
 	s.uiChanged()
 }
@@ -339,8 +339,7 @@ func (s *Service) ReportPlaybackState(state string) {
 	case "paused", "ready", "connecting":
 		s.np.setState(mygo.PlaybackPaused)
 	default: // idle, failed
-		s.np.clear()
-		s.uiChanged()
+		s.StopPlayback()
 		return
 	}
 	s.np.announce()
@@ -374,13 +373,17 @@ func (s *Service) GetStatus() (Status, error) {
 		return Status{}, err
 	}
 	lastSync, _ := s.lastSyncTime()
+	var lastSyncAt int64
+	if !lastSync.IsZero() {
+		lastSyncAt = lastSync.Unix()
+	}
 	s.mu.Lock()
 	syncing := s.syncing
 	s.mu.Unlock()
 	return Status{
 		Volume:          vol,
 		LastStationUUID: lastUUID,
-		LastSyncAt:      lastSync.Unix(),
+		LastSyncAt:      lastSyncAt,
 		CatalogSize:     size,
 		Syncing:         syncing,
 	}, nil
