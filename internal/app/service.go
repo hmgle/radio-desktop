@@ -272,7 +272,7 @@ func (s *Service) PlayStation(uuid string) (PlayInfo, error) {
 		return PlayInfo{}, errors.New("该电台没有可播放的 http(s) 地址")
 	}
 	s.startSidecar(&info)
-	go s.np.announce()
+	s.np.announce()
 	s.uiChanged()
 	if err := s.store.SetMeta("pref_last_station", uuid); err != nil {
 		log.Printf("save last station: %v", err)
@@ -291,7 +291,7 @@ func (s *Service) PlayURL(url string) (PlayInfo, error) {
 	st.TagsList = []string{}
 	info := PlayInfo{Station: st, Candidates: candidates}
 	s.startSidecar(&info)
-	go s.np.announce()
+	s.np.announce()
 	s.uiChanged()
 	// Ephemeral streams are not persisted as the last station.
 	return info, nil

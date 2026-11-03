@@ -29,12 +29,17 @@ var EventUICommand = mygo.NewEvent[string]("uiCommand")
 // ICY track title as the title, the station as the artist, and the track
 // cover or station logo as the artwork.
 type nowPlaying struct {
-	mu      sync.Mutex
-	title   string // ICY StreamTitle, if the stream sends one
-	station string
-	country string
-	state   mygo.PlaybackState
-	artURL  string // preferred artwork URL (ICY StreamArtwork)
+	mu             sync.Mutex
+	title          string // ICY StreamTitle, if the stream sends one
+	station        string
+	country        string
+	state          mygo.PlaybackState
+	artURL         string // preferred artwork URL (ICY StreamArtwork)
+	fallbackArtURL string
+	revision       uint64
+	announced      uint64
+	publishing     bool
+	artCancel      context.CancelFunc
 
 	artC map[string][]byte // artwork bytes by URL
 }
@@ -46,6 +51,7 @@ func newNowPlaying() *nowPlaying {
 // setStation is called when playback selects a station.
 func (n *nowPlaying) setStation(name, country string) {
 	n.mu.Lock()
+	n.changedLocked()
 	n.title, n.station, n.country = "", name, country
 	n.mu.Unlock()
 }
@@ -54,16 +60,22 @@ func (n *nowPlaying) setStation(name, country string) {
 // ICY StreamArtwork arrives on top of it.
 func (n *nowPlaying) setArtURL(url string) {
 	n.mu.Lock()
-	n.artURL = url
+	if n.artURL != url || n.fallbackArtURL != url {
+		n.changedLocked()
+		n.artURL, n.fallbackArtURL = url, url
+	}
 	n.mu.Unlock()
 }
 
 // setMeta is called from the ICY sidecar on every metadata push.
 func (n *nowPlaying) setMeta(title, artURL string) {
 	n.mu.Lock()
-	n.title = title
-	if artURL != "" {
-		n.artURL = artURL
+	if artURL == "" {
+		artURL = n.fallbackArtURL
+	}
+	if n.title != title || n.artURL != artURL {
+		n.changedLocked()
+		n.title, n.artURL = title, artURL
 	}
 	n.mu.Unlock()
 }
@@ -71,16 +83,28 @@ func (n *nowPlaying) setMeta(title, artURL string) {
 // setState is called as the frontend's audio element starts, pauses or stops.
 func (n *nowPlaying) setState(state mygo.PlaybackState) {
 	n.mu.Lock()
-	n.state = state
+	if n.state != state {
+		n.changedLocked()
+		n.state = state
+	}
 	n.mu.Unlock()
 }
 
 func (n *nowPlaying) clear() {
 	n.mu.Lock()
+	n.changedLocked()
 	n.title, n.station, n.country, n.artURL = "", "", "", ""
+	n.fallbackArtURL = ""
 	n.state = mygo.PlaybackStopped
-	n.mu.Unlock()
 	mygo.NowPlaying.Clear()
+	n.mu.Unlock()
+}
+
+func (n *nowPlaying) changedLocked() {
+	n.revision++
+	if n.artCancel != nil {
+		n.artCancel()
+	}
 }
 
 // buildInfo assembles the system-facing info from the current state,
@@ -88,6 +112,10 @@ func (n *nowPlaying) clear() {
 func (n *nowPlaying) buildInfo(art []byte) mygo.NowPlayingInfo {
 	n.mu.Lock()
 	defer n.mu.Unlock()
+	return n.buildInfoLocked(art)
+}
+
+func (n *nowPlaying) buildInfoLocked(art []byte) mygo.NowPlayingInfo {
 	info := mygo.NowPlayingInfo{
 		Title:    n.title,
 		Artist:   n.station,
@@ -109,19 +137,51 @@ func (n *nowPlaying) buildInfo(art []byte) mygo.NowPlayingInfo {
 // fetching the artwork bytes if they are not cached.
 func (n *nowPlaying) announce() {
 	n.mu.Lock()
-	artURL := n.artURL
-	art, cached := n.artC[artURL]
-	n.mu.Unlock()
-
-	if !cached && artURL != "" {
-		if fetched, err := fetchArtwork(artURL); err == nil {
-			n.rememberArt(artURL, fetched)
-			art = fetched
-		} else {
-			log.Printf("now playing artwork %s: %v", artURL, err)
-		}
+	if n.publishing || n.announced == n.revision || n.station == "" {
+		n.mu.Unlock()
+		return
 	}
-	mygo.NowPlaying.Set(n.buildInfo(art))
+	n.publishing = true
+	n.mu.Unlock()
+	go n.publish()
+}
+
+func (n *nowPlaying) publish() {
+	for {
+		n.mu.Lock()
+		if n.announced == n.revision || n.station == "" {
+			n.publishing = false
+			n.mu.Unlock()
+			return
+		}
+		revision, artURL := n.revision, n.artURL
+		info := n.buildInfoLocked(nil)
+		art, cached := n.artC[artURL]
+		ctx, cancel := context.WithCancel(context.Background())
+		n.artCancel = cancel
+		n.mu.Unlock()
+		if !cached && artURL != "" {
+			if fetched, err := fetchArtworkContext(ctx, artURL); err == nil {
+				n.rememberArt(artURL, fetched)
+				art = fetched
+			} else if ctx.Err() == nil {
+				log.Printf("now playing artwork %s: %v", artURL, err)
+			}
+		}
+		cancel()
+		n.mu.Lock()
+		n.artCancel = nil
+		if revision != n.revision {
+			n.mu.Unlock()
+			continue
+		}
+		info.Artwork = art
+		mygo.NowPlaying.Set(info)
+		n.announced = revision
+		n.publishing = false
+		n.mu.Unlock()
+		return
+	}
 }
 
 func (n *nowPlaying) rememberArt(url string, art []byte) {
@@ -143,7 +203,11 @@ var (
 // fetchArtwork downloads a cover, accepting PNG/JPEG up to 256KB, like
 // radio-cli's artwork cap.
 func fetchArtwork(rawURL string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	return fetchArtworkContext(context.Background(), rawURL)
+}
+
+func fetchArtworkContext(parent context.Context, rawURL string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
