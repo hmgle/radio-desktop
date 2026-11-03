@@ -282,6 +282,9 @@ func (s *Store) GetStation(uuid string) (model.Station, bool, error) {
 
 // AddFavorite marks a station as favorite.
 func (s *Store) AddFavorite(uuid string) error {
+	if strings.TrimSpace(uuid) == "" {
+		return errors.New("store: station ID cannot be empty")
+	}
 	_, err := s.db.Exec("INSERT INTO favorites(uuid, created_at) VALUES(?, ?) ON CONFLICT(uuid) DO NOTHING",
 		uuid, time.Now().Unix())
 	return err

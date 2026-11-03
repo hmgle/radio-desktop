@@ -170,6 +170,9 @@ func TestSearchEscapesLikeWildcards(t *testing.T) {
 
 func TestFavoritesAndHistorySources(t *testing.T) {
 	s := testStore(t)
+	if err := s.AddFavorite(""); err == nil {
+		t.Fatal("accepted an empty favorite ID")
+	}
 	a := station("aaaaaaaa-1111-2222-3333-444444444444", "A")
 	b := station("bbbbbbbb-1111-2222-3333-444444444444", "B")
 	c := station("cccccccc-1111-2222-3333-444444444444", "Unplayed")

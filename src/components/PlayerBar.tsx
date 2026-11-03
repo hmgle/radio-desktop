@@ -98,7 +98,7 @@ export function PlayerBar() {
 
       {/* Controls */}
       <div className="flex shrink-0 items-center gap-1.5">
-        {station && (
+        {station?.stationuuid && (
           <button
             type="button"
             onClick={() => void toggleFavorite(station)}

@@ -84,6 +84,7 @@ export function NowPlayingLayer() {
         </div>
 
         <div className="flex items-center gap-4">
+          {station.stationuuid && (
           <button
             type="button"
             onClick={() => void toggleFavorite(station)}
@@ -94,6 +95,7 @@ export function NowPlayingLayer() {
           >
             <HeartIcon filled={station.favorite} />
           </button>
+          )}
           <button
             type="button"
             onClick={togglePlay}

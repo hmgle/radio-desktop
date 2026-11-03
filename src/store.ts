@@ -287,6 +287,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   toggleFavorite: async (station) => {
+    if (!station.stationuuid) return;
     const optimistic = !station.favorite;
     set((st) => ({
       items: st.items.map((it) =>
