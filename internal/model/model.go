@@ -37,14 +37,6 @@ type Station struct {
 	Favorite   bool   `json:"favorite"`
 }
 
-// PrimaryURL returns the URL the player should try first.
-func (s *Station) PrimaryURL() string {
-	if s.URLResolved != "" {
-		return s.URLResolved
-	}
-	return s.URL
-}
-
 // StreamCandidates lists playable URLs in priority order: resolved URL,
 // the original URL, then extras. Duplicates and non-http(s) URLs are
 // dropped, mirroring radio-cli's Station::stream_candidates.
@@ -100,12 +92,12 @@ func (s *Station) SearchText() string {
 
 // NewCustomUUID returns a uuid for user-added stations, namespaced so it
 // can never collide with a Radio Browser uuid.
-func NewCustomUUID() string {
+func NewCustomUUID() (string, error) {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		return "custom-" + strings.Repeat("0", 16)
+		return "", err
 	}
-	return "custom-" + hex.EncodeToString(b[:])
+	return "custom-" + hex.EncodeToString(b[:]), nil
 }
 
 // ValidUUID reports whether s looks like a Radio Browser stationuuid.

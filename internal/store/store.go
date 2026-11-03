@@ -311,7 +311,11 @@ func (s *Store) AddPlay(uuid string) error {
 // uuid set.
 func (s *Store) AddCustomStation(st *model.Station) error {
 	if st.StationUUID == "" {
-		st.StationUUID = model.NewCustomUUID()
+		var err error
+		st.StationUUID, err = model.NewCustomUUID()
+		if err != nil {
+			return fmt.Errorf("store: generate custom station ID: %w", err)
+		}
 	}
 	st.Custom = true
 	tx, err := s.db.Begin()
