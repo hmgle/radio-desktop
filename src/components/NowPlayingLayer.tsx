@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useRadio } from "../store";
-import { player } from "../player";
 import { EqBars, HeartIcon, RadioIcon, flagEmoji } from "./ui";
 
 /**
@@ -133,7 +132,7 @@ export function NowPlayingLayer() {
         <button
           type="button"
           onClick={() => {
-            player.stop();
+            useRadio.getState().handleUICommand("stop");
             openNowPlaying(false);
           }}
           className="text-xs text-white/40 transition-colors hover:text-white/70"

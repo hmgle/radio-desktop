@@ -58,6 +58,8 @@ interface RadioState {
 
 let volumeTimer: ReturnType<typeof setTimeout> | null = null;
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let searchSeq = 0;
+let initialized = false;
 
 export const useRadio = create<RadioState>((set, get) => ({
   source: "all",
@@ -137,6 +139,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   setQuery: (query) => {
+    searchSeq++;
     set({ query });
     // 200ms debounce, like radio-cli's TUI search.
     if (searchTimer) clearTimeout(searchTimer);
@@ -149,8 +152,9 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   refresh: async () => {
+    const seq = ++searchSeq;
     const s = get();
-    set({ loading: true, items: [], total: 0 });
+    set({ loading: true, loadingMore: false, items: [], total: 0 });
     try {
       const res = await Service.search({
         query: s.query,
@@ -163,9 +167,9 @@ export const useRadio = create<RadioState>((set, get) => ({
         limit: PAGE_SIZE,
         offset: 0,
       });
-      set({ items: res.items, total: res.total, loading: false });
+      if (seq === searchSeq) set({ items: res.items, total: res.total, loading: false });
     } catch (e) {
-      set({ loading: false });
+      if (seq === searchSeq) set({ loading: false });
       console.error("search failed", e);
     }
   },
@@ -173,6 +177,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   loadMore: async () => {
     const s = get();
     if (s.loading || s.loadingMore || s.items.length >= s.total) return;
+    const seq = searchSeq;
     set({ loadingMore: true });
     try {
       const res = await Service.search({
@@ -186,9 +191,9 @@ export const useRadio = create<RadioState>((set, get) => ({
         limit: PAGE_SIZE,
         offset: s.items.length,
       });
-      set((st) => ({ items: [...st.items, ...res.items], loadingMore: false }));
+      if (seq === searchSeq) set((st) => ({ items: [...st.items, ...res.items], loadingMore: false }));
     } catch (e) {
-      set({ loadingMore: false });
+      if (seq === searchSeq) set({ loadingMore: false });
       console.error("loadMore failed", e);
     }
   },
@@ -200,6 +205,7 @@ export const useRadio = create<RadioState>((set, get) => ({
       set({ station: info.station, title: "", icyName: "", artworkUrl: "" });
     } catch (e) {
       console.error("playStation failed", e);
+      player.stop();
       set({ station, playState: "failed" });
     }
   },
@@ -223,13 +229,20 @@ export const useRadio = create<RadioState>((set, get) => ({
       set({ station: info.station, title: "", icyName: "", artworkUrl: "" });
     } catch (e) {
       console.error("playURL failed", e);
+      throw e;
     }
   },
 
   togglePlay: () => {
     const s = get();
     if (s.playState === "idle") {
-      void s.playLastStation();
+      if (s.station?.stationuuid) void s.playStation(s.station);
+      else if (s.station?.url) void s.playURL(s.station.url).catch(() => {});
+      else void s.playLastStation();
+      return;
+    }
+    if (s.playState === "failed" && !player.station && s.station) {
+      void s.playStation(s.station);
       return;
     }
     player.toggle();
@@ -260,6 +273,7 @@ export const useRadio = create<RadioState>((set, get) => ({
         items: st.items.map((it) =>
           it.stationuuid === station.stationuuid ? { ...it, favorite: station.favorite } : it,
         ),
+        station: st.station?.stationuuid === station.stationuuid ? { ...st.station, favorite: station.favorite } : st.station,
       }));
     }
   },
@@ -270,6 +284,8 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   init: async () => {
+    if (initialized) return;
+    initialized = true;
     // Player snapshots flow into the store, and their state into the
     // system's media controls (Now Playing, media keys).
     player.onSnapshot = (snap) => {
