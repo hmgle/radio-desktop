@@ -101,8 +101,8 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 `
 
-// Store wraps the SQLite database. A single connection is used to avoid
-// SQLITE_BUSY between the sync writer and UI reads; WAL keeps reads cheap.
+// Store wraps the SQLite database. WAL allows readers to continue while
+// a catalog publication holds the write transaction.
 type Store struct {
 	db *sql.DB
 }
@@ -117,7 +117,7 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1)
+	db.SetMaxOpenConns(4)
 	if err := migrate(db); err != nil {
 		db.Close()
 		return nil, err

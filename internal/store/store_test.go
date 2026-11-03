@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"radio-desktop/internal/model"
 )
@@ -17,6 +18,35 @@ func testStore(t *testing.T) *Store {
 	}
 	t.Cleanup(func() { s.Close() })
 	return s
+}
+
+func TestReadDuringCatalogWrite(t *testing.T) {
+	s := testStore(t)
+	mustPublish(t, s, station("aaaaaaaa-1111-2222-3333-444444444444", "A"))
+	tx, err := s.db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("UPDATE stations SET name = 'pending'"); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		res, err := s.Search(SearchRequest{})
+		if err == nil && (res.Total != 1 || res.Items[0].Name != "A") {
+			err = fmt.Errorf("unexpected snapshot: %+v", res)
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("read blocked behind write transaction")
+	}
 }
 
 func station(uuid, name string) model.Station {
