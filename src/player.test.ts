@@ -19,6 +19,7 @@ class FakeAudio {
   preload = "";
   currentSrc = "";
   currentTime = 0;
+  readyState = 0;
   error: { code: number; message: string } | null = null;
   playCalls = 0;
   pauseCalls = 0;
@@ -74,7 +75,6 @@ beforeEach(async () => {
   playerApi = mod;
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let playerApi: any;
 
 afterEach(() => {
@@ -169,6 +169,32 @@ describe("player state machine", () => {
     playerApi.play(info(["https://a/1"]));
     vi.advanceTimersByTime(21_000);
     expect(audio.playCalls).toBe(2);
+  });
+
+  it("keeps a live stream with a fixed clock while it has future data", () => {
+    playerApi.play(info(["https://a/1"]));
+    audio.readyState = 4;
+    audio.dispatch("playing");
+    vi.advanceTimersByTime(60_000);
+    expect(audio.playCalls).toBe(1);
+    audio.readyState = 2;
+    audio.dispatch("waiting");
+    vi.advanceTimersByTime(21_000);
+    expect(audio.playCalls).toBe(2);
+  });
+
+  it("restores volume and cancels fades when stopped or armed", () => {
+    (globalThis as Record<string, unknown>).requestAnimationFrame = () => 0;
+    playerApi.setVolume(60);
+    playerApi.play(info(["https://a/1"]));
+    expect(audio.volume).toBe(0);
+    playerApi.stop();
+    expect(audio.volume).toBe(0.6);
+    playerApi.play(info(["https://a/1"]));
+    playerApi.arm(info([]).station, ["https://a/1"]);
+    vi.advanceTimersByTime(1000);
+    expect(audio.volume).toBe(0.6);
+    expect(states().at(-1)).toBe("ready");
   });
 
   it("stop cancels a pending retry and returns to idle", () => {

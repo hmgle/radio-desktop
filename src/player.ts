@@ -43,6 +43,7 @@ class RadioPlayer {
   private reported = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
+  private buffering = false;
 
   onSnapshot: ((s: PlayerSnapshot) => void) | null = null;
 
@@ -54,6 +55,9 @@ class RadioPlayer {
     this.audio = a;
 
     a.addEventListener("playing", () => {
+      if (!this.info || (this.lastState !== "connecting" && this.lastState !== "playing")) return;
+      this.buffering = false;
+      if (this.lastState === "playing") return;
       this.emit("playing");
       if (this.level < 1) this.fade(1, FADE_IN_MS);
       if (this.reported) return;
@@ -69,6 +73,7 @@ class RadioPlayer {
       this.onStreamEnded(this.gen);
     });
     a.addEventListener("ended", () => this.onStreamEnded(this.gen));
+    a.addEventListener("waiting", () => { this.buffering = true; });
   }
 
   /** Starts playing a station from its candidate list, fading out
@@ -99,7 +104,11 @@ class RadioPlayer {
     this.candidateFails = 0;
     this.reconnects = [];
     this.reported = false;
+    this.fadeGen++;
+    this.level = 1;
+    this.applyVolume();
     this.audio.removeAttribute("src");
+    this.audio.load();
     this.emit("ready");
   }
 
@@ -133,6 +142,7 @@ class RadioPlayer {
     this.info = null;
     this.fadeGen++; // cancel any running fade
     this.level = 1;
+    this.applyVolume();
     this.audio.removeAttribute("src");
     this.audio.load();
     this.emit("idle");
@@ -192,6 +202,8 @@ class RadioPlayer {
       return;
     }
     this.emit(next);
+    this.fadeGen++;
+    this.buffering = true;
     this.level = 0; // fades in as playback actually starts
     this.applyVolume();
     this.audio.src = url;
@@ -212,7 +224,7 @@ class RadioPlayer {
   /** Called on audio error/ended. */
   private onStreamEnded(myGen: number) {
     if (myGen !== this.gen) return;
-    if (this.lastState === "paused" || this.lastState === "idle" || this.lastState === "ready") {
+    if (this.lastState === "paused" || this.lastState === "idle" || this.lastState === "ready" || this.lastState === "failed" || this.timer !== null) {
       return;
     }
     this.handleFailure(myGen);
@@ -235,6 +247,8 @@ class RadioPlayer {
       this.candidateFails = 1;
       const candidates = this.info?.candidates ?? [];
       if (this.candIdx >= candidates.length) {
+        this.audio.removeAttribute("src");
+        this.audio.load();
         this.emit("failed");
         return;
       }
@@ -244,6 +258,7 @@ class RadioPlayer {
     this.emit("connecting");
     this.clearTimer();
     this.timer = setTimeout(() => {
+      this.timer = null;
       if (myGen === this.gen) this.loadCurrent("connecting");
     }, delay);
   }
@@ -267,7 +282,11 @@ class RadioPlayer {
     const check = () => {
       if (myGen !== this.gen || (this.lastState !== "connecting" && this.lastState !== "playing")) return;
       const currentTime = this.audio.currentTime;
-      if (currentTime <= lastTime) {
+      // Some live/HLS media timelines stay fixed even while audio plays.
+      // Only treat a fixed clock as a failure when playback is waiting
+      // or the element has also run out of buffered future data.
+      const hasFutureData = this.audio.readyState >= 3;
+      if (currentTime <= lastTime && (this.lastState === "connecting" || this.buffering || !hasFutureData)) {
         this.handleFailure(myGen);
         return;
       }
