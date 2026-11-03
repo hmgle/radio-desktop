@@ -1354,3 +1354,65 @@ func Apply() string { return In(i18n.Locale()).Apply() }
 func (msgs Messages) Apply() string {
 	return Catalog.Format(msgs.locale, "apply", nil)
 }
+
+// SleepTimer says "Sleep timer"
+// in the language the app shows.
+func SleepTimer() string { return In(i18n.Locale()).SleepTimer() }
+
+// SleepTimer says "Sleep timer"
+// in the language of msgs.
+func (msgs Messages) SleepTimer() string {
+	return Catalog.Format(msgs.locale, "sleepTimer", nil)
+}
+
+// SleepHint says "Stops playback at the deadline, even after switching stations. Resets when you quit."
+// in the language the app shows.
+func SleepHint() string { return In(i18n.Locale()).SleepHint() }
+
+// SleepHint says "Stops playback at the deadline, even after switching stations. Resets when you quit."
+// in the language of msgs.
+func (msgs Messages) SleepHint() string {
+	return Catalog.Format(msgs.locale, "sleepHint", nil)
+}
+
+// SleepOff says "Off"
+// in the language the app shows.
+func SleepOff() string { return In(i18n.Locale()).SleepOff() }
+
+// SleepOff says "Off"
+// in the language of msgs.
+func (msgs Messages) SleepOff() string {
+	return Catalog.Format(msgs.locale, "sleepOff", nil)
+}
+
+// SleepFailed says "Could not update the sleep timer. Please retry."
+// in the language the app shows.
+func SleepFailed() string { return In(i18n.Locale()).SleepFailed() }
+
+// SleepFailed says "Could not update the sleep timer. Please retry."
+// in the language of msgs.
+func (msgs Messages) SleepFailed() string {
+	return Catalog.Format(msgs.locale, "sleepFailed", nil)
+}
+
+// Minutes says "{count, number} minutes"
+// in the language the app shows.
+func Minutes(count int) string { return In(i18n.Locale()).Minutes(count) }
+
+// Minutes says "{count, number} minutes"
+// in the language of msgs.
+func (msgs Messages) Minutes(count int) string {
+	return Catalog.Format(msgs.locale, "minutes", map[string]any{"count": count})
+}
+
+// SleepRemaining says "{count, number} minutes left · stops at {date, time, short}"
+// in the language the app shows.
+func SleepRemaining(count int, date time.Time) string {
+	return In(i18n.Locale()).SleepRemaining(count, date)
+}
+
+// SleepRemaining says "{count, number} minutes left · stops at {date, time, short}"
+// in the language of msgs.
+func (msgs Messages) SleepRemaining(count int, date time.Time) string {
+	return Catalog.Format(msgs.locale, "sleepRemaining", map[string]any{"count": count, "date": date})
+}

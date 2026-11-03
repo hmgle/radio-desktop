@@ -1,7 +1,7 @@
 import { useSettings } from "./settings";
 import { create } from "zustand";
 import { Service, events } from "./mygo";
-import type { PlaybackMeta, PlayInfo, Progress, Station, Status, SyncResult } from "./mygo";
+import type { PlaybackMeta, PlayInfo, Progress, Station, Status, SyncResult, SleepTimer } from "./mygo";
 import { player, type PlayState } from "./player";
 
 export type Source = "all" | "favorites" | "history" | "custom";
@@ -32,6 +32,10 @@ interface RadioState {
   nowPlayingOpen: boolean;
   settingsOpen: boolean;
   openSettings: (open: boolean) => void;
+
+  sleepTimer: SleepTimer;
+  sleepError: string;
+  setSleepTimer: (minutes: number) => Promise<void>;
 
   // playback
   playState: PlayState;
@@ -72,6 +76,14 @@ let restoreSeq = 0;
 let sourceSave = Promise.resolve();
 let pendingPlayback = false;
 const pendingMetadata = new Map<number, PlaybackMeta>();
+
+function applySleepTimer(timer: SleepTimer) {
+  const s = useRadio.getState();
+  if (timer.generation < s.sleepTimer.generation) return;
+  const newlyExpired = timer.expired && !(s.sleepTimer.generation === timer.generation && s.sleepTimer.expired);
+  useRadio.setState({ sleepTimer: timer });
+  if (newlyExpired) s.handleUICommand("stop");
+}
 
 function applyMetadata(event: PlaybackMeta) {
   const s = useRadio.getState();
@@ -130,6 +142,14 @@ export const useRadio = create<RadioState>((set, get) => ({
   settingsOpen: false,
   openSettings: (settingsOpen) => set({ settingsOpen, nowPlayingOpen: false, dialog: null }),
 
+  sleepTimer: { deadline: 0, generation: 0, expired: false },
+  sleepError: "",
+  setSleepTimer: async (minutes) => {
+    set({ sleepError: "" });
+    try { applySleepTimer(await Service.setSleepTimer(minutes)); }
+    catch (e) { set({ sleepError: String(e) }); }
+  },
+
   playState: "idle",
   playbackError: "",
   sessionId: 0,
@@ -153,6 +173,7 @@ export const useRadio = create<RadioState>((set, get) => ({
         s.togglePlay();
         break;
       case "random": {
+        const request = ++restoreSeq;
         // A random station over the whole catalog, ignoring filters.
         void Service.search({
           query: "",
@@ -166,6 +187,7 @@ export const useRadio = create<RadioState>((set, get) => ({
           offset: 0,
         })
           .then((res) => {
+            if (request !== restoreSeq) return;
             const station = res.items.find((item) => item.stationuuid !== get().station?.stationuuid);
             if (station) return get().playStation(station);
           })
@@ -367,6 +389,9 @@ export const useRadio = create<RadioState>((set, get) => ({
 
     // Menu-bar and tray actions arrive here too.
     events.uiCommand.on((action: string) => get().handleUICommand(action));
+
+    events.sleepTimerChanged.on(applySleepTimer);
+    void Service.getSleepTimer().then(applySleepTimer).catch(() => {});
 
     events.icyMeta.on((event: PlaybackMeta) => {
       if (pendingPlayback) {

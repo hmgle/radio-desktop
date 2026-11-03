@@ -531,6 +531,30 @@ export interface Messages {
    * `Apply`
    */
   apply(): string;
+  /**
+   * `Sleep timer`
+   */
+  sleepTimer(): string;
+  /**
+   * `Stops playback at the deadline, even after switching stations. Resets when you quit.`
+   */
+  sleepHint(): string;
+  /**
+   * `Off`
+   */
+  sleepOff(): string;
+  /**
+   * `Could not update the sleep timer. Please retry.`
+   */
+  sleepFailed(): string;
+  /**
+   * `{count, number} minutes`
+   */
+  minutes(count: number): string;
+  /**
+   * `{count, number} minutes left · stops at {date, time, short}`
+   */
+  sleepRemaining(count: number, date: Date): string;
 }
 
 const catalog = createCatalog<Messages>({
@@ -673,6 +697,12 @@ const catalog = createCatalog<Messages>({
     "shortcutList": [],
     "shortcutEsc": [],
     "apply": [],
+    "sleepTimer": [],
+    "sleepHint": [],
+    "sleepOff": [],
+    "sleepFailed": [],
+    "minutes": ["count"],
+    "sleepRemaining": ["count", "date"],
   },
   messages: {
     "en": {
@@ -808,6 +838,12 @@ const catalog = createCatalog<Messages>({
       "shortcutList": "Select a station / play selection",
       "shortcutEsc": "Close dialog or Now Playing",
       "apply": "Apply",
+      "sleepTimer": "Sleep timer",
+      "sleepHint": "Stops playback at the deadline, even after switching stations. Resets when you quit.",
+      "sleepOff": "Off",
+      "sleepFailed": "Could not update the sleep timer. Please retry.",
+      "minutes": "{count, number} minutes",
+      "sleepRemaining": "{count, number} minutes left · stops at {date, time, short}",
     },
     "zh-CN": {
       "all": "全部电台",
@@ -942,6 +978,12 @@ const catalog = createCatalog<Messages>({
       "shortcutList": "选择电台 / 播放选中项",
       "shortcutEsc": "关闭弹窗或播放大图",
       "apply": "应用",
+      "sleepTimer": "睡眠定时",
+      "sleepHint": "计时跨切台保留，到期停止播放；退出应用后不保留。",
+      "sleepOff": "关闭",
+      "sleepFailed": "无法更新睡眠定时，请重试。",
+      "minutes": "{count, number} 分钟",
+      "sleepRemaining": "剩余 {count, number} 分钟 · {date, time, short} 停止",
     },
   },
 });

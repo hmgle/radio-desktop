@@ -3,8 +3,8 @@ import type { SearchResult, Station } from "./mygo";
 
 vi.mock("./player", () => ({ player: { setVolume: vi.fn(), arm: vi.fn(), stop: vi.fn(), toggle: vi.fn(), play: vi.fn() } }));
 vi.mock("./mygo", () => ({
-  Service: { search: vi.fn(), getStatus: vi.fn(), getPlayInfo: vi.fn(), setLastSource: vi.fn().mockResolvedValue(undefined), getSettings: vi.fn().mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide" }), reportPlaybackState: vi.fn(), playStation: vi.fn(), playURL: vi.fn(), setVolume: vi.fn().mockResolvedValue(undefined) },
-  events: Object.fromEntries(["mediaCommand", "uiCommand", "icyMeta", "syncProgress", "syncDone", "settingsChanged"].map((name) => [name, { on: vi.fn() }])),
+  Service: { search: vi.fn(), getStatus: vi.fn(), getSleepTimer: vi.fn().mockResolvedValue({ deadline: 0, generation: 0, expired: false }), setSleepTimer: vi.fn(), getPlayInfo: vi.fn(), setLastSource: vi.fn().mockResolvedValue(undefined), getSettings: vi.fn().mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide" }), reportPlaybackState: vi.fn(), playStation: vi.fn(), playURL: vi.fn(), setVolume: vi.fn().mockResolvedValue(undefined) },
+  events: Object.fromEntries(["mediaCommand", "uiCommand", "icyMeta", "syncProgress", "syncDone", "settingsChanged", "sleepTimerChanged"].map((name) => [name, { on: vi.fn() }])),
 }));
 
 function deferred<T>() {
@@ -179,4 +179,28 @@ it("does not arm an old startup selection after the listener stops", async () =>
   info.resolve({ station: { stationuuid: "last" } as Station, candidates: ["https://test/stream"], sessionId: 0 });
   await init;
   expect(player.arm).not.toHaveBeenCalled();
+});
+
+it("stops pending playback at sleep expiry and ignores stale timer events", async () => {
+  vi.resetModules();
+  const { Service, events } = await import("./mygo");
+  const { player } = await import("./player");
+  const { useRadio } = await import("./store");
+  vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "all", lastStationUUID: "", lastSyncAt: 0, catalogSize: 1, syncing: false });
+  await useRadio.getState().init();
+  const timer = vi.mocked(events.sleepTimerChanged.on).mock.calls.at(-1)![0];
+  timer({ generation: 3, deadline: Date.now()+60000, expired: false });
+  vi.mocked(player.stop).mockClear();
+  timer({ generation: 2, deadline: 0, expired: true });
+  expect(player.stop).not.toHaveBeenCalled();
+  const info = deferred<Awaited<ReturnType<typeof Service.playURL>>>();
+  vi.mocked(Service.playURL).mockReturnValue(info.promise);
+  vi.mocked(player.play).mockClear();
+  const play = useRadio.getState().playURL("https://test/live");
+  timer({ generation: 3, deadline: 0, expired: true });
+  expect(player.stop).toHaveBeenCalledOnce();
+  info.resolve({ sessionId: 11, station: {} as Station, candidates: ["https://test/live"] });
+  await play;
+  expect(player.play).not.toHaveBeenCalled();
+  expect(Service.reportPlaybackState).toHaveBeenLastCalledWith("idle", 11);
 });

@@ -131,5 +131,11 @@
   "shortcutSettings": "Open settings",
   "shortcutList": "Select a station / play selection",
   "shortcutEsc": "Close dialog or Now Playing",
-  "apply": "Apply"
+  "apply": "Apply",
+  "sleepTimer": "Sleep timer",
+  "sleepHint": "Stops playback at the deadline, even after switching stations. Resets when you quit.",
+  "sleepOff": "Off",
+  "sleepFailed": "Could not update the sleep timer. Please retry.",
+  "minutes": "{count, number} minutes",
+  "sleepRemaining": "{count, number} minutes left · stops at {date, time, short}"
 }

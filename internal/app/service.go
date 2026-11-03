@@ -88,6 +88,10 @@ type Service struct {
 	settingsMu       sync.Mutex
 	settings         Settings
 
+	sleepMu    sync.Mutex
+	sleepTimer *time.Timer
+	sleepState SleepTimer
+
 	mu          sync.Mutex
 	currentUUID string
 	sidecar     *icy.Sidecar

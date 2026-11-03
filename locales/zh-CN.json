@@ -131,5 +131,11 @@
   "shortcutSettings": "打开设置",
   "shortcutList": "选择电台 / 播放选中项",
   "shortcutEsc": "关闭弹窗或播放大图",
-  "apply": "应用"
+  "apply": "应用",
+  "sleepTimer": "睡眠定时",
+  "sleepHint": "计时跨切台保留，到期停止播放；退出应用后不保留。",
+  "sleepOff": "关闭",
+  "sleepFailed": "无法更新睡眠定时，请重试。",
+  "minutes": "{count, number} 分钟",
+  "sleepRemaining": "剩余 {count, number} 分钟 · {date, time, short} 停止"
 }

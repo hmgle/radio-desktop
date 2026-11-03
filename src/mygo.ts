@@ -80,6 +80,17 @@ export interface SettingsPatch {
   closeBehavior?: string;
 }
 
+/**
+ * SleepTimer describes a timer for this process only. Generation orders
+ * replies and events, including callbacks already queued before cancellation.
+ */
+export interface SleepTimer {
+  /** Unix milliseconds; zero means disabled */
+  deadline: number;
+  generation: number;
+  expired: boolean;
+}
+
 export interface Station {
   stationuuid: string;
   name: string;
@@ -166,6 +177,10 @@ export const Service = {
   getSettings(): Promise<Settings> {
     return call("Service.GetSettings");
   },
+  /** GetSleepTimer returns the active timer or its most recent expiration. */
+  getSleepTimer(): Promise<SleepTimer> {
+    return call("Service.GetSleepTimer");
+  },
   /** GetStation returns one station by uuid. */
   getStation(uuid: string): Promise<Station> {
     return call("Service.GetStation", uuid);
@@ -225,6 +240,10 @@ export const Service = {
   /** SetLastSource remembers the selected station list for startup restoration. */
   setLastSource(source: string): Promise<void> {
     return call("Service.SetLastSource", source);
+  },
+  /** SetSleepTimer replaces the countdown. Zero cancels it. */
+  setSleepTimer(minutes: number): Promise<SleepTimer> {
+    return call("Service.SetSleepTimer", minutes);
   },
   /** SetVolume persists the volume preference. */
   setVolume(volume: number): Promise<void> {
@@ -286,4 +305,5 @@ export const events = {
   /** EventSyncDone fires when a sync finishes (Error == "" on success). */
   syncDone: event<SyncResult>("syncDone"),
   settingsChanged: event<Settings>("settingsChanged"),
+  sleepTimerChanged: event<SleepTimer>("sleepTimerChanged"),
 } as const;

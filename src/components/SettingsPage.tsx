@@ -1,3 +1,4 @@
+import { SleepTimerControl } from "./SleepTimerControl";
 import type { ReactNode } from "react";
 import { messages as m } from "../locales";
 import { useSettings } from "../settings";
@@ -52,6 +53,7 @@ export function SettingsPage() {
           </SettingsRow>
         </SettingsGroup>
         <SettingsGroup title={m.playbackGroup()}>
+          <SettingsRow label={m.sleepTimer()} hint={m.sleepHint()}><SleepTimerControl /></SettingsRow>
           <SettingsRow label={m.resume()} hint={m.resumeHint()}>
             <select aria-label={m.resume()} className={settingsControl} value={value.resume} onChange={(e) => void update({ resume: e.target.value })}>
               <option value="off">{m.resumeOff()}</option><option value="selection">{m.resumeSelection()}</option><option value="play">{m.resumePlay()}</option>

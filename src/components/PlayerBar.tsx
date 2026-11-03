@@ -1,3 +1,4 @@
+import { SleepTimerStatus } from "./SleepTimerControl";
 import { errorText } from "../i18n";
 import { messages as m } from "../locales";
 import { useEffect, useState } from "react";
@@ -99,6 +100,7 @@ export function PlayerBar() {
         </div>
       </button>
 
+      <SleepTimerStatus />
       {/* Controls */}
       <div className="flex shrink-0 items-center gap-1.5">
         {station?.stationuuid && (
