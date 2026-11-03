@@ -27,6 +27,7 @@ const ATTEMPTS_PER_CANDIDATE = 3;
 // mygo-cloudmusic's fader does, with the same cosine ease.
 const FADE_OUT_MS = 180;
 const FADE_IN_MS = 260;
+const STALL_MS = 20_000;
 
 class RadioPlayer {
   readonly audio: HTMLAudioElement;
@@ -43,6 +44,7 @@ class RadioPlayer {
   private reconnects: number[] = [];
   private reported = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private watchdog: ReturnType<typeof setTimeout> | null = null;
 
   onSnapshot: ((s: PlayerSnapshot) => void) | null = null;
 
@@ -69,7 +71,6 @@ class RadioPlayer {
       this.onStreamEnded(this.gen);
     });
     a.addEventListener("ended", () => this.onStreamEnded(this.gen));
-    // 'stalled'/'waiting' only mean buffering; ignore them.
   }
 
   /** Starts playing a station from its candidate list, fading out
@@ -196,6 +197,7 @@ class RadioPlayer {
     this.level = 0; // fades in as playback actually starts
     this.applyVolume();
     this.audio.src = url;
+    this.watchProgress(myGen);
     const p = this.audio.play();
     if (p) {
       p.catch(() => {
@@ -220,6 +222,7 @@ class RadioPlayer {
 
   private handleFailure(myGen: number) {
     if (myGen !== this.gen) return;
+    this.clearWatchdog();
     const now = Date.now();
     this.reconnects = this.reconnects.filter((t) => now - t < WINDOW_MS);
     if (this.reconnects.length >= MAX_RECONNECTS) {
@@ -248,10 +251,32 @@ class RadioPlayer {
   }
 
   private clearTimer() {
+    this.clearWatchdog();
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
     }
+  }
+
+  private clearWatchdog() {
+    if (this.watchdog !== null) clearTimeout(this.watchdog);
+    this.watchdog = null;
+  }
+
+  private watchProgress(myGen: number) {
+    this.clearWatchdog();
+    let lastTime = this.audio.currentTime;
+    const check = () => {
+      if (myGen !== this.gen || (this.lastState !== "connecting" && this.lastState !== "playing")) return;
+      const currentTime = this.audio.currentTime;
+      if (currentTime <= lastTime) {
+        this.handleFailure(myGen);
+        return;
+      }
+      lastTime = currentTime;
+      this.watchdog = setTimeout(check, STALL_MS);
+    };
+    this.watchdog = setTimeout(check, STALL_MS);
   }
 
   private emit(state: PlayState) {

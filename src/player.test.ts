@@ -18,6 +18,7 @@ class FakeAudio {
   src = "";
   preload = "";
   currentSrc = "";
+  currentTime = 0;
   error: { code: number; message: string } | null = null;
   playCalls = 0;
   pauseCalls = 0;
@@ -162,6 +163,12 @@ describe("player state machine", () => {
     vi.advanceTimersByTime(250);
     expect(audio.pauseCalls).toBe(1);
     expect(states().slice(-1)).toEqual(["paused"]);
+  });
+
+  it("retries a stream that makes no playback progress", () => {
+    playerApi.play(info(["https://a/1"]));
+    vi.advanceTimersByTime(21_000);
+    expect(audio.playCalls).toBe(2);
   });
 
   it("stop cancels a pending retry and returns to idle", () => {
