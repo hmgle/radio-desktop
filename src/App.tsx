@@ -22,20 +22,19 @@ export default function App() {
     void init();
   }, [init]);
 
-  // Space toggles play/pause and Cmd/Ctrl+F focuses the search box,
-  // unless typing in an input.
+  // Space toggles play/pause outside interactive controls; Cmd/Ctrl+F
+  // returns to the station view and focuses search.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      const typing =
-        el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" ||
-        el.tagName === "BUTTON" || el.isContentEditable;
+      const interactive =
+        el.closest('input, textarea, select, button, summary, [role="button"]') || el.isContentEditable;
       const state = useRadio.getState();
       const key = e.key.toLowerCase();
       const command = (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
       const navigation = command && [",", "n", "l", "f"].includes(key);
       const closeSettings = e.key === "Escape" && state.settingsOpen;
-      const togglePlayback = e.code === "Space" && !typing && !state.settingsOpen;
+      const togglePlayback = e.code === "Space" && !interactive && !state.settingsOpen;
       if (!navigation && !closeSettings && !togglePlayback) return;
       if (state.dialog || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if (command && key === ",") {

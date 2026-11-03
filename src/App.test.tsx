@@ -9,7 +9,7 @@ vi.mock("./mygo", () => ({ Service: {}, events: {} }));
 vi.mock("mygo-runtime", () => ({ currentWindow: { setTitle: vi.fn().mockResolvedValue(undefined) }, isMyGo: () => false }));
 vi.mock("./components/Sidebar", () => ({ Sidebar: () => <aside /> }));
 vi.mock("./components/FilterBar", () => ({ FilterBar: () => <input id="search-input" aria-label="Search" /> }));
-vi.mock("./components/StationList", () => ({ StationList: () => <div>stations</div> }));
+vi.mock("./components/StationList", () => ({ StationList: () => <div tabIndex={0}>stations</div> }));
 vi.mock("./components/PlayerBar", () => ({ PlayerBar: () => <footer /> }));
 vi.mock("./components/NowPlayingLayer", () => ({ NowPlayingLayer: () => useRadio((s) => s.nowPlayingOpen) ? <button>Now playing</button> : null }));
 vi.mock("./components/SettingsPage", () => ({ SettingsPage: () => <div>preferences</div> }));
@@ -44,6 +44,48 @@ it("does not play or focus the hidden search through a modal", () => {
   expect(useRadio.getState().settingsOpen).toBe(false);
   expect(useRadio.getState().togglePlay).not.toHaveBeenCalled();
   expect(document.activeElement).not.toBe(screen.getByLabelText("Search"));
+});
+
+it.each(["keyboard", "native menu"])("blocks %s navigation before the dialog DOM is committed", (source) => {
+  render(<App />);
+  act(() => {
+    useRadio.getState().openDialog("add");
+    expect(document.querySelector('[role="dialog"][aria-modal="true"]')).toBeNull();
+    if (source === "keyboard") {
+      fireEvent.keyDown(document.body, { key: "l", ctrlKey: true });
+      fireEvent.keyDown(document.body, { key: ",", ctrlKey: true });
+    } else {
+      useRadio.getState().handleUICommand("playURL");
+      useRadio.getState().handleUICommand("settings");
+    }
+  });
+  expect(useRadio.getState().dialog).toBe("add");
+  expect(useRadio.getState().settingsOpen).toBe(false);
+});
+
+it.each(["summary", "summary child", "custom button child"])("preserves Space activation on a %s outside settings", (target) => {
+  render(<><App />
+    <details><summary><span>Details</span></summary><p>Explanation</p></details>
+    <div role="button" tabIndex={0}><span>Custom control</span></div>
+  </>);
+  const summary = screen.getByText("Details").closest("summary")!;
+  const button = screen.getByRole("button", { name: "Custom control" });
+  (target === "custom button child" ? button : summary).focus();
+  const element = target === "summary" ? summary : screen.getByText(target === "summary child" ? "Details" : "Custom control");
+  const event = new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true });
+  fireEvent(element, event);
+  expect(useRadio.getState().togglePlay).not.toHaveBeenCalled();
+  expect(event.defaultPrevented).toBe(false);
+});
+
+it("still toggles playback with Space on the focusable station list", () => {
+  render(<App />);
+  const list = screen.getByText("stations");
+  list.focus();
+  const event = new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true });
+  fireEvent(list, event);
+  expect(useRadio.getState().togglePlay).toHaveBeenCalledOnce();
+  expect(event.defaultPrevented).toBe(true);
 });
 
 it.each(["ctrlKey", "metaKey"])("closes Now Playing before focusing search with %s+F", async (modifier) => {
