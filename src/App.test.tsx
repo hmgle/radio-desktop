@@ -78,6 +78,17 @@ it.each(["summary", "summary child", "custom button child"])("preserves Space ac
   expect(event.defaultPrevented).toBe(false);
 });
 
+it.each(["link", "link child"])("does not toggle playback with Space on a %s outside a modal", (target) => {
+  render(<><App /><a href="https://example.com/help"><span>Help</span></a></>);
+  const link = screen.getByRole("link", { name: "Help" });
+  link.focus();
+  const element = target === "link" ? link : screen.getByText("Help");
+  const event = new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true });
+  fireEvent(element, event);
+  expect(useRadio.getState().togglePlay).not.toHaveBeenCalled();
+  expect(event.defaultPrevented).toBe(false);
+});
+
 it("still toggles playback with Space on the focusable station list", () => {
   render(<App />);
   const list = screen.getByText("stations");
