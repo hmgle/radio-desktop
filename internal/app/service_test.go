@@ -35,3 +35,18 @@ func TestStopPlaybackCallbackCanReadService(t *testing.T) {
 		t.Fatal("UI callback not called")
 	}
 }
+
+func TestOldPlaybackReportCannotStopNewSession(t *testing.T) {
+	s := New(nil, nil)
+	s.sessionID = 2
+	s.currentUUID = "new"
+	s.np.setStation("New station", "")
+	s.ReportPlaybackState("failed", 1)
+	if s.CurrentStationName() != "New station" || s.currentUUID != "new" {
+		t.Fatal("stale report stopped the current session")
+	}
+	s.ReportPlaybackState("idle", 2)
+	if s.CurrentStationName() != "" || s.currentUUID != "" {
+		t.Fatal("current idle report did not stop playback")
+	}
+}

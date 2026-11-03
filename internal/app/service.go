@@ -34,7 +34,7 @@ const (
 // Events pushed to the frontend. Subscribe with the generated client.
 var (
 	// EventICYMeta carries ICY name/genre/title of the playing stream.
-	EventICYMeta = mygo.NewEvent[icy.Meta]("icyMeta")
+	EventICYMeta = mygo.NewEvent[PlaybackMeta]("icyMeta")
 	// EventSyncProgress reports catalog sync page progress.
 	EventSyncProgress = mygo.NewEvent[directory.Progress]("syncProgress")
 	// EventSyncDone fires when a sync finishes (Error == "" on success).
@@ -53,8 +53,15 @@ type SyncResult struct {
 // PlayInfo is returned by PlayStation/PlayURL: what to load into the
 // <audio> element and in which order to fall back.
 type PlayInfo struct {
+	SessionID  uint64        `json:"sessionId"`
 	Station    model.Station `json:"station"`
 	Candidates []string      `json:"candidates"`
+}
+
+// PlaybackMeta identifies the playback session that produced the metadata.
+type PlaybackMeta struct {
+	SessionID uint64   `json:"sessionId"`
+	Meta      icy.Meta `json:"meta"`
 }
 
 // Status is the startup snapshot for resuming the previous session.
@@ -82,6 +89,7 @@ type Service struct {
 	currentUUID string
 	sidecar     *icy.Sidecar
 	playingURL  string
+	sessionID   uint64
 	syncing     bool
 	syncCancel  context.CancelFunc
 }
@@ -263,12 +271,7 @@ func (s *Service) PlayStation(uuid string) (PlayInfo, error) {
 	if len(info.Candidates) == 0 {
 		return PlayInfo{}, errors.New("该电台没有可播放的 http(s) 地址")
 	}
-	s.startSidecar(info.Candidates[0])
-	s.mu.Lock()
-	s.currentUUID = uuid
-	s.mu.Unlock()
-	s.np.setStation(info.Station.Name, info.Station.Country)
-	s.np.setArtURL(info.Station.Favicon)
+	s.startSidecar(&info)
 	go s.np.announce()
 	s.uiChanged()
 	if err := s.store.SetMeta("pref_last_station", uuid); err != nil {
@@ -287,12 +290,7 @@ func (s *Service) PlayURL(url string) (PlayInfo, error) {
 	}
 	st.TagsList = []string{}
 	info := PlayInfo{Station: st, Candidates: candidates}
-	s.startSidecar(candidates[0])
-	s.mu.Lock()
-	s.currentUUID = ""
-	s.mu.Unlock()
-	s.np.setStation(st.Name, "")
-	s.np.setArtURL("")
+	s.startSidecar(&info)
 	go s.np.announce()
 	s.uiChanged()
 	// Ephemeral streams are not persisted as the last station.
@@ -318,30 +316,43 @@ func (s *Service) ReportStarted(uuid string) error {
 // StopPlayback stops the ICY sidecar and the system's Now Playing entry.
 func (s *Service) StopPlayback() {
 	s.mu.Lock()
+	s.stopPlaybackLocked()
+	s.mu.Unlock()
+	s.uiChanged()
+}
+
+func (s *Service) stopPlaybackLocked() {
+	s.sessionID++ // invalidate reports still queued for the stopped session
 	if s.sidecar != nil {
 		s.sidecar.Stop()
 		s.sidecar = nil
 	}
 	s.playingURL = ""
 	s.currentUUID = ""
-	s.mu.Unlock()
 	s.np.clear()
-	s.uiChanged()
 }
 
 // ReportPlaybackState mirrors the frontend audio element's state into
 // the system's media controls: "playing", "paused" or anything else
 // clears them.
-func (s *Service) ReportPlaybackState(state string) {
+func (s *Service) ReportPlaybackState(state string, sessionID uint64) {
+	s.mu.Lock()
+	if sessionID == 0 || sessionID != s.sessionID {
+		s.mu.Unlock()
+		return
+	}
 	switch state {
 	case "playing":
 		s.np.setState(mygo.PlaybackPlaying)
 	case "paused", "ready", "connecting":
 		s.np.setState(mygo.PlaybackPaused)
 	default: // idle, failed
-		s.StopPlayback()
+		s.stopPlaybackLocked()
+		s.mu.Unlock()
+		s.uiChanged()
 		return
 	}
+	s.mu.Unlock()
 	s.np.announce()
 	s.uiChanged()
 }
@@ -458,15 +469,22 @@ func (s *Service) sync(ctx context.Context) SyncResult {
 
 // ---- helpers ----
 
-func (s *Service) startSidecar(url string) {
+func (s *Service) startSidecar(info *PlayInfo) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.sidecar != nil {
 		s.sidecar.Stop()
 	}
-	s.playingURL = url
-	s.sidecar = icy.Start(url, userAgent, func(m icy.Meta) {
-		EventICYMeta.Broadcast(m)
+	s.sessionID++
+	info.SessionID = s.sessionID
+	sessionID := s.sessionID
+	s.currentUUID = info.Station.StationUUID
+	s.np.setStation(info.Station.Name, info.Station.Country)
+	s.np.setArtURL(info.Station.Favicon)
+	s.np.setState(mygo.PlaybackPaused)
+	s.playingURL = info.Candidates[0]
+	s.sidecar = icy.Start(s.playingURL, userAgent, func(m icy.Meta) {
+		EventICYMeta.Broadcast(PlaybackMeta{SessionID: sessionID, Meta: m})
 		s.np.setMeta(m.Title, m.ArtworkURL)
 		s.np.announce()
 	})

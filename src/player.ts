@@ -99,7 +99,7 @@ class RadioPlayer {
   arm(station: Station, candidates: string[]) {
     this.gen++;
     this.clearTimer();
-    this.info = { station, candidates };
+    this.info = { station, candidates, sessionId: 0 };
     this.candIdx = 0;
     this.candidateFails = 0;
     this.reconnects = [];

@@ -22,8 +22,15 @@ export interface Meta {
  * <audio> element and in which order to fall back.
  */
 export interface PlayInfo {
+  sessionId: number;
   station: Station;
   candidates: string[];
+}
+
+/** PlaybackMeta identifies the playback session that produced the metadata. */
+export interface PlaybackMeta {
+  sessionId: number;
+  meta: Meta;
 }
 
 export interface Progress {
@@ -171,8 +178,8 @@ export const Service = {
    * the system's media controls: "playing", "paused" or anything else
    * clears them.
    */
-  reportPlaybackState(state: string): Promise<void> {
-    return call("Service.ReportPlaybackState", state);
+  reportPlaybackState(state: string, sessionID: number): Promise<void> {
+    return call("Service.ReportPlaybackState", state, sessionID);
   },
   /**
    * ReportStarted is called by the frontend once the <audio> element is
@@ -233,7 +240,7 @@ export const events = {
    */
   uiCommand: event<string>("uiCommand"),
   /** EventICYMeta carries ICY name/genre/title of the playing stream. */
-  icyMeta: event<Meta>("icyMeta"),
+  icyMeta: event<PlaybackMeta>("icyMeta"),
   /** EventSyncProgress reports catalog sync page progress. */
   syncProgress: event<Progress>("syncProgress"),
   /** EventSyncDone fires when a sync finishes (Error == "" on success). */

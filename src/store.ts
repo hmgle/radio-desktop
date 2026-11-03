@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { Service, events } from "./mygo";
-import type { Meta, Progress, Station, Status, SyncResult } from "./mygo";
+import type { PlaybackMeta, PlayInfo, Progress, Station, Status, SyncResult } from "./mygo";
 import { player, type PlayState } from "./player";
 
 export type Source = "all" | "favorites" | "history" | "custom";
@@ -31,6 +31,7 @@ interface RadioState {
 
   // playback
   playState: PlayState;
+  sessionId: number;
   station: Station | null;
   title: string;
   icyName: string;
@@ -60,6 +61,44 @@ let volumeTimer: ReturnType<typeof setTimeout> | null = null;
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 let searchSeq = 0;
 let initialized = false;
+let playSeq = 0;
+let pendingPlayback = false;
+const pendingMetadata = new Map<number, PlaybackMeta>();
+
+function applyMetadata(event: PlaybackMeta) {
+  const s = useRadio.getState();
+  if (pendingPlayback || event.sessionId !== s.sessionId || !s.sessionId || s.playState === "idle" || s.playState === "failed") return;
+  const m = event.meta;
+  useRadio.setState({ title: m.title, icyName: m.name, artworkUrl: m.artworkUrl,
+    station: s.station && !s.station.stationuuid && m.name ? { ...s.station, name: m.name } : s.station });
+}
+
+async function startPlayback(load: () => Promise<PlayInfo>, failedStation?: Station) {
+  const seq = ++playSeq;
+  pendingPlayback = true;
+  try {
+    const info = await load();
+    if (seq !== playSeq) {
+      void Service.reportPlaybackState("idle", info.sessionId).catch(() => {});
+      return;
+    }
+    pendingPlayback = false;
+    useRadio.setState({ station: info.station, sessionId: info.sessionId, title: "", icyName: "", artworkUrl: "" });
+    player.play(info);
+    const meta = pendingMetadata.get(info.sessionId);
+    if (meta) applyMetadata(meta);
+    pendingMetadata.clear();
+  } catch (e) {
+    if (seq !== playSeq) return;
+    pendingPlayback = false;
+    pendingMetadata.clear();
+    if (failedStation) {
+      player.stop();
+      useRadio.setState({ station: failedStation, playState: "failed", sessionId: 0, title: "", icyName: "", artworkUrl: "" });
+    }
+    throw e;
+  }
+}
 
 export const useRadio = create<RadioState>((set, get) => ({
   source: "all",
@@ -81,6 +120,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   nowPlayingOpen: false,
 
   playState: "idle",
+  sessionId: 0,
   station: null,
   title: "",
   icyName: "",
@@ -121,8 +161,11 @@ export const useRadio = create<RadioState>((set, get) => ({
         if (s.station) void s.toggleFavorite(s.station);
         break;
       case "stop":
+        playSeq++;
+        pendingPlayback = false;
+        pendingMetadata.clear();
         player.stop();
-        Service.stopPlayback().catch(() => {});
+        set({ sessionId: 0 });
         break;
       case "add":
         set({ dialog: "add" });
@@ -200,13 +243,9 @@ export const useRadio = create<RadioState>((set, get) => ({
 
   playStation: async (station) => {
     try {
-      const info = await Service.playStation(station.stationuuid);
-      player.play(info);
-      set({ station: info.station, title: "", icyName: "", artworkUrl: "" });
+      await startPlayback(() => Service.playStation(station.stationuuid), station);
     } catch (e) {
       console.error("playStation failed", e);
-      player.stop();
-      set({ station, playState: "failed" });
     }
   },
 
@@ -214,9 +253,7 @@ export const useRadio = create<RadioState>((set, get) => ({
     const uuid = get().status?.lastStationUUID;
     if (!uuid) return;
     try {
-      const info = await Service.playStation(uuid);
-      player.play(info);
-      set({ station: info.station, title: "", icyName: "", artworkUrl: "" });
+      await startPlayback(() => Service.playStation(uuid));
     } catch (e) {
       console.error("resume failed", e);
     }
@@ -224,9 +261,7 @@ export const useRadio = create<RadioState>((set, get) => ({
 
   playURL: async (url) => {
     try {
-      const info = await Service.playURL(url);
-      player.play(info);
-      set({ station: info.station, title: "", icyName: "", artworkUrl: "" });
+      await startPlayback(() => Service.playURL(url));
     } catch (e) {
       console.error("playURL failed", e);
       throw e;
@@ -235,7 +270,7 @@ export const useRadio = create<RadioState>((set, get) => ({
 
   togglePlay: () => {
     const s = get();
-    if (s.playState === "idle" || s.playState === "failed") {
+    if (s.playState === "idle" || s.playState === "failed" || s.playState === "ready") {
       if (s.station?.stationuuid) void s.playStation(s.station);
       else if (s.station?.url) void s.playURL(s.station.url).catch(() => {});
       else void s.playLastStation();
@@ -289,7 +324,7 @@ export const useRadio = create<RadioState>((set, get) => ({
     // system's media controls (Now Playing, media keys).
     player.onSnapshot = (snap) => {
       set({ playState: snap.state, station: snap.station ?? get().station });
-      Service.reportPlaybackState(snap.state).catch(() => {});
+      Service.reportPlaybackState(snap.state, get().sessionId).catch(() => {});
     };
 
     // The media keys and Control Center toggle playback through the same
@@ -301,19 +336,11 @@ export const useRadio = create<RadioState>((set, get) => ({
     // Menu-bar and tray actions arrive here too.
     events.uiCommand.on((action: string) => get().handleUICommand(action));
 
-    events.icyMeta.on((m: Meta) => {
-      set((st) => ({
-        title: m.title || st.title,
-        icyName: m.name || st.icyName,
-        // Empty means the stream explicitly has no cover: fall back to
-        // the station logo rather than keeping a stale one.
-        artworkUrl: m.artworkUrl,
-        // icy-name can upgrade an ephemeral URL's display name.
-        station:
-          st.station && !st.station.stationuuid && m.name
-            ? { ...st.station, name: m.name }
-            : st.station,
-      }));
+    events.icyMeta.on((event: PlaybackMeta) => {
+      if (pendingPlayback) {
+        pendingMetadata.set(event.sessionId, event);
+        if (pendingMetadata.size > 8) pendingMetadata.delete(pendingMetadata.keys().next().value!);
+      } else applyMetadata(event);
     });
     events.syncProgress.on((p: Progress) => set({ syncProgress: p }));
     events.syncDone.on((r: SyncResult) => {
