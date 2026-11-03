@@ -21,10 +21,11 @@ it("restores trigger focus after closing a dialog with autofocus", () => {
   expect(document.activeElement).toBe(trigger);
 });
 
-it("includes links in the modal focus trap while skipping negative tabindex links", () => {
+it("includes links in modal tab wrapping while skipping negative tabindex controls", () => {
   render(<Modal title="Help" onClose={() => {}}>
     <button>First</button><a href="https://example.com/help">Help link</a>
     <a href="https://example.com/skip" tabIndex={-1}>Skip</a>
+    <details><summary tabIndex={-1}>Skip details</summary><p>Explanation</p></details>
   </Modal>);
   const first = screen.getByRole("button", { name: "First" });
   const link = screen.getByRole("link", { name: "Help link" });
