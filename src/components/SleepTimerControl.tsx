@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { messages as m } from "../locales";
 import { useRadio } from "../store";
+import { ErrorDetails } from "./ErrorDetails";
 
 function useSleepRemaining() {
   const deadline = useRadio((s) => s.sleepTimer.deadline);
@@ -30,7 +31,7 @@ export function SleepTimerControl() {
       <option value="0">{m.sleepOff()}</option>
       {[15, 30, 60, 120].map((v) => <option key={v} value={v}>{m.minutes(v)}</option>)}
     </select>
-    {error && <p role="alert" className="text-xs text-red-500">{m.sleepFailed()}</p>}
+    {error && <div role="alert" className="max-w-full text-xs text-red-500"><p>{m.sleepFailed()}</p><ErrorDetails error={error} /></div>}
   </div>;
 }
 

@@ -35,6 +35,16 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
+// ErrorDetails says "Error details"
+// in the language the app shows.
+func ErrorDetails() string { return In(i18n.Locale()).ErrorDetails() }
+
+// ErrorDetails says "Error details"
+// in the language of msgs.
+func (msgs Messages) ErrorDetails() string {
+	return Catalog.Format(msgs.locale, "errorDetails", nil)
+}
+
 // All says "All stations"
 // in the language the app shows.
 func All() string { return In(i18n.Locale()).All() }

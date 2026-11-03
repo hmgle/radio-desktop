@@ -4,6 +4,10 @@ import { createCatalog } from "mygo-runtime/i18n";
 /** The messages of the app in one language. */
 export interface Messages {
   /**
+   * `Error details`
+   */
+  errorDetails(): string;
+  /**
    * `All stations`
    */
   all(): string;
@@ -593,6 +597,7 @@ const catalog = createCatalog<Messages>({
     "zh-CN": ["zh-CN", "en"],
   },
   params: {
+    "errorDetails": [],
     "all": [],
     "favorite": [],
     "history": [],
@@ -741,6 +746,7 @@ const catalog = createCatalog<Messages>({
   },
   messages: {
     "en": {
+      "errorDetails": "Error details",
       "all": "All stations",
       "favorite": "Favorite",
       "history": "Recently played",
@@ -888,6 +894,7 @@ const catalog = createCatalog<Messages>({
       "clearHistoryFailed": "Could not clear history. Please retry.",
     },
     "zh-CN": {
+      "errorDetails": "错误详情",
       "all": "全部电台",
       "favorite": "收藏",
       "history": "最近播放",

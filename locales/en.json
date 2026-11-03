@@ -1,5 +1,6 @@
 {
   "@@locale": "en",
+  "errorDetails": "Error details",
   "all": "All stations",
   "favorite": "Favorite",
   "history": "Recently played",

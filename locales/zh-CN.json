@@ -1,5 +1,6 @@
 {
   "@@locale": "zh-CN",
+  "errorDetails": "错误详情",
   "all": "全部电台",
   "favorite": "收藏",
   "history": "最近播放",

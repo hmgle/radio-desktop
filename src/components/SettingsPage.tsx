@@ -1,5 +1,6 @@
 import { SleepTimerControl } from "./SleepTimerControl";
 import { ClearHistoryRow } from "./ClearHistoryRow";
+import { ErrorDetails } from "./ErrorDetails";
 import type { ReactNode } from "react";
 import { messages as m } from "../locales";
 import { useSettings } from "../settings";
@@ -31,6 +32,7 @@ export function SettingsPage() {
       </div>
       <div aria-live="polite" className="mb-3 text-xs text-neutral-500">{saving ? m.saving() : ""}</div>
       {error && <div role="alert" className="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-600"><p>{m.saveFailed()}</p>
+        <ErrorDetails error={error} />
         {!ready && <button type="button" onClick={() => void load()} className={settingsControl}>{m.refresh()}</button>}
       </div>}
       <fieldset disabled={!ready} className="min-w-0">
