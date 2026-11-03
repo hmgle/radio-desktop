@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
+  --app-bg: #f6f7f9;
+  --app-text: #171717;
+  --scroll-thumb: #d4d4d4;
   --accent: var(--mygo-accent, #e11d48);
 }
 
@@ -21,8 +25,8 @@ body {
 /* App background matches the native window background color set in
  * main.go, so the webview never flashes the wrong theme. */
 #root {
-  background: light-dark(#f6f7f9, #0f1115);
-  color: light-dark(#171717, #f5f5f5);
+  background: var(--app-bg);
+  color: var(--app-text);
 }
 
 ::-webkit-scrollbar {
@@ -31,7 +35,7 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   border-radius: 9999px;
-  background: light-dark(#d4d4d4, #404040);
+  background: var(--scroll-thumb);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -80,4 +84,15 @@ body {
 }
 .np-layer-body {
   animation: np-in 320ms ease-out;
+}
+
+/* Use explicit media colors as well as color-scheme: older system WebKit
+ * versions do not understand light-dark(), including for form controls. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --app-bg: #0f1115;
+    --app-text: #f5f5f5;
+    --scroll-thumb: #404040;
+  }
 }
