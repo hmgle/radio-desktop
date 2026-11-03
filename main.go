@@ -90,6 +90,7 @@ func main() {
 			win.Hide()
 		})
 
+		mygo.App.OnSecondInstance(func([]string, string) { showMainWindow() })
 		setMenuBar(svc)
 		tray = newTray(svc)
 		svc.OnUIStateChange = func() { mygo.RunOnMain(func() { syncTray(tray, svc) }) }
@@ -104,12 +105,23 @@ func main() {
 	}
 }
 
+// showMainWindow also reveals a hidden window: App.Focus alone only
+// activates a visible window on some platforms.
+func showMainWindow() {
+	for _, win := range mygo.Windows() {
+		win.Show()
+		win.Focus()
+		break
+	}
+	mygo.App.Focus()
+}
+
 // ui sends an app action to the frontend, which owns the audio element
 // and the dialogs.
 func ui(action string) func(*mygo.MenuItem, *mygo.Window) {
 	return func(*mygo.MenuItem, *mygo.Window) {
 		if action == "settings" || action == "add" || action == "playURL" {
-			mygo.App.Focus()
+			showMainWindow()
 		}
 		if err := app.EventUICommand.Broadcast(action); err != nil {
 			log.Printf("ui command: %v", err)
@@ -190,7 +202,7 @@ func syncTray(tray *mygo.Tray, svc *app.Service) {
 	}
 	items := []*mygo.MenuItem{
 		{Label: locales.Settings(), Click: ui("settings")},
-		{Label: locales.ShowWindow(), Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Focus() }},
+		{Label: locales.ShowWindow(), Click: func(*mygo.MenuItem, *mygo.Window) { showMainWindow() }},
 		mygo.Separator(),
 	}
 	if station := svc.CurrentStationName(); station != "" {
