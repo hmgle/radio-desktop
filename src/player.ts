@@ -119,7 +119,10 @@ class RadioPlayer {
         if (this.info) {
           this.reconnects = [];
           this.candidateFails = 0;
-          this.reported = false;
+          if (this.lastState === "failed") {
+            this.candIdx = 0;
+            this.reported = false;
+          }
           this.loadCurrent("connecting");
         }
     }
@@ -162,15 +165,20 @@ class RadioPlayer {
     const gen = ++this.fadeGen;
     const from = this.level;
     const start = performance.now();
+    let finished = false;
     const step = (now: number) => {
-      if (gen !== this.fadeGen) return;
+      if (gen !== this.fadeGen || finished) return;
       const t = Math.min(1, ms > 0 ? (now - start) / ms : 1);
       this.level = from + (to - from) * (0.5 - 0.5 * Math.cos(Math.PI * t));
       this.applyVolume();
       if (t < 1) requestAnimationFrame(step);
-      else done?.();
+      else {
+        finished = true;
+        done?.();
+      }
     };
     requestAnimationFrame(step);
+    setTimeout(() => step(performance.now()), ms + 20);
   }
 
   /** Loads candidates[candIdx]; failures advance through the fallback

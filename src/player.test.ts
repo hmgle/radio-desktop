@@ -149,6 +149,19 @@ describe("player state machine", () => {
       vi.advanceTimersByTime(10_000);
     }
     expect(states().slice(-1)).toEqual(["failed"]);
+    playerApi.toggle();
+    expect(states().slice(-1)).toEqual(["connecting"]);
+    expect(audio.src).toBe("https://a/1");
+  });
+
+  it("finishes a fade when animation frames are suspended", () => {
+    (globalThis as Record<string, unknown>).requestAnimationFrame = () => 0;
+    playerApi.play(info(["https://a/1"]));
+    audio.dispatch("playing");
+    playerApi.toggle();
+    vi.advanceTimersByTime(250);
+    expect(audio.pauseCalls).toBe(1);
+    expect(states().slice(-1)).toEqual(["paused"]);
   });
 
   it("stop cancels a pending retry and returns to idle", () => {
