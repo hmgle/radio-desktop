@@ -2,8 +2,9 @@ package app
 
 import (
 	"errors"
-	"github.com/egoist/mygo"
 	"time"
+
+	"github.com/egoist/mygo"
 )
 
 // SleepTimer describes a timer for this process only. Generation orders
@@ -36,19 +37,27 @@ func (s *Service) SetSleepTimer(minutes int) (SleepTimer, error) {
 	}
 	s.sleepState = SleepTimer{Generation: s.sleepState.Generation + 1}
 	if minutes > 0 {
-		s.sleepState.Deadline = time.Now().Add(time.Duration(minutes) * time.Minute).UnixMilli()
-		s.scheduleSleepCheck(s.sleepState.Generation)
+		now := time.Now()
+		s.sleepState.Deadline = now.Add(time.Duration(minutes) * time.Minute).UnixMilli()
+		s.scheduleSleepCheck(s.sleepState.Generation, now)
 	}
 	_ = EventSleepTimerChanged.Broadcast(s.sleepState)
 	return s.sleepState, nil
 }
 
-func (s *Service) scheduleSleepCheck(generation uint64) {
-	s.sleepTimer = time.AfterFunc(time.Second, func() { s.checkSleepTimer(generation, time.Now()) })
+func sleepCheckDelay(deadline int64, now time.Time) time.Duration {
+	return min(30*time.Second, max(0, time.UnixMilli(deadline).Sub(now)))
 }
 
-// Poll wall time so a computer waking from sleep stops promptly even on
-// systems whose monotonic clock did not advance while suspended.
+func (s *Service) scheduleSleepCheck(generation uint64, now time.Time) {
+	delay := sleepCheckDelay(s.sleepState.Deadline, now)
+	s.sleepTimer = time.AfterFunc(delay, func() { s.checkSleepTimer(generation, time.Now()) })
+}
+
+// Recheck wall time at most every 30 seconds to limit wakeups. The final
+// check uses the remaining time so normal expiry is not rounded up. After
+// suspend, systems whose monotonic clock paused may take up to 30 seconds
+// to notice an elapsed deadline.
 func (s *Service) checkSleepTimer(generation uint64, now time.Time) {
 	s.sleepMu.Lock()
 	defer s.sleepMu.Unlock()
@@ -56,7 +65,7 @@ func (s *Service) checkSleepTimer(generation uint64, now time.Time) {
 		return
 	}
 	if now.UnixMilli() < s.sleepState.Deadline {
-		s.scheduleSleepCheck(generation)
+		s.scheduleSleepCheck(generation, now)
 		return
 	}
 	s.sleepState.Deadline = 0
