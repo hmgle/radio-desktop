@@ -24,7 +24,8 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       const typing =
-        el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT";
+        el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" ||
+        el.tagName === "BUTTON" || el.isContentEditable;
       if (e.code === "Space" && !typing) {
         e.preventDefault();
         useRadio.getState().togglePlay();

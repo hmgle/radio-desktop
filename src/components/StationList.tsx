@@ -116,12 +116,18 @@ function StationRow(props: { station: Station; selected: boolean }) {
 export function StationList() {
   const { items, total, loading, loadingMore, loadMore, source, refresh, playStation } =
     useRadio();
+  const query = useRadio((s) => s.query);
+  const country = useRadio((s) => s.country);
+  const language = useRadio((s) => s.language);
+  const tag = useRadio((s) => s.tag);
+  const minBitrate = useRadio((s) => s.minBitrate);
+  const sort = useRadio((s) => s.sort);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [selectedIdx, setSelectedIdx] = useState(-1);
 
   // A fresh list starts unselected.
-  useEffect(() => setSelectedIdx(-1), [source]);
+  useEffect(() => setSelectedIdx(-1), [source, query, country, language, tag, minBitrate, sort]);
 
   // The keyboard selection follows the list into view.
   useEffect(() => {
@@ -132,6 +138,7 @@ export function StationList() {
   }, [selectedIdx, items]);
 
   const onKey = (e: React.KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return;
     if (items.length === 0) return;
     const clamp = (i: number) => Math.min(items.length - 1, Math.max(0, i));
     let next = selectedIdx;
