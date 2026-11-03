@@ -117,7 +117,10 @@ func (s *Sidecar) connect(ctx context.Context) error {
 	// Transparent gzip would shift every frame and misalign metaint.
 	req.Header.Set("Accept-Encoding", "identity")
 
-	client := &http.Client{} // no overall timeout; the watchdog cancels
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = 15 * time.Second
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport} // no overall stream timeout
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -139,6 +142,9 @@ func (s *Sidecar) connect(ctx context.Context) error {
 		}
 		return errNoMetaInt
 	}
+	s.mu.Lock()
+	s.lastRead = time.Now()
+	s.mu.Unlock()
 
 	// Idle watchdog: streams can hang mid-frame; force a reconnect.
 	go func() {
@@ -162,21 +168,23 @@ func (s *Sidecar) connect(ctx context.Context) error {
 
 	title := ""
 	artwork := meta.ArtworkURL
-	buf := make([]byte, metaint)
-	metaLen := make([]byte, 1)
-	for {
-		if _, err := io.ReadFull(resp.Body, buf); err != nil {
-			return err
-		}
+	reader := activityReader{Reader: resp.Body, onRead: func() {
 		s.mu.Lock()
 		s.lastRead = time.Now()
 		s.mu.Unlock()
-		if _, err := io.ReadFull(resp.Body, metaLen); err != nil {
+	}}
+	buf := make([]byte, metaint)
+	metaLen := make([]byte, 1)
+	for {
+		if _, err := io.ReadFull(reader, buf); err != nil {
+			return err
+		}
+		if _, err := io.ReadFull(reader, metaLen); err != nil {
 			return err
 		}
 		if n := int(metaLen[0]) * 16; n > 0 {
 			block := make([]byte, n)
-			if _, err := io.ReadFull(resp.Body, block); err != nil {
+			if _, err := io.ReadFull(reader, block); err != nil {
 				return err
 			}
 			attrs := ParseBlock(block)
@@ -194,6 +202,19 @@ func (s *Sidecar) connect(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+type activityReader struct {
+	io.Reader
+	onRead func()
+}
+
+func (r activityReader) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	if n > 0 {
+		r.onRead()
+	}
+	return n, err
 }
 
 // ParseBlock parses one ICY metadata block — "key='value';key2='value2'"
