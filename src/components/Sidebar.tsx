@@ -13,6 +13,7 @@ export function Sidebar(props: {
     { key: "history", label: m.history(), icon: "🕘" },
     { key: "custom", label: m.customStations(), icon: "✏️" },
   ];
+  const settingsOpen = useRadio((s) => s.settingsOpen);
   const source = useRadio((s) => s.source);
   const setSource = useRadio((s) => s.setSource);
   const status = useRadio((s) => s.status);
@@ -33,7 +34,7 @@ export function Sidebar(props: {
             type="button"
             onClick={() => setSource(s.key)}
             className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-              source === s.key
+              !settingsOpen && source === s.key
                 ? "bg-[var(--accent)]/10 font-medium text-[var(--accent)]"
                 : "text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
             }`}
@@ -63,7 +64,7 @@ export function Sidebar(props: {
         </button>
       </div>
 
-      <button type="button" onClick={() => useRadio.getState().openSettings(true)} className="mx-2 mb-3 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-neutral-200/60 dark:hover:bg-neutral-800">⚙ {m.settings()}</button>
+      <button type="button" onClick={() => useRadio.getState().openSettings(true)} aria-current={settingsOpen ? "page" : undefined} className={`mx-2 mb-3 rounded-lg px-2.5 py-2 text-left text-sm ${settingsOpen ? "bg-[var(--accent)]/10 font-medium text-[var(--accent)]" : "text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"}`}>⚙ {m.settings()}</button>
       <div className="mt-auto border-t border-neutral-200 p-3 text-[11px] leading-relaxed text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
         {syncProgress ? (
           <p className="text-[var(--accent)]">

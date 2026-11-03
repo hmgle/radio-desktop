@@ -6,12 +6,13 @@ import { useRadio } from "../store";
 
 /** Modal shell with a keyboard focus trap and focus restoration. */
 export function Modal(props: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const previousFocus = useRef(document.activeElement as HTMLElement | null);
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(props.onClose);
   close.current = props.onClose;
   useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = previousFocus.current;
     const focusable = () => [...(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])];
     if (!panel.current?.contains(document.activeElement)) (focusable()[0] ?? panel.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
