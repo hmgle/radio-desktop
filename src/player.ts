@@ -30,10 +30,10 @@ const FADE_IN_MS = 260;
 const STALL_MS = 20_000;
 const HLS_PROBE_MS = 5000;
 const MEDIA_ERROR_LABELS: Record<number, string> = {
-  1: "音频加载已中止",
-  2: "电台网络连接失败，请重试或切换电台",
-  3: "音频解码失败，请重试或切换电台",
-  4: "当前系统不支持此电台的音频格式",
+  1: "radio:errorAborted",
+  2: "radio:errorNetwork",
+  3: "radio:errorDecode",
+  4: "radio:errorUnsupported",
 };
 
 class RadioPlayer {
@@ -86,7 +86,7 @@ class RadioPlayer {
       const err = a.error;
       console.warn(`audio error code=${err?.code ?? "?"} on ${a.currentSrc}`, err?.message);
       if (!err || this.timer !== null || (this.lastState !== "playing" && this.lastState !== "connecting")) return;
-      this.error = MEDIA_ERROR_LABELS[err.code] || "音频加载失败，请重试或切换电台";
+      this.error = MEDIA_ERROR_LABELS[err.code] || "radio:errorLoad";
       // Try hls.js only for identified HLS. Unknown URLs get one bounded
       // header probe per candidate, including extensionless redirects.
       const url = this.info?.candidates[this.candIdx];
@@ -229,7 +229,7 @@ class RadioPlayer {
     const candidates = this.info?.candidates ?? [];
     const url = candidates[this.candIdx];
     if (!url) {
-      this.error = "该电台没有可播放的地址";
+      this.error = "radio:errorNoURL";
       this.emit("failed");
       return;
     }
@@ -246,7 +246,7 @@ class RadioPlayer {
       this.sourceTimer = setTimeout(() => {
         this.sourceTimer = null;
         if (loadID !== this.loadID || myGen !== this.gen) return;
-        this.error = "HLS 播放器初始化超时，请重试";
+        this.error = "radio:errorHlsTimeout";
         this.onStreamEnded(myGen);
       }, STALL_MS);
       void import("./hls").then(({ attachHls }) => {
@@ -308,7 +308,7 @@ class RadioPlayer {
         if (name === "NotAllowedError") {
           this.clearTimer();
           this.releaseSource();
-          this.error = "播放被系统阻止，请点击播放重试";
+          this.error = "radio:errorBlocked";
           this.emit("failed");
         } else if (!this.audio.error) {
           this.error = String(e);
@@ -357,7 +357,7 @@ class RadioPlayer {
       this.candidateFails = 1;
       const candidates = this.info?.candidates ?? [];
       if (this.candIdx >= candidates.length) {
-        if (!this.error) this.error = "连接中断，请重试或切换电台";
+        if (!this.error) this.error = "radio:errorDisconnected";
         this.emit("failed");
         return;
       }

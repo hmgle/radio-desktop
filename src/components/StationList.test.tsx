@@ -47,11 +47,11 @@ it("observes a sentinel appearing after an empty/loading render, including refre
 it("keeps arrow navigation on row buttons without playing on their Enter", () => {
   useRadio.setState({ items: [station("a"), station("b")], total: 2 });
   render(<StationList />);
-  const heart = screen.getAllByTitle("收藏")[0]!;
+  const heart = screen.getAllByTitle("Favorite")[0]!;
   fireEvent.keyDown(heart, { key: "ArrowDown" });
   fireEvent.keyDown(heart, { key: "Enter" });
   expect(useRadio.getState().playStation).not.toHaveBeenCalled();
-  fireEvent.keyDown(screen.getByLabelText("电台列表"), { key: "Enter" });
+  fireEvent.keyDown(screen.getByLabelText("Station list"), { key: "Enter" });
   expect(useRadio.getState().playStation).toHaveBeenCalledWith(expect.objectContaining({ stationuuid: "a" }));
 });
 

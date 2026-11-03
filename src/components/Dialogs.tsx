@@ -1,3 +1,5 @@
+import { errorText } from "../i18n";
+import { messages as m } from "../locales";
 import { useEffect, useState } from "react";
 import { Service } from "../mygo";
 import { useRadio } from "../store";
@@ -55,44 +57,44 @@ export function AddStationDialog(props: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="添加自定义电台" onClose={props.onClose}>
+    <Modal title={m.addCustom()} onClose={props.onClose}>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-2.5">
         <input
           autoFocus
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="电台名称"
+          placeholder={m.stationName()}
           className={inputClass}
         />
         <input
           required
           value={url}
           onChange={(e) => setURL(e.target.value)}
-          placeholder="流地址 https://… (mp3/aac/HLS)"
+          placeholder={m.streamURL()}
           className={inputClass}
         />
         <input
           value={homepage}
           onChange={(e) => setHomepage(e.target.value)}
-          placeholder="主页（可选）"
+          placeholder={m.homepage()}
           className={inputClass}
         />
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-red-500">{errorText(error)}</p>}
         <div className="mt-1 flex justify-end gap-2">
           <button
             type="button"
             onClick={props.onClose}
             className="rounded-lg px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
-            取消
+            {m.cancel()}
           </button>
           <button
             type="submit"
             disabled={busy}
             className="rounded-lg bg-[var(--accent)] px-3.5 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
-            {busy ? "添加中…" : "添加并保存"}
+            {busy ? m.adding() : m.addSave()}
           </button>
         </div>
       </form>
@@ -116,7 +118,7 @@ export function PlayURLDialog(props: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="播放流地址" onClose={props.onClose}>
+    <Modal title={m.playURL()} onClose={props.onClose}>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-2.5">
         <input
           autoFocus
@@ -126,18 +128,18 @@ export function PlayURLDialog(props: { onClose: () => void }) {
           placeholder="https://example.com/live.mp3"
           className={inputClass}
         />
-        <p className="text-[11px] text-neutral-400">直接试听，不加入电台库。</p>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        <p className="text-[11px] text-neutral-400">{m.previewHint()}</p>
+        {error && <p className="text-xs text-red-500">{errorText(error)}</p>}
         <div className="mt-1 flex justify-end gap-2">
           <button
             type="button"
             onClick={props.onClose}
             className="rounded-lg px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
-            取消
+            {m.cancel()}
           </button>
           <button type="submit" className="rounded-lg bg-[var(--accent)] px-3.5 py-1.5 text-sm font-medium text-white">
-            播放
+            {m.play()}
           </button>
         </div>
       </form>

@@ -1,13 +1,10 @@
+import { errorText } from "../i18n";
+import { messages as m } from "../locales";
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
 import { EqBars, HeartIcon, RadioIcon, CountryFlag } from "./ui";
 
-const STATE_LABEL: Record<string, string> = {
-  connecting: "正在连接…",
-  ready: "待播放",
-  failed: "播放失败",
-};
 
 /**
  * Cover image with a fallback chain: track artwork → station favicon →
@@ -46,6 +43,11 @@ function CoverArt(props: { artwork?: string; favicon?: string; playing: boolean 
 }
 
 export function PlayerBar() {
+  const STATE_LABEL: Record<string, string> = {
+    connecting: m.connecting(),
+    ready: m.ready(),
+    failed: m.failed(),
+  };
   const { station, title, icyName, playState, playbackError, artworkUrl, volume, togglePlay, setVolume, toggleFavorite } =
     useRadio(useShallow((s) => ({ station: s.station, title: s.title, icyName: s.icyName, playState: s.playState, playbackError: s.playbackError, artworkUrl: s.artworkUrl, volume: s.volume, togglePlay: s.togglePlay, setVolume: s.setVolume, toggleFavorite: s.toggleFavorite })));
   const openNowPlaying = useRadio((s) => s.openNowPlaying);
@@ -54,7 +56,7 @@ export function PlayerBar() {
   const active = playing || playState === "connecting";
   const disabled = !station;
   const subtitle =
-    (playState === "failed" ? playbackError : "") || title || (icyName && station && icyName !== station.name ? icyName : "") || "—";
+    (playState === "failed" ? errorText(playbackError) : "") || title || (icyName && station && icyName !== station.name ? icyName : "") || "—";
 
   return (
     <footer className="flex h-16 shrink-0 items-center gap-3 border-t border-neutral-200 bg-white/80 px-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/70">
@@ -62,7 +64,7 @@ export function PlayerBar() {
       <button
         type="button"
         onClick={() => openNowPlaying(true)}
-        title="查看大图"
+        title={m.viewArtwork()}
         className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-1 py-1 text-left transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40"
       >
         <CoverArt
@@ -74,7 +76,7 @@ export function PlayerBar() {
           <div className="flex items-center gap-2">
             {playing && <EqBars className="shrink-0" />}
             <p className="truncate text-sm font-medium">
-              {station?.name || "未选择电台"}
+              {station?.name || m.noStation()}
               {station?.countrycode && (
                 <span className="ml-1.5 text-[11px] font-normal text-neutral-400">
                   <CountryFlag code={station.countrycode} className="mr-1" />
@@ -108,7 +110,7 @@ export function PlayerBar() {
                 ? "text-[var(--accent)]"
                 : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
             }`}
-            title={station.favorite ? "取消收藏" : "收藏"}
+            title={station.favorite ? m.unfavorite() : m.favorite()}
           >
             <HeartIcon filled={station.favorite} />
           </button>
@@ -118,7 +120,7 @@ export function PlayerBar() {
           onClick={togglePlay}
           disabled={disabled}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow transition-transform hover:scale-105 active:scale-95 disabled:opacity-30"
-          title={active ? "暂停" : "播放"}
+          title={active ? m.pause() : m.play()}
         >
           {active ? (
             <svg viewBox="0 0 24 24" fill="currentColor" className="h-4.5 w-4.5">
@@ -143,6 +145,7 @@ export function PlayerBar() {
             )}
           </svg>
           <input
+            aria-label={m.volume()}
             type="range"
             min={0}
             max={100}

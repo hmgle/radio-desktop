@@ -17,6 +17,7 @@ import (
 	"radio-desktop/internal/app"
 	"radio-desktop/internal/directory"
 	"radio-desktop/internal/store"
+	"radio-desktop/locales"
 )
 
 //go:embed resources/tray.png
@@ -76,6 +77,8 @@ func main() {
 		setMenuBar(svc)
 		tray := newTray(svc)
 		svc.OnUIStateChange = func() { syncTray(tray, svc) }
+		mygo.App.OnLocaleChanged(func(string) { setMenuBar(svc); syncTray(tray, svc) })
+		syncTray(tray, svc)
 
 		go svc.StartupSync()
 	})
@@ -95,48 +98,48 @@ func ui(action string) func(*mygo.MenuItem, *mygo.Window) {
 	}
 }
 
-// setMenuBar gives the app its menu bar, in Chinese, with the edit roles
+// setMenuBar gives the app its menu bar with the edit roles
 // WebKit's text fields need for their keyboard shortcuts.
 func setMenuBar(svc *app.Service) {
 	name := mygo.App.Name()
 	var windowMenu []*mygo.MenuItem
 	if runtime.GOOS == "darwin" {
 		windowMenu = []*mygo.MenuItem{
-			{Role: mygo.RoleMinimize, Label: "最小化"},
-			{Role: mygo.RoleZoom, Label: "缩放"},
+			{Role: mygo.RoleMinimize},
+			{Role: mygo.RoleZoom},
 			mygo.Separator(),
-			{Role: mygo.RoleFront, Label: "前置全部窗口"},
+			{Role: mygo.RoleFront},
 		}
 	} else {
-		windowMenu = []*mygo.MenuItem{{Role: mygo.RoleMinimize, Label: "最小化"}}
+		windowMenu = []*mygo.MenuItem{{Role: mygo.RoleMinimize}}
 	}
 	mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 		{Label: name, Submenu: []*mygo.MenuItem{
-			{Role: mygo.RoleAbout, Label: "关于 " + name},
+			{Role: mygo.RoleAbout},
 			mygo.Separator(),
-			{Role: mygo.RoleQuit, Label: "退出 " + name},
+			{Role: mygo.RoleQuit},
 		}},
-		{Label: "文件", Submenu: []*mygo.MenuItem{
-			{Label: "添加电台…", Accelerator: "CmdOrCtrl+N", Click: ui("add")},
-			{Label: "播放链接…", Accelerator: "CmdOrCtrl+L", Click: ui("playURL")},
+		{Label: locales.MenuFile(), Submenu: []*mygo.MenuItem{
+			{Label: locales.MenuAdd(), Accelerator: "CmdOrCtrl+N", Click: ui("add")},
+			{Label: locales.MenuURL(), Accelerator: "CmdOrCtrl+L", Click: ui("playURL")},
 		}},
-		{Label: "编辑", Submenu: []*mygo.MenuItem{
-			{Role: mygo.RoleUndo, Label: "撤销"},
-			{Role: mygo.RoleRedo, Label: "重做"},
+		{Label: locales.MenuEdit(), Submenu: []*mygo.MenuItem{
+			{Role: mygo.RoleUndo},
+			{Role: mygo.RoleRedo},
 			mygo.Separator(),
-			{Role: mygo.RoleCut, Label: "剪切"},
-			{Role: mygo.RoleCopy, Label: "拷贝"},
-			{Role: mygo.RolePaste, Label: "粘贴"},
-			{Role: mygo.RoleSelectAll, Label: "全选"},
+			{Role: mygo.RoleCut},
+			{Role: mygo.RoleCopy},
+			{Role: mygo.RolePaste},
+			{Role: mygo.RoleSelectAll},
 		}},
-		{Label: "控制", Submenu: []*mygo.MenuItem{
-			{Label: "播放/暂停", Click: ui("toggle")},
-			{Label: "随机换个电台", Click: ui("random")},
-			{Label: "收藏/取消收藏当前电台", Click: ui("favorite")},
+		{Label: locales.MenuControl(), Submenu: []*mygo.MenuItem{
+			{Label: locales.Toggle(), Click: ui("toggle")},
+			{Label: locales.Random(), Click: ui("random")},
+			{Label: locales.ToggleFavorite(), Click: ui("favorite")},
 			mygo.Separator(),
-			{Label: "停止播放", Click: ui("stop")},
+			{Label: locales.Stop(), Click: ui("stop")},
 		}},
-		{Label: "窗口", Submenu: windowMenu},
+		{Label: locales.MenuWindow(), Submenu: windowMenu},
 	}))
 }
 
@@ -165,29 +168,29 @@ func syncTray(tray *mygo.Tray, svc *app.Service) {
 		return
 	}
 	items := []*mygo.MenuItem{
-		{Label: "显示主窗口", Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Focus() }},
+		{Label: locales.ShowWindow(), Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Focus() }},
 		mygo.Separator(),
 	}
 	if station := svc.CurrentStationName(); station != "" {
-		playPause := "播放"
+		playPause := locales.Play()
 		if svc.PlayingNow() {
-			playPause = "暂停"
+			playPause = locales.Pause()
 		}
-		fav := "收藏当前电台"
+		fav := locales.FavoriteCurrent()
 		if svc.CurrentFavorite() {
-			fav = "取消收藏当前电台"
+			fav = locales.UnfavoriteCurrent()
 		}
 		items = append(items,
 			&mygo.MenuItem{Label: playPause + " · " + station, Click: ui("toggle")},
-			&mygo.MenuItem{Label: "随机换个电台", Click: ui("random")},
+			&mygo.MenuItem{Label: locales.Random(), Click: ui("random")},
 			&mygo.MenuItem{Label: fav, Click: ui("favorite")},
 		)
 	} else {
-		items = append(items, &mygo.MenuItem{Label: "随机播放一个电台", Click: ui("random")})
+		items = append(items, &mygo.MenuItem{Label: locales.RandomStart(), Click: ui("random")})
 	}
 	items = append(items,
 		mygo.Separator(),
-		&mygo.MenuItem{Label: "退出 Radio Desktop", Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Quit() }},
+		&mygo.MenuItem{Label: locales.Quit(), Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Quit() }},
 	)
 	tray.SetMenu(mygo.NewMenu(items))
 

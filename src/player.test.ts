@@ -222,7 +222,7 @@ describe("player state machine", () => {
     playerApi.play(info(["https://a/1"]));
     await vi.advanceTimersByTimeAsync(0);
     expect(states().slice(-1)).toEqual(["failed"]);
-    expect(snapshots.at(-1)?.error).toContain("播放被系统阻止");
+    expect(snapshots.at(-1)?.error).toContain("radio:errorBlocked");
     await vi.advanceTimersByTimeAsync(60_000);
     expect(states().at(-1)).toBe("failed");
     expect(audio.pauseCalls).toBe(0);
@@ -237,11 +237,11 @@ describe("player state machine", () => {
   });
 
   it.each([
-    [1, "音频加载已中止"],
-    [2, "电台网络连接失败"],
-    [3, "音频解码失败"],
-    [4, "当前系统不支持此电台的音频格式"],
-  ])("shows a Chinese explanation for media error %i", async (code, label) => {
+    [1, "radio:errorAborted"],
+    [2, "radio:errorNetwork"],
+    [3, "radio:errorDecode"],
+    [4, "radio:errorUnsupported"],
+  ])("reports a stable identifier for media error %i", async (code, label) => {
     // A mounted HLS source also receives native media errors; code 4
     // must keep its format explanation rather than starting another HLS.
     playerApi.play(info(["https://a/live.m3u8"]));
@@ -306,7 +306,7 @@ describe("player state machine", () => {
     expect(attachHls).not.toHaveBeenCalled();
     expect(nativeFetch).toHaveBeenCalledOnce();
     expect(states().at(-1)).toBe("failed");
-    expect(snapshots.at(-1)?.error).toBe("当前系统不支持此电台的音频格式");
+    expect(snapshots.at(-1)?.error).toBe("radio:errorUnsupported");
   });
 
   it("limits a stalled format probe and preserves the normal retry path", async () => {

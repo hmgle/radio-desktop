@@ -1,3 +1,4 @@
+import { messages as m } from "../locales";
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
@@ -42,7 +43,7 @@ export function NowPlayingLayer() {
           type="button"
           onClick={() => openNowPlaying(false)}
           className="rounded-full bg-white/10 p-2 text-white/80 transition-colors hover:bg-white/20"
-          title="关闭 (Esc)"
+          title={m.closeEsc()}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
             <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
@@ -71,7 +72,7 @@ export function NowPlayingLayer() {
             className={`mt-3 text-base ${title ? "text-white/90" : "text-white/40"}`}
             title={subtitle}
           >
-            {playing || playState === "connecting" ? subtitle : "未在播放"}
+            {playing || playState === "connecting" ? subtitle : m.notPlaying()}
           </p>
           {station.tagsList.length > 0 && (
             <div className="mt-3 flex flex-wrap justify-center gap-1.5">
@@ -92,7 +93,7 @@ export function NowPlayingLayer() {
             className={`rounded-full p-3 transition-colors ${
               station.favorite ? "text-[var(--accent)]" : "text-white/50 hover:text-white"
             }`}
-            title={station.favorite ? "取消收藏" : "收藏"}
+            title={station.favorite ? m.unfavorite() : m.favorite()}
           >
             <HeartIcon filled={station.favorite} />
           </button>
@@ -101,7 +102,7 @@ export function NowPlayingLayer() {
             type="button"
             onClick={togglePlay}
             className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-xl transition-transform hover:scale-105 active:scale-95"
-            title={active ? "暂停" : "播放"}
+            title={active ? m.pause() : m.play()}
           >
             {active ? (
               <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
@@ -124,7 +125,8 @@ export function NowPlayingLayer() {
               )}
             </svg>
             <input
-              type="range"
+              aria-label={m.volume()}
+            type="range"
               min={0}
               max={100}
               value={volume}
@@ -142,7 +144,7 @@ export function NowPlayingLayer() {
           }}
           className="text-xs text-white/40 transition-colors hover:text-white/70"
         >
-          停止播放
+          {m.stop()}
         </button>
       </div>
     </div>

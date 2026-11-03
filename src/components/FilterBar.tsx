@@ -1,19 +1,20 @@
+import { messages as m } from "../locales";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useRadio, type SortKey } from "../store";
 import { FacetSelect } from "./ui";
 
-const SORTS: { key: SortKey; label: string }[] = [
-  { key: "popularity", label: "热度" },
-  { key: "votes", label: "票数" },
-  { key: "name", label: "名称" },
-  { key: "bitrate", label: "码率" },
-  { key: "random", label: "随机" },
-];
 
 const BITRATES = [0, 64, 96, 128, 192, 320];
 
 export function FilterBar() {
+  const SORTS: { key: SortKey; label: string }[] = [
+    { key: "popularity", label: m.sortPopularity() },
+    { key: "votes", label: m.sortVotes() },
+    { key: "name", label: m.sortName() },
+    { key: "bitrate", label: m.sortBitrate() },
+    { key: "random", label: m.sortRandom() },
+  ];
   const { query, setQuery, country, language, tag, minBitrate, sort, setFilter, total, source } =
     useRadio(useShallow((s) => ({ query: s.query, setQuery: s.setQuery, country: s.country, language: s.language, tag: s.tag, minBitrate: s.minBitrate, sort: s.sort, setFilter: s.setFilter, total: s.total, source: s.source })));
 
@@ -37,22 +38,22 @@ export function FilterBar() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder={
               source === "all"
-                ? "搜索电台、国家、语言、标签…"
+                ? m.searchAll()
                 : source === "favorites"
-                  ? "在收藏中搜索…"
+                  ? m.searchFavorites()
                   : source === "history"
-                    ? "在最近播放中搜索…"
-                    : "在我的电台中搜索…"
+                    ? m.searchHistory()
+                    : m.searchCustom()
             }
             className="h-9 w-full rounded-xl border border-neutral-300 bg-white pr-3 pl-8 text-sm outline-none transition-colors focus:border-[var(--accent)] dark:border-neutral-700 dark:bg-neutral-900"
           />
         </div>
-        <span className="shrink-0 text-xs text-neutral-400">{total.toLocaleString()} 个结果</span>
+        <span className="shrink-0 text-xs text-neutral-400">{m.results(total)}</span>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
         <FacetSelect
-          label="国家"
+          label={m.country()}
           kind="country"
           value={country}
           display={countryLabel}
@@ -62,7 +63,7 @@ export function FilterBar() {
           }}
         />
         <FacetSelect
-          label="语言"
+          label={m.language()}
           kind="language"
           value={language}
           display={languageLabel}
@@ -72,7 +73,7 @@ export function FilterBar() {
           }}
         />
         <FacetSelect
-          label="标签"
+          label={m.tag()}
           kind="tag"
           value={tag}
           display={tagLabel}
@@ -93,7 +94,7 @@ export function FilterBar() {
           >
             {BITRATES.map((b) => (
               <option key={b} value={b}>
-                {b === 0 ? "码率不限" : `≥ ${b}kbps`}
+                {b === 0 ? m.unlimitedBitrate() : `≥ ${b}kbps`}
               </option>
             ))}
           </select>
@@ -109,7 +110,7 @@ export function FilterBar() {
           >
             {SORTS.map((s) => (
               <option key={s.key} value={s.key}>
-                按{s.label}
+                {m.sortBy(s.label)}
               </option>
             ))}
           </select>
@@ -128,7 +129,7 @@ export function FilterBar() {
             }}
             className="h-8 rounded-lg px-2 text-xs text-neutral-500 hover:bg-neutral-200/60 dark:text-neutral-400 dark:hover:bg-neutral-800"
           >
-            重置
+            {m.reset()}
           </button>
         )}
       </div>

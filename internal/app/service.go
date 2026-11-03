@@ -219,7 +219,7 @@ func (s *Service) AddCustomStation(name, url, homepage string) (model.Station, e
 	name = strings.TrimSpace(name)
 	url = strings.TrimSpace(url)
 	if name == "" {
-		return model.Station{}, errors.New("名称不能为空")
+		return model.Station{}, errors.New("radio:nameRequired")
 	}
 	st := model.Station{
 		Name:     name,
@@ -227,7 +227,7 @@ func (s *Service) AddCustomStation(name, url, homepage string) (model.Station, e
 		Homepage: strings.TrimSpace(homepage),
 	}
 	if len(st.StreamCandidates(nil)) == 0 {
-		return model.Station{}, errors.New("URL 必须是 http(s) 地址")
+		return model.Station{}, errors.New("radio:invalidURL")
 	}
 	if err := s.store.AddCustomStation(&st); err != nil {
 		return model.Station{}, err
@@ -263,7 +263,7 @@ func (s *Service) PlayStation(uuid string) (PlayInfo, error) {
 		return PlayInfo{}, err
 	}
 	if len(info.Candidates) == 0 {
-		return PlayInfo{}, errors.New("该电台没有可播放的 http(s) 地址")
+		return PlayInfo{}, errors.New("radio:noPlayableURL")
 	}
 	s.startSidecar(&info)
 	s.np.announce()
@@ -280,7 +280,7 @@ func (s *Service) PlayURL(url string) (PlayInfo, error) {
 	st := model.Station{Name: hostOf(url), URL: url}
 	candidates := st.StreamCandidates(nil)
 	if len(candidates) == 0 {
-		return PlayInfo{}, errors.New("URL 必须是 http(s) 地址")
+		return PlayInfo{}, errors.New("radio:invalidURL")
 	}
 	st.TagsList = []string{}
 	info := PlayInfo{Station: st, Candidates: candidates}
@@ -432,10 +432,10 @@ func (s *Service) sync(ctx context.Context) SyncResult {
 	if size == 0 {
 		top, err := s.dir.Bootstrap(ctx)
 		if err != nil {
-			return SyncResult{Error: "bootstrap 失败: " + err.Error()}
+			return SyncResult{Error: "radio:syncFailed: " + err.Error()}
 		}
 		if err := s.store.PublishCatalog(top); err != nil {
-			return SyncResult{Error: "bootstrap 写入失败: " + err.Error()}
+			return SyncResult{Error: "radio:syncFailed: " + err.Error()}
 		}
 		EventSyncDone.Broadcast(SyncResult{Total: len(top), Phase: "bootstrap"})
 	}
@@ -445,15 +445,15 @@ func (s *Service) sync(ctx context.Context) SyncResult {
 	})
 	if err != nil {
 		if ctx.Err() != nil {
-			return SyncResult{Error: "同步已取消"}
+			return SyncResult{Error: "radio:syncCancelled"}
 		}
-		return SyncResult{Error: "同步失败: " + err.Error()}
+		return SyncResult{Error: "radio:syncFailed: " + err.Error()}
 	}
 	if err := s.store.PublishCatalog(stations); err != nil {
 		if errors.Is(err, store.ErrShrink) {
-			return SyncResult{Error: "同步中止：新目录数量异常缩减，已保留旧目录（" + err.Error() + "）"}
+			return SyncResult{Error: "radio:syncShrink: " + err.Error()}
 		}
-		return SyncResult{Error: "写入失败: " + err.Error()}
+		return SyncResult{Error: "radio:syncFailed: " + err.Error()}
 	}
 	if err := s.store.SetMeta("last_sync", strconv.FormatInt(time.Now().Unix(), 10)); err != nil {
 		log.Printf("save last_sync: %v", err)

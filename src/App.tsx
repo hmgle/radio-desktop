@@ -1,3 +1,4 @@
+import { useLocale } from "./i18n";
 import { useEffect } from "react";
 import { currentWindow } from "mygo-runtime";
 import { useRadio } from "./store";
@@ -10,6 +11,7 @@ import { AddStationDialog, PlayURLDialog } from "./components/Dialogs";
 import { NowPlayingLayer } from "./components/NowPlayingLayer";
 
 export default function App() {
+  useLocale();
   const init = useRadio((s) => s.init);
   const dialog = useRadio((s) => s.dialog);
   const openDialog = useRadio((s) => s.openDialog);

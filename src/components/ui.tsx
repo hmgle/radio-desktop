@@ -1,3 +1,4 @@
+import { messages as m } from "../locales";
 import { useEffect, useRef, useState } from "react";
 import { Service } from "../mygo";
 import type { Facet } from "../mygo";
@@ -151,17 +152,17 @@ export function FacetSelect(props: {
               autoFocus
               value={prefix}
               onChange={(e) => setPrefix(e.target.value)}
-              placeholder={`搜索${label}…`}
+              placeholder={m.searchFacet(label)}
               className="h-7 w-full rounded-md bg-neutral-100 px-2 text-xs outline-none dark:bg-neutral-800"
             />
           </div>
           <div className="min-h-20 flex-1 overflow-y-auto overscroll-contain py-1">
             {failed ? (
-              <p className="p-3 text-center text-xs text-red-500">加载失败，请重新打开</p>
+              <p className="p-3 text-center text-xs text-red-500">{m.loadFailed()}</p>
             ) : facets === null ? (
-              <p className="p-3 text-center text-xs text-neutral-400">加载中…</p>
+              <p className="p-3 text-center text-xs text-neutral-400">{m.loading()}</p>
             ) : shown.length === 0 ? (
-              <p className="p-3 text-center text-xs text-neutral-400">无匹配项</p>
+              <p className="p-3 text-center text-xs text-neutral-400">{m.noMatches()}</p>
             ) : (
               shown.map((f) => (
                 <button
@@ -193,7 +194,7 @@ export function FacetSelect(props: {
               }}
               className="border-t border-neutral-100 py-1.5 text-center text-xs text-neutral-500 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
             >
-              清除筛选
+              {m.clearFilter()}
             </button>
           )}
         </div>

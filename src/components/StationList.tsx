@@ -1,3 +1,4 @@
+import { messages as m } from "../locales";
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
@@ -20,7 +21,7 @@ function StationRow(props: { station: Station; selected: boolean }) {
   if (station.countrycode) meta.push(station.country || station.countrycode);
   if (station.bitrate) meta.push(`${station.bitrate}kbps`);
   if (station.codec) meta.push(station.codec.toUpperCase());
-  if (station.custom) meta.push("自定义");
+  if (station.custom) meta.push(m.custom());
 
   return (
     <div
@@ -69,10 +70,10 @@ function StationRow(props: { station: Station; selected: boolean }) {
       </div>
 
       {active && playState === "connecting" && (
-        <span className="shrink-0 text-[11px] text-neutral-400">连接中…</span>
+        <span className="shrink-0 text-[11px] text-neutral-400">{m.connecting()}</span>
       )}
       {active && playState === "failed" && (
-        <span className="shrink-0 text-[11px] text-red-500">播放失败</span>
+        <span className="shrink-0 text-[11px] text-red-500">{m.failed()}</span>
       )}
 
       <button
@@ -86,7 +87,7 @@ function StationRow(props: { station: Station; selected: boolean }) {
             ? "text-[var(--accent)]"
             : "text-neutral-300 opacity-0 hover:text-neutral-500 group-hover:opacity-100 dark:text-neutral-600 dark:hover:text-neutral-300"
         }`}
-        title={station.favorite ? "取消收藏" : "收藏"}
+        title={station.favorite ? m.unfavorite() : m.favorite()}
       >
         <HeartIcon filled={station.favorite} />
       </button>
@@ -104,7 +105,7 @@ function StationRow(props: { station: Station; selected: boolean }) {
             }
           }}
           className="shrink-0 rounded-lg p-1.5 text-neutral-300 opacity-0 transition-colors hover:text-red-500 group-hover:opacity-100 dark:text-neutral-600"
-          title="删除自定义电台"
+          title={m.removeCustom()}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
             <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
@@ -174,19 +175,19 @@ export function StationList() {
 
   const emptyHint =
     source === "all"
-      ? "目录为空或没有匹配的电台，试试更新目录或更换关键词"
+      ? m.emptyAll()
       : source === "favorites"
-        ? "还没有收藏，点击列表右侧的 ♥ 收藏电台"
+        ? m.emptyFavorites()
         : source === "history"
-          ? "还没有播放记录"
-          : "还没有自定义电台，点击左侧“添加电台”";
+          ? m.emptyHistory()
+          : m.emptyCustom();
 
   return (
     <div
       ref={listRef}
       tabIndex={0}
       onKeyDown={onKey}
-      aria-label="电台列表"
+      aria-label={m.stationList()}
       className="flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent)]/30"
     >
       {loading ? (
@@ -205,7 +206,7 @@ export function StationList() {
               onClick={() => void refresh()}
               className="rounded-lg border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
-              刷新
+              {m.refresh()}
             </button>
           )}
         </div>
@@ -217,10 +218,10 @@ export function StationList() {
           <div ref={sentinelRef} className="h-4" />
           <p className="py-2 text-center text-[11px] text-neutral-400">
             {loadingMore
-              ? "加载中…"
+              ? m.loading()
               : items.length >= total
-                ? `共 ${total.toLocaleString()} 个电台`
-                : `已显示 ${items.length.toLocaleString()} / ${total.toLocaleString()}`}
+                ? m.stations(total)
+                : m.shown(items.length, total)}
           </p>
         </div>
       )}
