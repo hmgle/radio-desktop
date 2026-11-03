@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "mygo-scaffold",
+      "name": "radio-desktop",
       "dependencies": {
         "mygo-runtime": "^0.6.4",
         "react": "^19.2.0",
