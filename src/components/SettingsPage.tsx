@@ -38,6 +38,11 @@ export function SettingsPage() {
               <option value="system">{m.system()}</option><option value="en">English</option><option value="zh-CN">简体中文</option>
             </select>
           </SettingsRow>
+          <SettingsRow label={m.closeBehavior()} hint={m.closeHint()}>
+            <select aria-label={m.closeBehavior()} className={settingsControl} value={value.closeBehavior} onChange={(e) => void update({ closeBehavior: e.target.value })}>
+              <option value="hide">{m.closeHide()}</option><option value="quit">{m.closeQuit()}</option>
+            </select>
+          </SettingsRow>
         </SettingsGroup>
         <SettingsGroup title={m.appearanceGroup()}>
           <SettingsRow label={m.appearance()} hint={m.appearanceHint()}>
@@ -69,6 +74,14 @@ export function SettingsPage() {
           </SettingsRow>
         </SettingsGroup>
       </fieldset>
+      <SettingsGroup title={m.shortcuts()}>
+        {[
+          ["Space", m.shortcutPlay()], ["Cmd/Ctrl+F", m.shortcutSearch()],
+          ["Cmd/Ctrl+N", m.shortcutAdd()], ["Cmd/Ctrl+L", m.shortcutURL()],
+          ["Cmd/Ctrl+,", m.shortcutSettings()], ["↑ / ↓ / Home / End / Enter", m.shortcutList()],
+          ["Esc", m.shortcutEsc()],
+        ].map(([key, label]) => <SettingsRow key={key} label={label!}><kbd className="text-xs text-neutral-500">{key}</kbd></SettingsRow>)}
+      </SettingsGroup>
     </div>
   </div>;
 }

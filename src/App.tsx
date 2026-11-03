@@ -30,15 +30,34 @@ export default function App() {
       const typing =
         el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" ||
         el.tagName === "BUTTON" || el.isContentEditable;
-      if (e.code === "Space" && !typing) {
+      const state = useRadio.getState();
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        state.openSettings(true);
+        return;
+      }
+      if (state.dialog || el.closest('[role="dialog"]')) return;
+      if ((e.metaKey || e.ctrlKey) && ["n", "l"].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        state.openDialog(e.key.toLowerCase() === "n" ? "add" : "url");
+        return;
+      }
+      if (e.key === "Escape" && state.settingsOpen) {
+        state.openSettings(false);
+        return;
+      }
+      if (e.code === "Space" && !typing && !state.settingsOpen) {
         e.preventDefault();
         useRadio.getState().togglePlay();
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
-        const input = document.getElementById("search-input") as HTMLInputElement | null;
-        input?.focus();
-        input?.select();
+        state.openSettings(false);
+        requestAnimationFrame(() => {
+          const input = document.getElementById("search-input") as HTMLInputElement | null;
+          input?.focus();
+          input?.select();
+        });
       }
     };
     document.addEventListener("keydown", onKey);

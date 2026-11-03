@@ -74,10 +74,16 @@ func main() {
 		// a quit (tray 退出, Cmd+Q) must not be vetoed by that handler,
 		// or the app can never exit. OnBeforeQuit fires before windows
 		// are asked to close, so it can arm the escape hatch.
+		var tray *mygo.Tray
 		quitting := false
 		mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { quitting = true })
 		win.OnClose(func(e *mygo.CloseEvent) {
 			if quitting {
+				return
+			}
+			if svc.GetSettings().CloseBehavior == "quit" || tray == nil {
+				e.PreventDefault()
+				mygo.App.Quit()
 				return
 			}
 			e.PreventDefault()
@@ -85,8 +91,8 @@ func main() {
 		})
 
 		setMenuBar(svc)
-		tray := newTray(svc)
-		svc.OnUIStateChange = func() { syncTray(tray, svc) }
+		tray = newTray(svc)
+		svc.OnUIStateChange = func() { mygo.RunOnMain(func() { syncTray(tray, svc) }) }
 		mygo.App.OnLocaleChanged(func(string) { setMenuBar(svc); syncTray(tray, svc) })
 		syncTray(tray, svc)
 
@@ -102,6 +108,9 @@ func main() {
 // and the dialogs.
 func ui(action string) func(*mygo.MenuItem, *mygo.Window) {
 	return func(*mygo.MenuItem, *mygo.Window) {
+		if action == "settings" || action == "add" || action == "playURL" {
+			mygo.App.Focus()
+		}
 		if err := app.EventUICommand.Broadcast(action); err != nil {
 			log.Printf("ui command: %v", err)
 		}
@@ -126,6 +135,8 @@ func setMenuBar(svc *app.Service) {
 	mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 		{Label: name, Submenu: []*mygo.MenuItem{
 			{Role: mygo.RoleAbout},
+			mygo.Separator(),
+			{Label: locales.Settings(), Accelerator: "CmdOrCtrl+,", Click: ui("settings")},
 			mygo.Separator(),
 			{Role: mygo.RoleQuit},
 		}},
@@ -178,6 +189,7 @@ func syncTray(tray *mygo.Tray, svc *app.Service) {
 		return
 	}
 	items := []*mygo.MenuItem{
+		{Label: locales.Settings(), Click: ui("settings")},
 		{Label: locales.ShowWindow(), Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Focus() }},
 		mygo.Separator(),
 	}
