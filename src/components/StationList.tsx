@@ -139,7 +139,6 @@ export function StationList() {
   }, [selectedIdx, items]);
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.target !== e.currentTarget) return;
     if (items.length === 0) return;
     const clamp = (i: number) => Math.min(items.length - 1, Math.max(0, i));
     let next = selectedIdx;
@@ -148,6 +147,7 @@ export function StationList() {
     else if (e.key === "Home") next = 0;
     else if (e.key === "End") next = items.length - 1;
     else if (e.key === "Enter" && selectedIdx >= 0 && items[selectedIdx]) {
+      if (e.target !== e.currentTarget) return;
       e.preventDefault();
       void playStation(items[selectedIdx]!);
       return;
@@ -157,18 +157,19 @@ export function StationList() {
   };
 
   // Infinite scroll: fetch the next page when the sentinel scrolls in.
+  const hasItems = !loading && items.length > 0;
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el) return;
+    if (!el || !hasItems || items.length >= total) return;
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) void loadMore();
       },
-      { rootMargin: "400px" },
+      { root: listRef.current, rootMargin: "400px" },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [loadMore]);
+  }, [loadMore, hasItems, items.length, total]);
 
   const emptyHint =
     source === "all"
