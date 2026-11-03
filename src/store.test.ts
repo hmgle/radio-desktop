@@ -80,4 +80,15 @@ describe("radio store", () => {
     await play;
     expect(useRadio.getState().title).toBe("early title");
   });
+
+  it("random playback excludes the current station", async () => {
+    const { Service } = await import("./mygo");
+    const { useRadio } = await import("./store");
+    const playStation = vi.fn().mockResolvedValue(undefined);
+    useRadio.setState({ station: { stationuuid: "a" } as Station, playStation });
+    vi.mocked(Service.search).mockResolvedValue({ items: [{ stationuuid: "a" }, { stationuuid: "b" }] as Station[], total: 2 });
+    useRadio.getState().handleUICommand("random");
+    await Promise.resolve();
+    expect(playStation).toHaveBeenCalledWith(expect.objectContaining({ stationuuid: "b" }));
+  });
 });

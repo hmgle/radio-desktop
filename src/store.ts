@@ -147,12 +147,12 @@ export const useRadio = create<RadioState>((set, get) => ({
           minBitrate: 0,
           sort: "random",
           source: "all",
-          limit: 1,
+          limit: 2,
           offset: 0,
         })
           .then((res) => {
-            const station = res.items[0];
-            if (station) return s.playStation(station);
+            const station = res.items.find((item) => item.stationuuid !== get().station?.stationuuid);
+            if (station) return get().playStation(station);
           })
           .catch((e) => console.error("random play failed", e));
         break;
