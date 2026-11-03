@@ -58,13 +58,9 @@ body {
   animation-delay: 0.4s;
 }
 
-/* Scrolling ICY title marquee. */
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-100%);
+@media (prefers-reduced-motion: reduce) {
+  .eq-bar, .np-layer, .np-layer-body {
+    animation: none;
   }
 }
 

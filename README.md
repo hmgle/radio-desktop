@@ -27,6 +27,7 @@ bun run dev          # 启动开发窗口（热更新）
 ```sh
 CGO_ENABLED=0 go test ./internal/...    # 后端单测
 RADIO_LIVE=1 go test -run Live ./internal/directory  # 真实 API 冒烟
+RADIO_LIVE=1 RADIO_LIVE_URL=https://example.com/stream go test -run Live ./internal/icy  # ICY 流冒烟
 bun run test         # 前端 player 状态机测试（vitest）
 bun run typecheck    # 前端类型检查
 ```

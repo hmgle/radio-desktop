@@ -12,8 +12,6 @@ export type PlayState =
 export interface PlayerSnapshot {
   state: PlayState;
   station: Station | null;
-  candidateIndex: number;
-  candidates: string[];
 }
 
 // Reconnect policy mirrors radio-cli's PlaybackController: backoff
@@ -284,14 +282,9 @@ class RadioPlayer {
     this.onSnapshot?.({
       state,
       station: this.info?.station ?? null,
-      candidateIndex: this.candIdx,
-      candidates: this.info?.candidates ?? [],
     });
   }
 
-  currentGen(): number {
-    return this.gen;
-  }
 }
 
 export const player = new RadioPlayer();
