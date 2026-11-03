@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
 import { EqBars, HeartIcon, RadioIcon, flagEmoji } from "./ui";
 
@@ -46,7 +47,7 @@ function CoverArt(props: { artwork?: string; favicon?: string; playing: boolean 
 
 export function PlayerBar() {
   const { station, title, icyName, playState, artworkUrl, volume, togglePlay, setVolume, toggleFavorite } =
-    useRadio();
+    useRadio(useShallow((s) => ({ station: s.station, title: s.title, icyName: s.icyName, playState: s.playState, artworkUrl: s.artworkUrl, volume: s.volume, togglePlay: s.togglePlay, setVolume: s.setVolume, toggleFavorite: s.toggleFavorite })));
   const openNowPlaying = useRadio((s) => s.openNowPlaying);
 
   const playing = playState === "playing";
@@ -81,7 +82,7 @@ export function PlayerBar() {
               )}
             </p>
           </div>
-          {/* ICY title marquee when it overflows */}
+          {/* ICY title */}
           <div className="mt-0.5 overflow-hidden">
             <p
               className={`truncate text-xs text-neutral-500 dark:text-neutral-400 ${

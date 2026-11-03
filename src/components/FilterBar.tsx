@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useRadio, type SortKey } from "../store";
 import { FacetSelect } from "./ui";
 
@@ -14,7 +15,7 @@ const BITRATES = [0, 64, 96, 128, 192, 320];
 
 export function FilterBar() {
   const { query, setQuery, country, language, tag, minBitrate, sort, setFilter, total, source } =
-    useRadio();
+    useRadio(useShallow((s) => ({ query: s.query, setQuery: s.setQuery, country: s.country, language: s.language, tag: s.tag, minBitrate: s.minBitrate, sort: s.sort, setFilter: s.setFilter, total: s.total, source: s.source })));
 
   const [countryLabel, setCountryLabel] = useState("");
   const [languageLabel, setLanguageLabel] = useState("");

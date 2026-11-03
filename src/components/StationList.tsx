@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
 import type { Station } from "../mygo";
 import { Service } from "../mygo";
@@ -115,7 +116,7 @@ function StationRow(props: { station: Station; selected: boolean }) {
 
 export function StationList() {
   const { items, total, loading, loadingMore, loadMore, source, refresh, playStation } =
-    useRadio();
+    useRadio(useShallow((s) => ({ items: s.items, total: s.total, loading: s.loading, loadingMore: s.loadingMore, loadMore: s.loadMore, source: s.source, refresh: s.refresh, playStation: s.playStation })));
   const query = useRadio((s) => s.query);
   const country = useRadio((s) => s.country);
   const language = useRadio((s) => s.language);

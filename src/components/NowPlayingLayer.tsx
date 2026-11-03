@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
 import { EqBars, HeartIcon, RadioIcon, flagEmoji } from "./ui";
 
@@ -12,7 +13,7 @@ export function NowPlayingLayer() {
   const open = useRadio((s) => s.nowPlayingOpen);
   const openNowPlaying = useRadio((s) => s.openNowPlaying);
   const { station, title, icyName, playState, artworkUrl, volume, togglePlay, setVolume, toggleFavorite } =
-    useRadio();
+    useRadio(useShallow((s) => ({ station: s.station, title: s.title, icyName: s.icyName, playState: s.playState, artworkUrl: s.artworkUrl, volume: s.volume, togglePlay: s.togglePlay, setVolume: s.setVolume, toggleFavorite: s.toggleFavorite })));
 
   useEffect(() => {
     if (!open) return;
