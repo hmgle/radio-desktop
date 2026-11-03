@@ -240,6 +240,34 @@ func TestCustomStations(t *testing.T) {
 	}
 }
 
+func TestCustomTokensSurviveUpdateAndPublish(t *testing.T) {
+	s := testStore(t)
+	catalog := station("aaaaaaaa-1111-2222-3333-444444444444", "Catalog")
+	mustPublish(t, s, catalog)
+	custom := model.Station{Name: "Custom", URL: "https://example.com", Tags: "unique-tag", Language: "unique-language"}
+	if err := s.AddCustomStation(&custom); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddCustomStation(&custom); err != nil {
+		t.Fatal(err)
+	}
+	mustPublish(t, s, catalog)
+	for _, req := range []SearchRequest{{Tag: "unique-tag"}, {Language: "unique-language"}} {
+		res, err := s.Search(req)
+		if err != nil || res.Total != 1 {
+			t.Fatalf("search %+v: %+v, %v", req, res, err)
+		}
+	}
+	tags, err := s.Tags("unique-tag", 10)
+	if err != nil || len(tags) != 1 || tags[0].Count != 1 {
+		t.Fatalf("tags: %+v, %v", tags, err)
+	}
+	countries, err := s.Countries("_", 10)
+	if err != nil || len(countries) != 0 {
+		t.Fatalf("countries: %+v, %v", countries, err)
+	}
+}
+
 func TestRepublishDeactivatesMissingAndKeepsFavorites(t *testing.T) {
 	s := testStore(t)
 	a := station("aaaaaaaa-1111-2222-3333-444444444444", "A")

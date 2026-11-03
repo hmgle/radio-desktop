@@ -314,14 +314,34 @@ func (s *Store) AddCustomStation(st *model.Station) error {
 		st.StationUUID = model.NewCustomUUID()
 	}
 	st.Custom = true
-	if _, err := s.db.Exec("INSERT INTO stations(uuid, name, search, country, countryname, bitrate, custom, active, json) "+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("INSERT INTO stations(uuid, name, search, country, countryname, bitrate, custom, active, json) "+
 		"VALUES(?,?,?,?,?,?,1,1,?) ON CONFLICT(uuid) DO UPDATE SET name=excluded.name, search=excluded.search, "+
 		"country=excluded.country, countryname=excluded.countryname, bitrate=excluded.bitrate, json=excluded.json, active=1",
 		st.StationUUID, st.Name, st.SearchText(), strings.ToUpper(st.CountryCode), strings.ToLower(st.Country),
 		st.Bitrate, stationJSON(*st)); err != nil {
 		return err
 	}
-	return s.insertTokens(st)
+	for _, table := range []string{"station_lang", "station_tag"} {
+		if _, err := tx.Exec("DELETE FROM "+table+" WHERE uuid = ?", st.StationUUID); err != nil {
+			return err
+		}
+	}
+	for _, lang := range st.Languages() {
+		if _, err := tx.Exec("INSERT INTO station_lang(uuid, lang) VALUES(?, ?)", st.StationUUID, lang); err != nil {
+			return err
+		}
+	}
+	for _, tag := range st.TagList() {
+		if _, err := tx.Exec("INSERT INTO station_tag(uuid, tag) VALUES(?, ?)", st.StationUUID, tag); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // RemoveCustomStation deletes a user-defined station. Catalog stations
@@ -354,7 +374,7 @@ func (s *Store) Countries(prefix string, limit int) ([]Facet, error) {
 	args := []any{}
 	if p := strings.TrimSpace(prefix); p != "" {
 		q += " AND country LIKE ? ESCAPE '\\'"
-		args = append(args, strings.ToUpper(p)+"%")
+		args = append(args, escapeLike(strings.ToUpper(p))+"%")
 	}
 	return s.queryFacets(q+" GROUP BY country ORDER BY n DESC, country", limit, args)
 }
@@ -460,10 +480,10 @@ func (s *Store) PublishCatalog(stations []model.Station) error {
 	if _, err := tx.Exec("UPDATE stations SET active = 0 WHERE custom = 0"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("DELETE FROM station_lang"); err != nil {
+	if _, err := tx.Exec("DELETE FROM station_lang WHERE uuid IN (SELECT uuid FROM stations WHERE custom = 0)"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("DELETE FROM station_tag"); err != nil {
+	if _, err := tx.Exec("DELETE FROM station_tag WHERE uuid IN (SELECT uuid FROM stations WHERE custom = 0)"); err != nil {
 		return err
 	}
 
@@ -504,21 +524,6 @@ func (s *Store) PublishCatalog(stations []model.Station) error {
 		}
 	}
 	return tx.Commit()
-}
-
-// insertTokens writes language/tag rows for a single custom station.
-func (s *Store) insertTokens(st *model.Station) error {
-	for _, lang := range st.Languages() {
-		if _, err := s.db.Exec("INSERT INTO station_lang(uuid, lang) VALUES(?, ?)", st.StationUUID, lang); err != nil {
-			return err
-		}
-	}
-	for _, tag := range st.TagList() {
-		if _, err := s.db.Exec("INSERT INTO station_tag(uuid, tag) VALUES(?, ?)", st.StationUUID, tag); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func stationJSON(st model.Station) string {
