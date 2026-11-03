@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
-import { EqBars, HeartIcon, RadioIcon, flagEmoji } from "./ui";
+import { EqBars, HeartIcon, RadioIcon, CountryFlag } from "./ui";
 
 const STATE_LABEL: Record<string, string> = {
   connecting: "正在连接…",
@@ -77,7 +77,8 @@ export function PlayerBar() {
               {station?.name || "未选择电台"}
               {station?.countrycode && (
                 <span className="ml-1.5 text-[11px] font-normal text-neutral-400">
-                  {flagEmoji(station.countrycode) || ""} {station.country || station.countrycode}
+                  <CountryFlag code={station.countrycode} className="mr-1" />
+                  {station.country || station.countrycode}
                 </span>
               )}
             </p>

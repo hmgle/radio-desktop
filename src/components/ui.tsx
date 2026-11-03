@@ -1,15 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import { Service } from "../mygo";
 import type { Facet } from "../mygo";
+import { countryFlagUrl } from "../flags";
 
-/** Country code → flag emoji. */
-export function flagEmoji(cc: string): string {
-  if (!/^[a-zA-Z]{2}$/.test(cc)) return "";
-  const base = 0x1f1e6;
-  const A = 65;
-  return String.fromCodePoint(
-    base + (cc.charCodeAt(0) | 32) - (A | 32),
-    base + (cc.charCodeAt(1) | 32) - (A | 32),
+/** Country flag from bundled SVG artwork, sized to the surrounding text.
+ *
+ * Flag emoji are regional indicator pairs, which need a color emoji
+ * font; hosts without one show boxed letters instead. SVG artwork is
+ * font independent, so codes without artwork fall back to the ISO
+ * letters rather than a broken glyph.
+ */
+export function CountryFlag({ code, className = "" }: { code?: string; className?: string }) {
+  const cc = (code ?? "").trim().toUpperCase();
+  const [failedSrc, setFailedSrc] = useState("");
+  if (!/^[A-Z]{2}$/.test(cc)) return null;
+  const src = countryFlagUrl(cc);
+  if (src && failedSrc !== src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        width="36"
+        height="26"
+        aria-hidden="true"
+        onError={() => setFailedSrc(src)}
+        className={`inline-block h-3 w-auto shrink-0 align-middle ${className}`}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-flex h-3 w-4 shrink-0 items-center justify-center rounded-[2px] border border-neutral-300 text-[8px] font-medium leading-none text-neutral-400 dark:border-neutral-600 dark:text-neutral-500 ${className}`}
+    >
+      {cc}
+    </span>
   );
 }
 
@@ -148,8 +173,9 @@ export function FacetSelect(props: {
                     f.value === value ? "font-medium text-[var(--accent)]" : ""
                   }`}
                 >
-                  <span className="truncate">
-                    {kind === "country" && flagEmoji(f.value) ? `${flagEmoji(f.value)} ${f.label}` : f.label}
+                  <span className="flex items-center gap-1.5 truncate">
+                    {kind === "country" && <CountryFlag code={f.value} />}
+                    <span className="truncate">{f.label}</span>
                   </span>
                   <span className="ml-2 shrink-0 text-[10px] text-neutral-400">{f.count}</span>
                 </button>

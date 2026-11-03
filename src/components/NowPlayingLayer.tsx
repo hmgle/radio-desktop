@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
-import { EqBars, HeartIcon, RadioIcon, flagEmoji } from "./ui";
+import { EqBars, HeartIcon, RadioIcon, CountryFlag } from "./ui";
 
 /**
  * The full-window Now Playing layer mygo-cloudmusic style: the track's
@@ -59,7 +59,8 @@ export function NowPlayingLayer() {
             {station.name}
           </h2>
           <p className="mt-1 text-sm text-white/60">
-            {[station.country && `${flagEmoji(station.countrycode) || "🌍"} ${station.country}`,
+            {station.country && <CountryFlag code={station.countrycode} className="mr-1.5 opacity-90" />}
+            {[station.country,
               icyName && icyName !== station.name && icyName,
               station.bitrate && `${station.bitrate}kbps`,
               station.codec?.toUpperCase()]

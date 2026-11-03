@@ -3,7 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
 import type { Station } from "../mygo";
 import { Service } from "../mygo";
-import { EqBars, HeartIcon, RadioIcon, flagEmoji } from "./ui";
+import { EqBars, HeartIcon, RadioIcon, CountryFlag } from "./ui";
 
 function StationRow(props: { station: Station; selected: boolean }) {
   const { station, selected } = props;
@@ -17,7 +17,7 @@ function StationRow(props: { station: Station; selected: boolean }) {
   const [imgFailed, setImgFailed] = useState(false);
 
   const meta: string[] = [];
-  if (station.countrycode) meta.push(`${flagEmoji(station.countrycode) || "🌍"} ${station.country || station.countrycode}`);
+  if (station.countrycode) meta.push(station.country || station.countrycode);
   if (station.bitrate) meta.push(`${station.bitrate}kbps`);
   if (station.codec) meta.push(station.codec.toUpperCase());
   if (station.custom) meta.push("自定义");
@@ -57,7 +57,8 @@ function StationRow(props: { station: Station; selected: boolean }) {
           {station.name}
         </p>
         <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-          {meta.length > 0 && <span>{meta.join(" · ")}</span>}
+          {station.countrycode && <CountryFlag code={station.countrycode} />}
+          {meta.length > 0 && <span className="truncate">{meta.join(" · ")}</span>}
           {station.tagsList.length > 0 && (
             <span className="truncate opacity-70">
               {" · "}

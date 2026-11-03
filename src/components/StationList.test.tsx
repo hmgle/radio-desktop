@@ -54,3 +54,13 @@ it("keeps arrow navigation on row buttons without playing on their Enter", () =>
   fireEvent.keyDown(screen.getByLabelText("电台列表"), { key: "Enter" });
   expect(useRadio.getState().playStation).toHaveBeenCalledWith(expect.objectContaining({ stationuuid: "a" }));
 });
+
+it("shows local flag artwork beside the station's country label", () => {
+  const germany = { ...station("a"), countrycode: "de", country: "Germany" } as Station;
+  useRadio.setState({ items: [germany], total: 1 });
+  render(<StationList />);
+  const row = document.querySelector('[data-uuid="a"]')!;
+  expect(row.querySelectorAll('img[alt=""]')).toHaveLength(1);
+  expect(row.textContent).toContain("Germany");
+  expect(row.innerHTML).not.toMatch(/[\u{1F1E6}-\u{1F1FF}]/u);
+});
