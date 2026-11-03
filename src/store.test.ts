@@ -82,6 +82,21 @@ describe("radio store", () => {
     expect(useRadio.getState().title).toBe("early title");
   });
 
+  it("cleans up a play response arriving after stop without restarting audio", async () => {
+    const { Service } = await import("./mygo");
+    const { player } = await import("./player");
+    const { useRadio } = await import("./store");
+    const pending = deferred<Awaited<ReturnType<typeof Service.playURL>>>();
+    vi.mocked(Service.playURL).mockReturnValue(pending.promise);
+    vi.mocked(Service.reportPlaybackState).mockResolvedValue(undefined);
+    const play = useRadio.getState().playURL("https://example.com/live");
+    useRadio.getState().handleUICommand("stop");
+    pending.resolve({ sessionId: 7, station: { stationuuid: "" } as Station, candidates: ["https://example.com/live"] });
+    await play;
+    expect(player.play).not.toHaveBeenCalled();
+    expect(Service.reportPlaybackState).toHaveBeenCalledWith("idle", 7);
+  });
+
   it("random playback excludes the current station", async () => {
     const { Service } = await import("./mygo");
     const { useRadio } = await import("./store");
