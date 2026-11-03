@@ -41,6 +41,9 @@ func TestParseBlock(t *testing.T) {
 			map[string]string{"StreamTitle": "Hardpack - KB Song", "StreamUrl": "https://broadcaster.live365.com/static/assets/img/blankart.jpg", "StreamArtwork": ""}},
 		{"control chars", []byte("StreamTitle='Bad\x01Title\x00';"), map[string]string{"StreamTitle": "BadTitle"}},
 		{"missing", []byte("StreamUrl='x';"), map[string]string{"StreamUrl": "x"}},
+		{"empty key", []byte("=oops;StreamTitle='x';"), map[string]string{"StreamTitle": "x"}},
+		{"extra separator", []byte("A='1';;B='2';"), map[string]string{"A": "1", "B": "2"}},
+		{"unterminated quote", []byte("StreamTitle='x"), map[string]string{"StreamTitle": "x"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

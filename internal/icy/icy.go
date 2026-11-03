@@ -225,13 +225,28 @@ func ParseBlock(block []byte) map[string]string {
 	m := make(map[string]string, 3)
 	i := 0
 	for i < len(block) {
+		for i < len(block) && (block[i] == ';' || block[i] == ' ' || block[i] == '\x00') {
+			i++
+		}
 		eq := bytes.IndexByte(block[i:], '=')
 		if eq < 0 {
 			break
 		}
+		if semi := bytes.IndexByte(block[i:i+eq], ';'); semi >= 0 {
+			i += semi + 1
+			continue
+		}
 		key := strings.TrimSpace(string(block[i : i+eq]))
 		j := i + eq + 1
-		if key == "" || j >= len(block) {
+		if key == "" {
+			semi := bytes.IndexByte(block[j:], ';')
+			if semi < 0 {
+				break
+			}
+			i = j + semi + 1
+			continue
+		}
+		if j >= len(block) {
 			break
 		}
 		var val []byte
@@ -251,7 +266,10 @@ func ParseBlock(block []byte) map[string]string {
 				val = append(val, c)
 				k++
 			}
-			next = k + 1
+			next = k
+			if next < len(block) {
+				next++
+			}
 		} else {
 			// Unquoted value: runs to the next separator.
 			sep := bytes.IndexByte(block[j:], ';')
