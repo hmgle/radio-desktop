@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { CountryFlag, FacetSelect } from "./ui";
 import { Service } from "../mygo";
+import type { Facet } from "../mygo";
 
 vi.mock("../mygo", () => ({ Service: { countries: vi.fn() }, events: {} }));
 
@@ -135,4 +136,26 @@ it("still closes a facet when the pointer presses outside it", async () => {
   expect(screen.queryByRole("dialog")).not.toBeNull();
   fireEvent.mouseDown(document.body);
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+// Typing used to blank the list for the debounce window plus one round trip,
+// so the first press after typing landed on the loading placeholder and only
+// the second press hit a row that existed again.
+it("keeps the previous options on screen while a new prefix loads", async () => {
+  let resolvePrefix: (rows: Facet[]) => void = () => {};
+  vi.mocked(Service.countries)
+    .mockResolvedValueOnce([{ value: "DE", label: "Germany", count: 2 }])
+    .mockImplementationOnce(() => new Promise<Facet[]>((resolve) => { resolvePrefix = resolve; }));
+
+  render(<FacetSelect kind="country" label="Country" value="" onChange={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  await screen.findByRole("button", { name: /Germany/ }, { timeout: 3000 });
+
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "gr" } });
+  expect(screen.queryByRole("button", { name: /Germany/ })).not.toBeNull();
+
+  await vi.waitFor(() => expect(Service.countries).toHaveBeenCalledTimes(2), { timeout: 3000 });
+  resolvePrefix([{ value: "GR", label: "Greece", count: 4 }]);
+  await screen.findByRole("button", { name: /Greece/ }, { timeout: 3000 });
+  expect(screen.queryByRole("button", { name: /Germany/ })).toBeNull();
 });

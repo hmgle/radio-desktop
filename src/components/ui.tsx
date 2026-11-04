@@ -77,6 +77,7 @@ export function FacetSelect(props: {
   const [open, setOpen] = useState(false);
   const [facets, setFacets] = useState<Facet[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [pending, setPending] = useState(false);
   const [prefix, setPrefix] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -90,8 +91,8 @@ export function FacetSelect(props: {
   useEffect(() => {
     if (!open) return;
     let active = true;
-    setFacets(null);
     setFailed(false);
+    setPending(true);
     const load = async () => {
       try {
         const list =
@@ -104,6 +105,8 @@ export function FacetSelect(props: {
       } catch (e) {
         console.error("facets failed", e);
         if (active) setFailed(true);
+      } finally {
+        if (active) setPending(false);
       }
     };
     const timer = setTimeout(() => void load(), prefix ? 200 : 0);
@@ -111,7 +114,15 @@ export function FacetSelect(props: {
   }, [open, kind, prefix]);
 
   useEffect(() => {
-    if (!open) return setPrefix(""), undefined;
+    if (!open) {
+      // Drop the previous visit's rows so a reopened popup never shows a stale
+      // prefix result, and never leaves a request marked as in flight.
+      setPrefix("");
+      setFacets(null);
+      setFailed(false);
+      setPending(false);
+      return;
+    }
     const onDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
@@ -186,7 +197,7 @@ export function FacetSelect(props: {
               className="h-7 w-full rounded-md bg-neutral-100 px-2 text-xs outline-none dark:bg-neutral-800"
             />
           </div>
-          <div className="min-h-20 flex-1 overflow-y-auto overscroll-contain py-1">
+          <div className="min-h-20 flex-1 overflow-y-auto overscroll-contain py-1" aria-busy={pending}>
             {failed ? (
               <p className="p-3 text-center text-xs text-red-500">{m.loadFailed()}</p>
             ) : facets === null ? (
