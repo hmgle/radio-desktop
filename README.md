@@ -31,6 +31,9 @@ RADIO_LIVE=1 go test -run Live ./internal/directory  # 真实 API 冒烟
 RADIO_LIVE=1 RADIO_LIVE_URL=https://example.com/stream go test -run Live ./internal/icy  # ICY 流冒烟
 bun run test         # 前端播放状态、HLS 网络加载与界面行为测试（vitest）
 bun run typecheck    # 前端类型检查
+RADIO_AUDIO_TEST=1 CGO_ENABLED=0 go test ./internal/audio  # Linux 音量隔离配置检查
+uv run --no-project tools/test-audio-isolation.py  # Linux 真实 WebView 音频隔离回归
+uv run --no-project tools/test-audio-isolation.py --server pulseaudio  # 普通 PulseAudio 对照
 ```
 
 ## 构建
@@ -40,7 +43,18 @@ bun run build                              # 当前平台（macOS 产出 .app �
 go tool mygo build -platform linux/amd64   # 交叉编译 Linux
 ```
 
-Linux 产物在 `build/linux-amd64/`：可执行文件、`.desktop`、tar.gz（含用户级 `install.sh`）和 `.deb`（依赖自动安装 `libwebkit2gtk-4.1-0` 与 `libgtk-3-0`）。Linux 运行需要 WebKitGTK 4.1（deb/tar.gz 之外的手动安装：Debian/Ubuntu `apt install libwebkit2gtk-4.1-0 libgtk-3-0`，Fedora `dnf install webkit2gtk4.1 gtk3`）。
+Linux 产物在 `build/linux-amd64/`：可执行文件、`.desktop`、tar.gz（含用户级 `install.sh`）和 `.deb`。Linux 需要 WebKitGTK 4.1、GTK 3 和 libpulse；`.deb` 和 `install.sh` 已声明这些依赖。手动安装依赖：
+
+```sh
+# Debian / Ubuntu
+sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0 libpulse0
+# Fedora
+sudo dnf install webkit2gtk4.1 gtk3 pulseaudio-libs
+```
+
+Linux 为 WebKit 的 PulseAudio 客户端设置独立的音量恢复标识，并让 WirePlumber 跳过该客户端的音量保存和恢复。应用音量仍由自己的设置管理，淡入淡出、暂停、零音量或异常退出不会再覆盖共享的 Music 角色音量，避免影响 mpv 等播放器。该设置仅作用于本应用及其 WebView 子进程。
+
+真实音频回归需要 Go、Bun、FFmpeg、mpv、PipeWire、WirePlumber 0.5+、`pactl` / `parec`、`dbus-daemon` 和图形会话（无显示器时使用 `xvfb-run`）。测试会创建独立的音频服务、状态目录和虚拟声卡，使用本地生成的音频验证 MP3、AAC、HLS、暂停、零音量及异常退出，不连接物理声卡或公网电台。
 
 数据目录：macOS `~/Library/Application Support/radio-desktop/`，Linux `~/.config/radio-desktop/`（内含 `radio.db`）。
 

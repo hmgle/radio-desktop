@@ -38,7 +38,9 @@ jobs:
           fi
       - run: go vet ./...
       - run: go tool mygo vet .
-      - run: go test ./internal/...
+      - name: Install audio isolation dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpulse0
+      - run: RADIO_AUDIO_TEST=1 go test ./internal/...
       - name: Check generated bindings
         run: |
           go tool mygo generate

@@ -17,6 +17,9 @@
     }
   },
   "linux": {
+    "depends": [
+      "libpulse0"
+    ],
     "comment": "桌面网络电台播放器",
     "categories": [
       "AudioVideo",

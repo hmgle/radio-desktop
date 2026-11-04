@@ -8,6 +8,7 @@ package main
 import (
 	_ "embed"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/egoist/mygo/plugins/fetch"
 
 	"radio-desktop/internal/app"
+	"radio-desktop/internal/audio"
 	"radio-desktop/internal/directory"
 	"radio-desktop/internal/store"
 	"radio-desktop/locales"
@@ -29,6 +31,13 @@ var trayTemplatePNG []byte
 func main() {
 	if !mygo.App.RequestSingleInstanceLock() {
 		return // a second launch forwarded to the running instance
+	}
+	// Binding generation runs main without opening a WebView and must work
+	// on build machines that have no native audio libraries installed.
+	if os.Getenv("MYGO_GENERATE") == "" {
+		if err := audio.Prepare(); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	dataDir, err := mygo.App.Path(mygo.PathUserData)
