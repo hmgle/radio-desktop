@@ -12,21 +12,23 @@ import (
 // Settings contains the listener's persistent preferences. Volume stays in
 // its existing preference so upgrades retain the last listening level.
 type Settings struct {
-	Language      string `json:"language"`
-	Appearance    string `json:"appearance"`
-	Resume        string `json:"resume"`
-	AutoSyncDays  int    `json:"autoSyncDays"`
-	CloseBehavior string `json:"closeBehavior"`
+	Language           string `json:"language"`
+	Appearance         string `json:"appearance"`
+	Resume             string `json:"resume"`
+	AutoSyncDays       int    `json:"autoSyncDays"`
+	CloseBehavior      string `json:"closeBehavior"`
+	PlaybackAnimations bool   `json:"playbackAnimations"`
 }
 
 // SettingsPatch changes only supplied fields, avoiding lost updates when
 // different controls save in quick succession.
 type SettingsPatch struct {
-	Language      *string `json:"language,omitempty"`
-	Appearance    *string `json:"appearance,omitempty"`
-	Resume        *string `json:"resume,omitempty"`
-	AutoSyncDays  *int    `json:"autoSyncDays,omitempty"`
-	CloseBehavior *string `json:"closeBehavior,omitempty"`
+	Language           *string `json:"language,omitempty"`
+	Appearance         *string `json:"appearance,omitempty"`
+	Resume             *string `json:"resume,omitempty"`
+	AutoSyncDays       *int    `json:"autoSyncDays,omitempty"`
+	CloseBehavior      *string `json:"closeBehavior,omitempty"`
+	PlaybackAnimations *bool   `json:"playbackAnimations,omitempty"`
 }
 
 type savedSettings struct {
@@ -112,6 +114,9 @@ func (s *Service) UpdateSettings(p SettingsPatch) (Settings, error) {
 	}
 	if p.CloseBehavior != nil {
 		next.CloseBehavior = *p.CloseBehavior
+	}
+	if p.PlaybackAnimations != nil {
+		next.PlaybackAnimations = *p.PlaybackAnimations
 	}
 	if err := next.validate(); err != nil {
 		return s.settings, err

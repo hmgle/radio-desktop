@@ -1165,6 +1165,46 @@ func (msgs Messages) AppearanceHint() string {
 	return Catalog.Format(msgs.locale, "appearanceHint", nil)
 }
 
+// PlaybackAnimations says "Playback animation"
+// in the language the app shows.
+func PlaybackAnimations() string { return In(i18n.Locale()).PlaybackAnimations() }
+
+// PlaybackAnimations says "Playback animation"
+// in the language of msgs.
+func (msgs Messages) PlaybackAnimations() string {
+	return Catalog.Format(msgs.locale, "playbackAnimations", nil)
+}
+
+// PlaybackAnimationsHint says "Animate the playback indicators. Turn off to reduce CPU use."
+// in the language the app shows.
+func PlaybackAnimationsHint() string { return In(i18n.Locale()).PlaybackAnimationsHint() }
+
+// PlaybackAnimationsHint says "Animate the playback indicators. Turn off to reduce CPU use."
+// in the language of msgs.
+func (msgs Messages) PlaybackAnimationsHint() string {
+	return Catalog.Format(msgs.locale, "playbackAnimationsHint", nil)
+}
+
+// PlaybackAnimationsOff says "Off (lower CPU use)"
+// in the language the app shows.
+func PlaybackAnimationsOff() string { return In(i18n.Locale()).PlaybackAnimationsOff() }
+
+// PlaybackAnimationsOff says "Off (lower CPU use)"
+// in the language of msgs.
+func (msgs Messages) PlaybackAnimationsOff() string {
+	return Catalog.Format(msgs.locale, "playbackAnimationsOff", nil)
+}
+
+// PlaybackAnimationsOn says "On"
+// in the language the app shows.
+func PlaybackAnimationsOn() string { return In(i18n.Locale()).PlaybackAnimationsOn() }
+
+// PlaybackAnimationsOn says "On"
+// in the language of msgs.
+func (msgs Messages) PlaybackAnimationsOn() string {
+	return Catalog.Format(msgs.locale, "playbackAnimationsOn", nil)
+}
+
 // Saving says "Saving…"
 // in the language the app shows.
 func Saving() string { return In(i18n.Locale()).Saving() }

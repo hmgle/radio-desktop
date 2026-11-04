@@ -456,6 +456,22 @@ export interface Messages {
    */
   appearanceHint(): string;
   /**
+   * `Playback animation`
+   */
+  playbackAnimations(): string;
+  /**
+   * `Animate the playback indicators. Turn off to reduce CPU use.`
+   */
+  playbackAnimationsHint(): string;
+  /**
+   * `Off (lower CPU use)`
+   */
+  playbackAnimationsOff(): string;
+  /**
+   * `On`
+   */
+  playbackAnimationsOn(): string;
+  /**
    * `Saving…`
    */
   saving(): string;
@@ -814,6 +830,10 @@ const catalog = createCatalog<Messages>({
     "uiLanguage": [],
     "languageHint": [],
     "appearanceHint": [],
+    "playbackAnimations": [],
+    "playbackAnimationsHint": [],
+    "playbackAnimationsOff": [],
+    "playbackAnimationsOn": [],
     "saving": [],
     "saveFailed": [],
     "invalidSettings": [],
@@ -989,6 +1009,10 @@ const catalog = createCatalog<Messages>({
       "uiLanguage": "Interface language",
       "languageHint": "Applies to the interface, menus and tray immediately.",
       "appearanceHint": "Follow your system or always use a light or dark theme.",
+      "playbackAnimations": "Playback animation",
+      "playbackAnimationsHint": "Animate the playback indicators. Turn off to reduce CPU use.",
+      "playbackAnimationsOff": "Off (lower CPU use)",
+      "playbackAnimationsOn": "On",
       "saving": "Saving…",
       "saveFailed": "Could not save. Your settings were kept. Please retry.",
       "invalidSettings": "Invalid setting value.",
@@ -1163,6 +1187,10 @@ const catalog = createCatalog<Messages>({
       "uiLanguage": "界面语言",
       "languageHint": "立即应用于界面、菜单和托盘。",
       "appearanceHint": "跟随系统，或始终使用浅色、深色外观。",
+      "playbackAnimations": "播放动效",
+      "playbackAnimationsHint": "让播放状态图标动态变化。关闭可减少 CPU 占用。",
+      "playbackAnimationsOff": "关闭（更低开销）",
+      "playbackAnimationsOn": "开启",
       "saving": "正在保存…",
       "saveFailed": "保存失败，设置未更改。请重试。",
       "invalidSettings": "设置值无效",

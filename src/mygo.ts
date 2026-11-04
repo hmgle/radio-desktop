@@ -66,6 +66,7 @@ export interface Settings {
   resume: string;
   autoSyncDays: number;
   closeBehavior: string;
+  playbackAnimations: boolean;
 }
 
 /**
@@ -78,6 +79,7 @@ export interface SettingsPatch {
   resume?: string;
   autoSyncDays?: number;
   closeBehavior?: string;
+  playbackAnimations?: boolean;
 }
 
 /**

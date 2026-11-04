@@ -41,15 +41,7 @@ export function CountryFlag({ code, className = "" }: { code?: string; className
   );
 }
 
-export function EqBars({ className = "" }: { className?: string }) {
-  return (
-    <span className={`inline-flex h-3 items-end gap-[2px] ${className}`}>
-      <span className="eq-bar block h-3 w-[3px] rounded-sm bg-[var(--accent)]" />
-      <span className="eq-bar block h-3 w-[3px] rounded-sm bg-[var(--accent)]" />
-      <span className="eq-bar block h-3 w-[3px] rounded-sm bg-[var(--accent)]" />
-    </span>
-  );
-}
+export { EqBars } from "./EqBars";
 
 /** Radio note icon shown when a station has no favicon. */
 export function RadioIcon({ className = "" }: { className?: string }) {

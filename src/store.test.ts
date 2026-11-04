@@ -3,7 +3,7 @@ import type { SearchResult, Station } from "./mygo";
 
 vi.mock("./player", () => ({ player: { setVolume: vi.fn(), arm: vi.fn(), stop: vi.fn(), toggle: vi.fn(), play: vi.fn() } }));
 vi.mock("./mygo", () => ({
-  Service: { search: vi.fn(), getStatus: vi.fn(), getSleepTimer: vi.fn().mockResolvedValue({ deadline: 0, generation: 0, expired: false }), setSleepTimer: vi.fn(), getPlayInfo: vi.fn(), setLastSource: vi.fn().mockResolvedValue(undefined), getSettings: vi.fn().mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide" }), reportPlaybackState: vi.fn(), playStation: vi.fn(), playURL: vi.fn(), setVolume: vi.fn().mockResolvedValue(undefined) },
+  Service: { search: vi.fn(), getStatus: vi.fn(), getSleepTimer: vi.fn().mockResolvedValue({ deadline: 0, generation: 0, expired: false }), setSleepTimer: vi.fn(), getPlayInfo: vi.fn(), setLastSource: vi.fn().mockResolvedValue(undefined), getSettings: vi.fn().mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide", playbackAnimations: false }), reportPlaybackState: vi.fn(), playStation: vi.fn(), playURL: vi.fn(), setVolume: vi.fn().mockResolvedValue(undefined) },
   events: Object.fromEntries(["mediaCommand", "uiCommand", "icyMeta", "syncProgress", "syncDone", "settingsChanged", "sleepTimerChanged"].map((name) => [name, { on: vi.fn() }])),
 }));
 
@@ -195,7 +195,7 @@ it.each(["off", "selection", "play"])("restores startup mode %s", async (resume)
   const { Service } = await import("./mygo");
   const { player } = await import("./player");
   const { useRadio } = await import("./store");
-  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume, autoSyncDays: 7, closeBehavior: "hide" });
+  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume, autoSyncDays: 7, closeBehavior: "hide", playbackAnimations: false });
   vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "favorites", lastStationUUID: "last", lastSyncAt: 0, catalogSize: 1, syncing: false });
   const station = { stationuuid: "last", name: "Last" } as Station;
   vi.mocked(Service.getPlayInfo).mockResolvedValue({ station, candidates: ["https://test/stream"], sessionId: 0 });
@@ -213,7 +213,7 @@ it("does not arm an old startup selection after the listener stops", async () =>
   const { Service } = await import("./mygo");
   const { player } = await import("./player");
   const { useRadio } = await import("./store");
-  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide" });
+  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide", playbackAnimations: false });
   vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "all", lastStationUUID: "last", lastSyncAt: 0, catalogSize: 1, syncing: false });
   const info = deferred<Awaited<ReturnType<typeof Service.getPlayInfo>>>();
   vi.mocked(Service.getPlayInfo).mockReturnValue(info.promise);

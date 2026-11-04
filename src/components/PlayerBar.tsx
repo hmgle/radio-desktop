@@ -34,9 +34,7 @@ function CoverArt(props: { artwork?: string; favicon?: string; playing: boolean 
       )}
       {playing && (
         <span className="absolute inset-x-0 bottom-0 flex h-3.5 items-end justify-center gap-[2px] bg-gradient-to-t from-black/60 to-transparent pb-0.5">
-          <span className="eq-bar block h-2 w-[2px] rounded-sm bg-white" />
-          <span className="eq-bar block h-2 w-[2px] rounded-sm bg-white" />
-          <span className="eq-bar block h-2 w-[2px] rounded-sm bg-white" />
+          <EqBars compact />
         </span>
       )}
     </div>

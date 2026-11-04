@@ -67,6 +67,52 @@ func TestSettingsMissingFieldsAndCorruption(t *testing.T) {
 	}
 }
 
+func TestPlaybackAnimationPreferenceUpgradeAndPersistence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "radio.db")
+	st, err := store.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Existing preferences have no animation field. Upgrades keep the
+	// listener's preferences and use static indicators by default.
+	if err := st.SetMeta("pref_settings", `{"version":1,"appearance":"dark","autoSyncDays":0}`); err != nil {
+		t.Fatal(err)
+	}
+	s := New(st, nil)
+	if got := s.GetSettings(); got.PlaybackAnimations || got.Appearance != "dark" || got.AutoSyncDays != 0 {
+		t.Fatalf("upgraded settings = %+v", got)
+	}
+	enabled := true
+	if _, err := s.UpdateSettings(SettingsPatch{PlaybackAnimations: &enabled}); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	st, err = store.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s = New(st, nil)
+	if !s.GetSettings().PlaybackAnimations {
+		t.Fatal("lost animation preference after restart")
+	}
+	disabled := false
+	got, err := s.UpdateSettings(SettingsPatch{PlaybackAnimations: &disabled})
+	if err != nil || got.PlaybackAnimations || got.Appearance != "dark" || got.AutoSyncDays != 0 {
+		t.Fatalf("disable animations = %+v, %v", got, err)
+	}
+	if loadSettings(st).PlaybackAnimations {
+		t.Fatal("explicit false patch was not persisted")
+	}
+	st.Close()
+	if _, err := s.UpdateSettings(SettingsPatch{PlaybackAnimations: &enabled}); err == nil {
+		t.Fatal("accepted a failed write")
+	}
+	if s.GetSettings().PlaybackAnimations {
+		t.Fatal("failed write changed the active preference")
+	}
+}
+
 func TestStartupSyncPolicy(t *testing.T) {
 	now := time.Now()
 	for _, tc := range []struct {

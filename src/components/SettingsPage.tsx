@@ -54,6 +54,11 @@ export function SettingsPage() {
               <option value="system">{m.system()}</option><option value="light">{m.light()}</option><option value="dark">{m.dark()}</option>
             </select>
           </SettingsRow>
+          <SettingsRow label={m.playbackAnimations()} hint={m.playbackAnimationsHint()}>
+            <select aria-label={m.playbackAnimations()} className={settingsControl} value={String(value.playbackAnimations)} onChange={(e) => void update({ playbackAnimations: e.target.value === "true" })}>
+              <option value="false">{m.playbackAnimationsOff()}</option><option value="true">{m.playbackAnimationsOn()}</option>
+            </select>
+          </SettingsRow>
         </SettingsGroup>
         <SettingsGroup title={m.playbackGroup()}>
           <SettingsRow label={m.sleepTimer()} hint={m.sleepHint()}><SleepTimerControl /></SettingsRow>
