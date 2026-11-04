@@ -56,8 +56,8 @@ it("keeps the country label and selection accessible in a facet with a decorativ
   const label = "A country with a very long descriptive name";
   vi.mocked(Service.countries).mockResolvedValue([{ value: "UG", label, count: 12 }]);
   const onChange = vi.fn();
-  render(<FacetSelect kind="country" label="国家" value="" onChange={onChange} />);
-  fireEvent.click(screen.getByRole("button", { name: "国家" }));
+  render(<FacetSelect kind="country" label="国家/地区" value="" onChange={onChange} />);
+  fireEvent.click(screen.getByRole("button", { name: "国家/地区" }));
   const option = await screen.findByRole("button", { name: new RegExp(label) });
   expect(option.querySelector("img")).not.toBeNull();
   fireEvent.click(option);
