@@ -63,6 +63,39 @@ describe("radio store", () => {
     expect(events.uiCommand.on).toHaveBeenCalledTimes(1);
   });
 
+  it("exposes search failures and preserves rows when a later page fails", async () => {
+    const { Service } = await import("./mygo");
+    const { useRadio } = await import("./store");
+    vi.mocked(Service.search).mockRejectedValueOnce(new Error("Database busy"));
+    await useRadio.getState().refresh();
+    expect(useRadio.getState().searchError).toContain("Database busy");
+    expect(useRadio.getState().loading).toBe(false);
+    vi.mocked(Service.search).mockResolvedValueOnce({ items: [{ name: "first" } as Station], total: 2 });
+    await useRadio.getState().refresh();
+    expect(useRadio.getState().searchError).toBe("");
+    vi.mocked(Service.search).mockRejectedValueOnce(new Error("Page failed"));
+    await useRadio.getState().loadMore();
+    expect(useRadio.getState().items.map((s) => s.name)).toEqual(["first"]);
+    expect(useRadio.getState().searchError).toContain("Page failed");
+    vi.mocked(Service.search).mockResolvedValueOnce({ items: [{ name: "second" } as Station], total: 2 });
+    await useRadio.getState().loadMore();
+    expect(useRadio.getState().searchError).toBe("");
+    expect(useRadio.getState().items.map((s) => s.name)).toEqual(["first", "second"]);
+  });
+
+  it("clears a pending search and all facets in a single request", async () => {
+    vi.useFakeTimers();
+    const { Service } = await import("./mygo");
+    const { useRadio } = await import("./store");
+    vi.mocked(Service.search).mockResolvedValue({ items: [], total: 0 });
+    useRadio.setState({ country: "DE", language: "german", tag: "news", minBitrate: 128 });
+    useRadio.getState().setQuery("Berlin");
+    useRadio.getState().clearSearch();
+    await vi.advanceTimersByTimeAsync(250);
+    expect(Service.search).toHaveBeenCalledTimes(1);
+    expect(Service.search).toHaveBeenCalledWith(expect.objectContaining({ query: "", country: "", language: "", tag: "", minBitrate: 0 }));
+  });
+
   it("rejects stale metadata and clears an empty track title", async () => {
     const { Service, events } = await import("./mygo");
     const { useRadio } = await import("./store");

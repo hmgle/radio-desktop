@@ -23,6 +23,7 @@ interface RadioState {
   total: number;
   loading: boolean;
   loadingMore: boolean;
+  searchError: string;
 
   // app status
   status: Status | null;
@@ -53,6 +54,7 @@ interface RadioState {
   handleUICommand: (action: string) => void;
   setSource: (s: Source) => void;
   setQuery: (q: string) => void;
+  clearSearch: () => void;
   setFilter: (patch: Partial<Pick<RadioState, "country" | "language" | "tag" | "minBitrate" | "sort">>) => void;
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
@@ -133,6 +135,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   total: 0,
   loading: false,
   loadingMore: false,
+  searchError: "",
 
   status: null,
   syncProgress: null,
@@ -239,10 +242,17 @@ export const useRadio = create<RadioState>((set, get) => ({
     void get().refresh();
   },
 
+  clearSearch: () => {
+    restoreSeq++;
+    if (searchTimer) clearTimeout(searchTimer);
+    set({ query: "", country: "", language: "", tag: "", minBitrate: 0 });
+    void get().refresh();
+  },
+
   refresh: async () => {
     const seq = ++searchSeq;
     const s = get();
-    set({ loading: true, loadingMore: false, items: [], total: 0 });
+    set({ loading: true, loadingMore: false, searchError: "", items: [], total: 0 });
     try {
       const res = await Service.search({
         query: s.query,
@@ -257,7 +267,7 @@ export const useRadio = create<RadioState>((set, get) => ({
       });
       if (seq === searchSeq) set({ items: res.items, total: res.total, loading: false });
     } catch (e) {
-      if (seq === searchSeq) set({ loading: false });
+      if (seq === searchSeq) set({ loading: false, searchError: String(e) });
       console.error("search failed", e);
     }
   },
@@ -266,7 +276,7 @@ export const useRadio = create<RadioState>((set, get) => ({
     const s = get();
     if (s.loading || s.loadingMore || s.items.length >= s.total) return;
     const seq = searchSeq;
-    set({ loadingMore: true });
+    set({ loadingMore: true, searchError: "" });
     try {
       const res = await Service.search({
         query: s.query,
@@ -281,7 +291,7 @@ export const useRadio = create<RadioState>((set, get) => ({
       });
       if (seq === searchSeq) set((st) => ({ items: [...st.items, ...res.items], loadingMore: false }));
     } catch (e) {
-      if (seq === searchSeq) set({ loadingMore: false });
+      if (seq === searchSeq) set({ loadingMore: false, searchError: String(e) });
       console.error("loadMore failed", e);
     }
   },

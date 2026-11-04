@@ -60,6 +60,26 @@ export interface Messages {
    */
   searchCustom(): string;
   /**
+   * `Clear search`
+   */
+  clearSearch(): string;
+  /**
+   * `Clear search and filters`
+   */
+  resetSearch(): string;
+  /**
+   * `Could not load stations. Please retry.`
+   */
+  searchFailed(): string;
+  /**
+   * `Retry`
+   */
+  retry(): string;
+  /**
+   * `Sort order`
+   */
+  sortOrder(): string;
+  /**
    * `Country`
    */
   country(): string;
@@ -695,6 +715,11 @@ const catalog = createCatalog<Messages>({
     "searchFavorites": [],
     "searchHistory": [],
     "searchCustom": [],
+    "clearSearch": [],
+    "resetSearch": [],
+    "searchFailed": [],
+    "retry": [],
+    "sortOrder": [],
     "country": [],
     "language": [],
     "tag": [],
@@ -865,6 +890,11 @@ const catalog = createCatalog<Messages>({
       "searchFavorites": "Search favorites…",
       "searchHistory": "Search history…",
       "searchCustom": "Search my stations…",
+      "clearSearch": "Clear search",
+      "resetSearch": "Clear search and filters",
+      "searchFailed": "Could not load stations. Please retry.",
+      "retry": "Retry",
+      "sortOrder": "Sort order",
       "country": "Country",
       "language": "Language",
       "tag": "Tag",
@@ -1034,6 +1064,11 @@ const catalog = createCatalog<Messages>({
       "searchFavorites": "在收藏中搜索…",
       "searchHistory": "在最近播放中搜索…",
       "searchCustom": "在我的电台中搜索…",
+      "clearSearch": "清空搜索",
+      "resetSearch": "清空搜索与筛选",
+      "searchFailed": "无法加载电台，请重试。",
+      "retry": "重试",
+      "sortOrder": "排序方式",
       "country": "国家/地区",
       "language": "语言",
       "tag": "标签",

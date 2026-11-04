@@ -175,6 +175,56 @@ func (msgs Messages) SearchCustom() string {
 	return Catalog.Format(msgs.locale, "searchCustom", nil)
 }
 
+// ClearSearch says "Clear search"
+// in the language the app shows.
+func ClearSearch() string { return In(i18n.Locale()).ClearSearch() }
+
+// ClearSearch says "Clear search"
+// in the language of msgs.
+func (msgs Messages) ClearSearch() string {
+	return Catalog.Format(msgs.locale, "clearSearch", nil)
+}
+
+// ResetSearch says "Clear search and filters"
+// in the language the app shows.
+func ResetSearch() string { return In(i18n.Locale()).ResetSearch() }
+
+// ResetSearch says "Clear search and filters"
+// in the language of msgs.
+func (msgs Messages) ResetSearch() string {
+	return Catalog.Format(msgs.locale, "resetSearch", nil)
+}
+
+// SearchFailed says "Could not load stations. Please retry."
+// in the language the app shows.
+func SearchFailed() string { return In(i18n.Locale()).SearchFailed() }
+
+// SearchFailed says "Could not load stations. Please retry."
+// in the language of msgs.
+func (msgs Messages) SearchFailed() string {
+	return Catalog.Format(msgs.locale, "searchFailed", nil)
+}
+
+// Retry says "Retry"
+// in the language the app shows.
+func Retry() string { return In(i18n.Locale()).Retry() }
+
+// Retry says "Retry"
+// in the language of msgs.
+func (msgs Messages) Retry() string {
+	return Catalog.Format(msgs.locale, "retry", nil)
+}
+
+// SortOrder says "Sort order"
+// in the language the app shows.
+func SortOrder() string { return In(i18n.Locale()).SortOrder() }
+
+// SortOrder says "Sort order"
+// in the language of msgs.
+func (msgs Messages) SortOrder() string {
+	return Catalog.Format(msgs.locale, "sortOrder", nil)
+}
+
 // Country says "Country"
 // in the language the app shows.
 func Country() string { return In(i18n.Locale()).Country() }

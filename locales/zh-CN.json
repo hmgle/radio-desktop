@@ -1,5 +1,10 @@
 {
   "@@locale": "zh-CN",
+  "clearSearch": "清空搜索",
+  "resetSearch": "清空搜索与筛选",
+  "searchFailed": "无法加载电台，请重试。",
+  "retry": "重试",
+  "sortOrder": "排序方式",
   "errorDetails": "错误详情",
   "all": "全部电台",
   "favorite": "收藏",

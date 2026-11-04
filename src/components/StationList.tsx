@@ -5,6 +5,7 @@ import { useRadio } from "../store";
 import type { Station } from "../mygo";
 import { Service } from "../mygo";
 import { EqBars, HeartIcon, RadioIcon, CountryFlag } from "./ui";
+import { ErrorDetails } from "./ErrorDetails";
 
 function StationRow(props: { station: Station; selected: boolean }) {
   const { station, selected } = props;
@@ -125,6 +126,9 @@ export function StationList() {
   const tag = useRadio((s) => s.tag);
   const minBitrate = useRadio((s) => s.minBitrate);
   const sort = useRadio((s) => s.sort);
+  const searchError = useRadio((s) => s.searchError);
+  const clearSearch = useRadio((s) => s.clearSearch);
+  const filtered = !!(query || country || language || tag || minBitrate);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [selectedIdx, setSelectedIdx] = useState(-1);
@@ -162,7 +166,7 @@ export function StationList() {
   const hasItems = !loading && items.length > 0;
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || !hasItems || items.length >= total) return;
+    if (!el || !hasItems || items.length >= total || searchError) return;
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) void loadMore();
@@ -171,7 +175,7 @@ export function StationList() {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [loadMore, hasItems, items.length, total]);
+  }, [loadMore, hasItems, items.length, total, searchError]);
 
   const emptyHint =
     source === "all"
@@ -188,7 +192,8 @@ export function StationList() {
       tabIndex={0}
       onKeyDown={onKey}
       aria-label={m.stationList()}
-      className="flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent)]/30"
+      aria-busy={loading || loadingMore}
+      className="min-h-0 flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent)]/30"
     >
       {loading ? (
         <div className="flex flex-col gap-2 px-0">
@@ -196,17 +201,17 @@ export function StationList() {
             <div key={i} className="h-14 animate-pulse rounded-xl bg-neutral-200/60 dark:bg-neutral-800/60" />
           ))}
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && !searchError ? (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
           <RadioIcon className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
-          <p className="max-w-64 text-xs leading-relaxed text-neutral-400">{emptyHint}</p>
-          {source === "all" && (
+          <p role="status" className="max-w-64 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">{filtered ? m.noMatches() : emptyHint}</p>
+          {(filtered || source === "all") && (
             <button
               type="button"
-              onClick={() => void refresh()}
+              onClick={() => filtered ? clearSearch() : void refresh()}
               className="rounded-lg border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
-              {m.refresh()}
+              {filtered ? m.resetSearch() : m.refresh()}
             </button>
           )}
         </div>
@@ -216,15 +221,20 @@ export function StationList() {
             <StationRow key={st.stationuuid} station={st} selected={i === selectedIdx} />
           ))}
           <div ref={sentinelRef} className="h-4" />
-          <p className="py-2 text-center text-[11px] text-neutral-400">
+          {!searchError && <p className="py-2 text-center text-[11px] text-neutral-400">
             {loadingMore
               ? m.loading()
               : items.length >= total
                 ? m.stations(total)
                 : m.shown(items.length, total)}
-          </p>
+          </p>}
         </div>
       )}
+      {searchError && <div role="alert" className="my-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+        <p>{m.searchFailed()}</p>
+        <ErrorDetails error={searchError} />
+        <button type="button" onClick={() => void (items.length ? loadMore() : refresh())} className="mt-3 rounded-lg border border-current px-3 py-1.5 text-xs hover:bg-red-100 dark:hover:bg-red-900/30">{m.retry()}</button>
+      </div>}
     </div>
   );
 }

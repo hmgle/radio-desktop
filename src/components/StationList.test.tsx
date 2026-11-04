@@ -23,7 +23,9 @@ beforeEach(() => {
   vi.stubGlobal("CSS", { escape: (value: string) => value });
   Element.prototype.scrollIntoView = vi.fn();
   useRadio.setState({ items: [], total: 0, loading: false, loadingMore: false,
+    query: "", country: "", language: "", tag: "", minBitrate: 0, searchError: "",
     loadMore: vi.fn().mockResolvedValue(undefined), playStation: vi.fn().mockResolvedValue(undefined),
+    refresh: vi.fn().mockResolvedValue(undefined), clearSearch: vi.fn(),
     toggleFavorite: vi.fn().mockResolvedValue(undefined) });
 });
 
@@ -63,4 +65,26 @@ it("shows local flag artwork beside the station's country label", () => {
   expect(row.querySelectorAll('img[alt=""]')).toHaveLength(1);
   expect(row.textContent).toContain("Germany");
   expect(row.innerHTML).not.toMatch(/[\u{1F1E6}-\u{1F1FF}]/u);
+});
+
+// Failed searches used to look like an empty catalog, without a retry action.
+it("retries a failed search and clears active filters from an empty result", () => {
+  useRadio.setState({ searchError: "SQLite unavailable" });
+  render(<StationList />);
+  expect(screen.getByRole("alert").textContent).toContain("SQLite unavailable");
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(useRadio.getState().refresh).toHaveBeenCalledOnce();
+  act(() => useRadio.setState({ searchError: "", query: "missing" }));
+  fireEvent.click(screen.getByRole("button", { name: "Clear search and filters" }));
+  expect(useRadio.getState().clearSearch).toHaveBeenCalledOnce();
+});
+
+it("retries a failed page without losing rows or automatically fetching again", () => {
+  useRadio.setState({ searchError: "Page failed", items: [station("a")], total: 2 });
+  render(<StationList />);
+  expect(screen.getByText("a")).toBeTruthy();
+  expect(observers).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(useRadio.getState().loadMore).toHaveBeenCalledOnce();
+  expect(useRadio.getState().refresh).not.toHaveBeenCalled();
 });
