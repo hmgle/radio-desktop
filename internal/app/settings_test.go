@@ -17,6 +17,9 @@ func TestSettingsDefaultsValidationAndPersistence(t *testing.T) {
 	if s.GetSettings() != defaultSettings() {
 		t.Fatal("unexpected defaults")
 	}
+	if !s.GetSettings().PlaybackAnimations {
+		t.Fatal("new installations should enable playback animations")
+	}
 	dark, invalid := "dark", "invalid"
 	next, err := s.UpdateSettings(SettingsPatch{Appearance: &dark})
 	if err != nil || next.Appearance != dark || next.Language != "system" {
@@ -74,12 +77,12 @@ func TestPlaybackAnimationPreferenceUpgradeAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Existing preferences have no animation field. Upgrades keep the
-	// listener's preferences and use static indicators by default.
+	// listener's preferences and enable low-frequency motion by default.
 	if err := st.SetMeta("pref_settings", `{"version":1,"appearance":"dark","autoSyncDays":0}`); err != nil {
 		t.Fatal(err)
 	}
 	s := New(st, nil)
-	if got := s.GetSettings(); got.PlaybackAnimations || got.Appearance != "dark" || got.AutoSyncDays != 0 {
+	if got := s.GetSettings(); !got.PlaybackAnimations || got.Appearance != "dark" || got.AutoSyncDays != 0 {
 		t.Fatalf("upgraded settings = %+v", got)
 	}
 	enabled := true

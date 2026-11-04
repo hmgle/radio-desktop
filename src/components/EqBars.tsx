@@ -3,10 +3,10 @@ import { observePlaybackAnimation } from "../playback-animation";
 import { useSettings } from "../settings";
 import { useRadio } from "../store";
 
-/** Decorative playback indicator; static unless the listener enables motion. */
+/** Decorative playback indicator with optional low-frequency motion. */
 export function EqBars({ className = "", compact = false }: { className?: string; compact?: boolean }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const enabled = useSettings((s) => s.value.playbackAnimations);
+  const enabled = useSettings((s) => s.ready && s.value.playbackAnimations);
   const obscured = useRadio((s) => s.nowPlayingOpen || s.dialog !== null);
   useEffect(() => {
     const element = ref.current;

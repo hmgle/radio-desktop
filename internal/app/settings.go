@@ -39,7 +39,7 @@ type savedSettings struct {
 var EventSettingsChanged = mygo.NewEvent[Settings]("settingsChanged")
 
 func defaultSettings() Settings {
-	return Settings{Language: "system", Appearance: "system", Resume: "selection", AutoSyncDays: 7, CloseBehavior: "hide"}
+	return Settings{Language: "system", Appearance: "system", Resume: "selection", AutoSyncDays: 7, CloseBehavior: "hide", PlaybackAnimations: true}
 }
 
 func loadSettings(st *store.Store) Settings {

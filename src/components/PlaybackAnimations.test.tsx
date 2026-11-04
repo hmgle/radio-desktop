@@ -31,21 +31,30 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-it("keeps all playback indicators static by default and applies the saved setting immediately", async () => {
+it("enables low-frequency motion by default and applies the saved setting immediately", async () => {
   const { container } = render(<><PlayerBar /><SettingsPage /></>);
   const control = screen.getByRole("combobox", { name: "Playback animation" }) as HTMLSelectElement;
-  expect(control.value).toBe("false");
+  expect(control.value).toBe("true");
   expect(container.querySelectorAll(".eq-bars")).toHaveLength(2);
-  expect(vi.getTimerCount()).toBe(0);
-  vi.mocked(Service.updateSettings).mockResolvedValueOnce({ ...defaultSettings, playbackAnimations: true });
-  await act(async () => { fireEvent.change(control, { target: { value: "true" } }); });
-  expect(Service.updateSettings).toHaveBeenLastCalledWith({ playbackAnimations: true });
   expect(vi.getTimerCount()).toBe(1);
   act(() => vi.advanceTimersByTime(250));
   expect(container.querySelectorAll(".eq-bars[data-frame]")).toHaveLength(2);
-  vi.mocked(Service.updateSettings).mockResolvedValueOnce(defaultSettings);
+  vi.mocked(Service.updateSettings).mockResolvedValueOnce({ ...defaultSettings, playbackAnimations: false });
   await act(async () => { fireEvent.change(control, { target: { value: "false" } }); });
   expect(Service.updateSettings).toHaveBeenLastCalledWith({ playbackAnimations: false });
+  expect(vi.getTimerCount()).toBe(0);
+  expect(container.querySelectorAll(".eq-bars[data-frame]")).toHaveLength(0);
+  vi.mocked(Service.updateSettings).mockResolvedValueOnce(defaultSettings);
+  await act(async () => { fireEvent.change(control, { target: { value: "true" } }); });
+  expect(Service.updateSettings).toHaveBeenLastCalledWith({ playbackAnimations: true });
+  expect(vi.getTimerCount()).toBe(1);
+});
+
+it("waits for saved preferences before animating and preserves a saved off preference", () => {
+  useSettings.setState({ ready: false });
+  const { container } = render(<PlayerBar />);
+  expect(vi.getTimerCount()).toBe(0);
+  act(() => useSettings.setState({ ready: true, value: { ...defaultSettings, playbackAnimations: false } }));
   expect(vi.getTimerCount()).toBe(0);
   expect(container.querySelectorAll(".eq-bars[data-frame]")).toHaveLength(0);
 });
@@ -54,10 +63,10 @@ it("keeps the previous animation preference after a save failure", async () => {
   render(<><PlayerBar /><SettingsPage /></>);
   vi.mocked(Service.updateSettings).mockRejectedValueOnce(new Error("disk full"));
   await act(async () => {
-    fireEvent.change(screen.getByRole("combobox", { name: "Playback animation" }), { target: { value: "true" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Playback animation" }), { target: { value: "false" } });
   });
-  expect(useSettings.getState().value.playbackAnimations).toBe(false);
-  expect(vi.getTimerCount()).toBe(0);
+  expect(useSettings.getState().value.playbackAnimations).toBe(true);
+  expect(vi.getTimerCount()).toBe(1);
   expect(screen.getByRole("alert").textContent).toContain("Could not save");
 });
 
