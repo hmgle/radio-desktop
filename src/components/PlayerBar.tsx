@@ -65,8 +65,9 @@ export function PlayerBar() {
       <button
         type="button"
         onClick={() => openNowPlaying(true)}
+        disabled={disabled}
         title={m.viewArtwork()}
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-1 py-1 text-left transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-1 py-1 text-left transition-colors hover:bg-neutral-200/40 disabled:cursor-default disabled:hover:bg-transparent dark:hover:bg-neutral-800/40"
       >
         <CoverArt
           artwork={playing || playState === "connecting" ? artworkUrl : ""}
@@ -76,7 +77,7 @@ export function PlayerBar() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             {playing && <EqBars className="shrink-0" />}
-            <p className="truncate text-sm font-medium">
+            <p title={station?.name} className="truncate text-sm font-medium">
               {station?.name || m.noStation()}
               {station?.countrycode && (
                 <span className="ml-1.5 text-[11px] font-normal text-neutral-400">
@@ -134,6 +135,10 @@ export function PlayerBar() {
               <path d="M8 5.5v13a.6.6 0 0 0 .92.5l10.2-6.5a.6.6 0 0 0 0-1L8.92 5A.6.6 0 0 0 8 5.5z" />
             </svg>
           )}
+        </button>
+
+        <button type="button" onClick={() => useRadio.getState().handleUICommand("stop")} disabled={disabled || playState === "idle" || playState === "ready"} aria-label={m.stop()} title={m.stop()} className="rounded-full p-2 text-neutral-500 hover:bg-neutral-200 disabled:opacity-30 dark:hover:bg-neutral-800">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
         </button>
 
         {/* Volume */}
