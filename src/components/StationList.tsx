@@ -55,7 +55,7 @@ function StationRow(props: { station: Station; selected: boolean }) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm ${active ? "font-medium text-[var(--accent)]" : ""}`}>
+        <p title={station.name} className={`truncate text-sm ${active ? "font-medium text-[var(--accent)]" : ""}`}>
           {station.name}
         </p>
         <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
@@ -86,7 +86,7 @@ function StationRow(props: { station: Station; selected: boolean }) {
         className={`shrink-0 rounded-lg p-1.5 transition-colors ${
           station.favorite
             ? "text-[var(--accent)]"
-            : "text-neutral-300 opacity-0 hover:text-neutral-500 group-hover:opacity-100 dark:text-neutral-600 dark:hover:text-neutral-300"
+            : "text-neutral-400 opacity-0 hover:text-neutral-600 group-hover:opacity-100 group-focus-within:opacity-100 dark:text-neutral-500 dark:hover:text-neutral-300"
         }`}
         title={station.favorite ? m.unfavorite() : m.favorite()}
       >
@@ -105,7 +105,7 @@ function StationRow(props: { station: Station; selected: boolean }) {
               console.error("remove custom station failed", err);
             }
           }}
-          className="shrink-0 rounded-lg p-1.5 text-neutral-300 opacity-0 transition-colors hover:text-red-500 group-hover:opacity-100 dark:text-neutral-600"
+          className="shrink-0 rounded-lg p-1.5 text-neutral-400 opacity-0 transition-colors hover:text-red-500 group-hover:opacity-100 group-focus-within:opacity-100 dark:text-neutral-500"
           title={m.removeCustom()}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">

@@ -26,46 +26,49 @@ export function Sidebar(props: {
   const syncing = !!syncProgress || !!status?.syncing;
 
   return (
-    <aside className="flex w-44 shrink-0 flex-col border-r border-neutral-200 bg-white/60 dark:border-neutral-800 dark:bg-neutral-900/40">
-      <nav className="flex flex-col gap-0.5 p-2 pt-3">
-        {SOURCES.map((s) => (
+    <aside className="flex min-h-0 w-44 shrink-0 flex-col border-r border-neutral-200 bg-white/60 dark:border-neutral-800 dark:bg-neutral-900/40">
+      <div className="sidebar-navigation min-h-0 flex-1 overflow-y-auto">
+        <nav className="flex flex-col gap-0.5 p-2 pt-3">
+          {SOURCES.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setSource(s.key)}
+              aria-current={!settingsOpen && source === s.key ? "page" : undefined}
+              className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                !settingsOpen && source === s.key
+                  ? "bg-[var(--accent)]/10 font-medium text-[var(--accent)]"
+                  : "text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              }`}
+            >
+              <span aria-hidden="true" className="w-5 text-center text-sm">{s.icon}</span>
+              {s.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-actions mt-1 flex flex-col gap-1 border-t border-neutral-200 p-2 dark:border-neutral-800">
           <button
-            key={s.key}
             type="button"
-            onClick={() => setSource(s.key)}
-            className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-              !settingsOpen && source === s.key
-                ? "bg-[var(--accent)]/10 font-medium text-[var(--accent)]"
-                : "text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
-            }`}
+            onClick={props.onAddStation}
+            className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
           >
-            <span className="w-5 text-center text-sm">{s.icon}</span>
-            {s.label}
+            <span className="w-5 text-center">＋</span>
+            {m.addStation()}
           </button>
-        ))}
-      </nav>
+          <button
+            type="button"
+            onClick={props.onPlayURL}
+            className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            <span className="w-5 text-center">▶</span>
+            {m.playLink()}
+          </button>
+        </div>
 
-      <div className="mt-1 flex flex-col gap-1 border-t border-neutral-200 p-2 dark:border-neutral-800">
-        <button
-          type="button"
-          onClick={props.onAddStation}
-          className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
-        >
-          <span className="w-5 text-center">＋</span>
-          {m.addStation()}
-        </button>
-        <button
-          type="button"
-          onClick={props.onPlayURL}
-          className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
-        >
-          <span className="w-5 text-center">▶</span>
-          {m.playLink()}
-        </button>
+        <button type="button" onClick={() => useRadio.getState().openSettings(true)} aria-current={settingsOpen ? "page" : undefined} className={`sidebar-settings mx-2 mb-3 block w-[calc(100%_-_1rem)] rounded-lg px-2.5 py-2 text-left text-sm ${settingsOpen ? "bg-[var(--accent)]/10 font-medium text-[var(--accent)]" : "text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"}`}>⚙ {m.settings()}</button>
       </div>
-
-      <button type="button" onClick={() => useRadio.getState().openSettings(true)} aria-current={settingsOpen ? "page" : undefined} className={`mx-2 mb-3 rounded-lg px-2.5 py-2 text-left text-sm ${settingsOpen ? "bg-[var(--accent)]/10 font-medium text-[var(--accent)]" : "text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"}`}>⚙ {m.settings()}</button>
-      <div className="mt-auto border-t border-neutral-200 p-3 text-[11px] leading-relaxed text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+      <div className="shrink-0 break-words border-t border-neutral-200 p-3 text-[11px] leading-relaxed text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
         {syncProgress ? (
           <p className="text-[var(--accent)]">
             {m.syncProgress(syncProgress.accepted)}

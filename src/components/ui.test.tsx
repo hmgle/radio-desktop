@@ -63,3 +63,42 @@ it("keeps the country label and selection accessible in a facet with a decorativ
   fireEvent.click(option);
   expect(onChange).toHaveBeenCalledWith("UG", label);
 });
+
+// Keyboard selection used to leave focus in the removed popup.
+it("navigates facet options with arrows and returns focus on selection or Escape", async () => {
+  vi.mocked(Service.countries).mockResolvedValue([
+    { value: "DE", label: "Germany", count: 2 },
+    { value: "UG", label: "Uganda", count: 1 },
+  ]);
+  const onChange = vi.fn();
+  render(<FacetSelect kind="country" label="Country" value="" onChange={onChange} />);
+  const trigger = screen.getByRole("button", { name: "Country" });
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: "ArrowDown" });
+  const first = await screen.findByRole("button", { name: /Germany/ });
+  const search = screen.getByRole("textbox");
+  expect(document.activeElement).toBe(search);
+  fireEvent.keyDown(search, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(first);
+  fireEvent.keyDown(first, { key: "ArrowDown" });
+  const second = screen.getByRole("button", { name: /Uganda/ });
+  expect(document.activeElement).toBe(second);
+  fireEvent.click(second);
+  expect(onChange).toHaveBeenCalledWith("UG", "Uganda");
+  expect(document.activeElement).toBe(trigger);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(trigger);
+  fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+  expect(document.activeElement).toBe(trigger);
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("closes a facet when focus tabs out without pulling focus back", async () => {
+  vi.mocked(Service.countries).mockResolvedValue([]);
+  render(<><FacetSelect kind="country" label="Country" value="" onChange={() => {}} /><button>Next</button></>);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  const next = screen.getByRole("button", { name: "Next" });
+  next.focus();
+  expect(document.activeElement).toBe(next);
+  await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});

@@ -1,5 +1,5 @@
 import { messages as m } from "../locales";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Service } from "../mygo";
 import type { Facet } from "../mygo";
 import { countryFlagUrl } from "../flags";
@@ -87,6 +87,13 @@ export function FacetSelect(props: {
   const [failed, setFailed] = useState(false);
   const [prefix, setPrefix] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelId = useId();
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -117,7 +124,11 @@ export function FacetSelect(props: {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -130,26 +141,47 @@ export function FacetSelect(props: {
   const shown = facets ?? [];
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative" onBlur={(e) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+    }} onKeyDown={(e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || !["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+      if (!open) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setOpen(true); }
+        return;
+      }
+      if ((e.key === "Home" || e.key === "End") && e.target instanceof HTMLInputElement) return;
+      const options = [...(panelRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
+      if (!options.length) return;
+      e.preventDefault();
+      const index = options.indexOf(document.activeElement as HTMLButtonElement);
+      const next = e.key === "Home" ? 0 : e.key === "End" ? options.length - 1 : e.key === "ArrowDown" ? (index + 1) % options.length : (index <= 0 ? options.length : index) - 1;
+      options[next]?.focus();
+    }}>
       <button
+        ref={triggerRef}
         type="button"
+        aria-label={value ? `${label}: ${display || value}` : label}
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        aria-haspopup="dialog"
         onClick={() => setOpen((o) => !o)}
-        className={`flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs transition-colors ${
+        className={`flex h-8 max-w-48 items-center gap-1 rounded-lg border px-2.5 text-xs transition-colors ${
           value
             ? "border-[var(--accent)]/50 bg-[var(--accent)]/10 text-[var(--accent)]"
             : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
         }`}
       >
-        {value ? display || value : label}
-        <svg viewBox="0 0 16 16" className="h-3 w-3 opacity-60" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <span className="truncate">{value ? display || value : label}</span>
+        <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0 opacity-60" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M4 6l4 4 4-4" strokeLinecap="round" />
         </svg>
       </button>
       {open && (
-        <div className="absolute top-9 left-0 z-30 flex max-h-80 w-64 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+        <div ref={panelRef} id={panelId} role="dialog" aria-label={label} className="absolute top-9 left-0 z-30 flex max-h-[min(20rem,calc(100vh-15rem))] w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
           <div className="border-b border-neutral-100 p-2 dark:border-neutral-800">
             <input
               autoFocus
+              aria-label={m.searchFacet(label)}
               value={prefix}
               onChange={(e) => setPrefix(e.target.value)}
               placeholder={m.searchFacet(label)}
@@ -170,7 +202,7 @@ export function FacetSelect(props: {
                   type="button"
                   onClick={() => {
                     onChange(f.value, f.label);
-                    setOpen(false);
+                    close();
                   }}
                   className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
                     f.value === value ? "font-medium text-[var(--accent)]" : ""
@@ -190,7 +222,7 @@ export function FacetSelect(props: {
               type="button"
               onClick={() => {
                 onChange("", "");
-                setOpen(false);
+                close();
               }}
               className="border-t border-neutral-100 py-1.5 text-center text-xs text-neutral-500 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
             >

@@ -77,6 +77,7 @@ export function AddStationDialog(props: { onClose: () => void }) {
         <input
           autoFocus
           required
+          aria-label={m.stationName()}
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={m.stationName()}
@@ -84,12 +85,14 @@ export function AddStationDialog(props: { onClose: () => void }) {
         />
         <input
           required
+          aria-label={m.streamURL()}
           value={url}
           onChange={(e) => setURL(e.target.value)}
           placeholder={m.streamURL()}
           className={inputClass}
         />
         <input
+          aria-label={m.homepage()}
           value={homepage}
           onChange={(e) => setHomepage(e.target.value)}
           placeholder={m.homepage()}
@@ -138,6 +141,7 @@ export function PlayURLDialog(props: { onClose: () => void }) {
         <input
           autoFocus
           required
+          aria-label={m.streamAddress()}
           value={url}
           onChange={(e) => setURL(e.target.value)}
           placeholder="https://example.com/live.mp3"
