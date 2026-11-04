@@ -289,7 +289,12 @@ func ParseBlock(block []byte) map[string]string {
 			next = j + sep
 		}
 		if key != "" {
-			m[key] = cleanTitle(val)
+			if key == "StreamTitle" {
+				m[key] = cleanTitle(val)
+			} else {
+				// Encoding repair is for display text, never URL values.
+				m[key] = cleanText(string(val))
+			}
 		}
 		// Resume at the attribute after the next ';'.
 		semi := bytes.IndexByte(block[next:], ';')
@@ -360,23 +365,4 @@ func looksLikeImageURL(u string) bool {
 func httpURL(raw string) bool {
 	u, err := url.Parse(raw)
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
-}
-
-// cleanTitle strips control characters and whitespace noise and caps the
-// length, mirroring radio-cli's clean_text.
-func cleanTitle(b []byte) string {
-	out := make([]byte, 0, len(b))
-	for _, c := range b {
-		switch {
-		case c < 0x20 || c == 0x7f:
-			// drop
-		default:
-			out = append(out, c)
-		}
-	}
-	s := strings.TrimSpace(string(out))
-	if len(s) > 1024 {
-		s = s[:1024]
-	}
-	return s
 }
