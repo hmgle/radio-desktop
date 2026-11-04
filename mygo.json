@@ -2,6 +2,7 @@
   "name": "radio-desktop",
   "identifier": "com.hmgle.radio-desktop",
   "version": "0.1.0",
+  "icon": "resources/icon.png",
   "devUrl": "http://localhost:5173",
   "devCommand": "bun run dev:web",
   "buildCommand": "bun run build:web",

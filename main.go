@@ -23,6 +23,9 @@ import (
 //go:embed resources/tray.png
 var trayIconPNG []byte
 
+//go:embed resources/tray-template.png
+var trayTemplatePNG []byte
+
 func main() {
 	if !mygo.App.RequestSingleInstanceLock() {
 		return // a second launch forwarded to the running instance
@@ -177,9 +180,9 @@ func setMenuBar(svc *app.Service) {
 
 // newTray adds the menu-bar icon whose menu mirrors what plays.
 func newTray(svc *app.Service) *mygo.Tray {
-	icon, template := trayIconPNG, true
-	if runtime.GOOS != "darwin" {
-		template = false
+	icon, template := trayIconPNG, false
+	if runtime.GOOS == "darwin" {
+		icon, template = trayTemplatePNG, true
 	}
 	tray, err := mygo.NewTray(mygo.TrayOptions{
 		ID:             "main",

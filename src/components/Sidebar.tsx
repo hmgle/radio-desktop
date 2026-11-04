@@ -1,6 +1,7 @@
 import { errorText } from "../i18n";
 import { messages as m } from "../locales";
 import { useRadio, type Source } from "../store";
+import logo from "../../resources/icon.svg";
 
 
 export function Sidebar(props: {
@@ -27,6 +28,10 @@ export function Sidebar(props: {
 
   return (
     <aside className="flex w-44 shrink-0 flex-col border-r border-neutral-200 bg-white/60 dark:border-neutral-800 dark:bg-neutral-900/40">
+      <div className="flex items-center gap-2 px-3 pb-2 pt-4">
+        <img src={logo} alt="" className="h-8 w-8 shrink-0" />
+        <span className="text-xs font-semibold tracking-tight">Radio Desktop</span>
+      </div>
       <nav className="flex flex-col gap-0.5 p-2">
         {SOURCES.map((s) => (
           <button
