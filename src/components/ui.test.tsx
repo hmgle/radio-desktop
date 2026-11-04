@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { CountryFlag, FacetSelect } from "./ui";
 import { Service } from "../mygo";
@@ -138,6 +138,16 @@ it("still closes a facet when the pointer presses outside it", async () => {
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
+// The null-relatedTarget exemption only covers a press in flight; a real focus
+// loss (window deactivation, tabbing out of the document) must still close.
+it("closes a facet when focus leaves without a press inside it", async () => {
+  vi.mocked(Service.countries).mockResolvedValue([]);
+  render(<FacetSelect kind="country" label="Country" value="" onChange={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  fireEvent.focusOut(screen.getByRole("textbox"), { relatedTarget: null });
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
 // Typing used to blank the list for the debounce window plus one round trip,
 // so the first press after typing landed on the loading placeholder and only
 // the second press hit a row that existed again.
@@ -158,4 +168,63 @@ it("keeps the previous options on screen while a new prefix loads", async () => 
   resolvePrefix([{ value: "GR", label: "Greece", count: 4 }]);
   await screen.findByRole("button", { name: /Greece/ }, { timeout: 3000 });
   expect(screen.queryByRole("button", { name: /Germany/ })).toBeNull();
+});
+
+// A result that lands between press and release used to replace the pressed
+// row, so the click was dispatched at nothing and the popup just stayed open.
+it("holds the pressed option until its click is delivered", async () => {
+  let resolveNext: (rows: Facet[]) => void = () => {};
+  vi.mocked(Service.countries)
+    .mockResolvedValueOnce([
+      { value: "DE", label: "Germany", count: 2 },
+      { value: "GR", label: "Greece", count: 4 },
+    ])
+    .mockImplementationOnce(() => new Promise<Facet[]>((resolve) => { resolveNext = resolve; }));
+
+  const onChange = vi.fn();
+  render(<FacetSelect kind="country" label="Country" value="" onChange={onChange} />);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  const germany = await screen.findByRole("button", { name: /Germany/ }, { timeout: 3000 });
+
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "gr" } });
+  await vi.waitFor(() => expect(Service.countries).toHaveBeenCalledTimes(2), { timeout: 3000 });
+
+  fireEvent.mouseDown(germany);
+  resolveNext([{ value: "FR", label: "France", count: 1 }]);
+  // Let the in-flight request settle while the button is still pressed.
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.queryByRole("button", { name: /Germany/ })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: /France/ })).toBeNull();
+
+  fireEvent.pointerUp(germany);
+  fireEvent.click(germany);
+  expect(onChange).toHaveBeenCalledWith("DE", "Germany");
+});
+
+// Dropping the focused option left activeElement on <body>, so the arrow keys
+// and Enter stopped working until the popup was reopened.
+it("returns focus to the search box when the focused option disappears", async () => {
+  let resolveNext: (rows: Facet[]) => void = () => {};
+  vi.mocked(Service.countries)
+    .mockResolvedValueOnce([
+      { value: "DE", label: "Germany", count: 2 },
+      { value: "GR", label: "Greece", count: 4 },
+    ])
+    .mockImplementationOnce(() => new Promise<Facet[]>((resolve) => { resolveNext = resolve; }));
+
+  render(<FacetSelect kind="country" label="Country" value="" onChange={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  const search = screen.getByRole("textbox");
+  const germany = await screen.findByRole("button", { name: /Germany/ }, { timeout: 3000 });
+  fireEvent.keyDown(search, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(germany);
+
+  fireEvent.change(search, { target: { value: "fr" } });
+  await vi.waitFor(() => expect(Service.countries).toHaveBeenCalledTimes(2), { timeout: 3000 });
+  resolveNext([{ value: "FR", label: "France", count: 1 }]);
+  await screen.findByRole("button", { name: /France/ }, { timeout: 3000 });
+
+  expect(document.activeElement).toBe(search);
+  fireEvent.keyDown(search, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: /France/ }));
 });
