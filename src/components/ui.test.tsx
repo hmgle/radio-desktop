@@ -102,3 +102,37 @@ it("closes a facet when focus tabs out without pulling focus back", async () => 
   expect(document.activeElement).toBe(next);
   await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
+
+// macOS WebKit gives no focus to a clicked <button> (webkit.org/b/229895), so
+// pressing an option blurs the search box with relatedTarget === null. Closing
+// on that blur unmounted the option before its click was dispatched, which made
+// every option look unresponsive on macOS only.
+it("selects an option when the platform drops focus on mousedown", async () => {
+  vi.mocked(Service.countries).mockResolvedValue([
+    { value: "DE", label: "Germany", count: 2 },
+    { value: "CN", label: "China", count: 7 },
+  ]);
+  const onChange = vi.fn();
+  render(<FacetSelect kind="country" label="Country" value="" onChange={onChange} />);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  const search = screen.getByRole("textbox");
+  const option = await screen.findByRole("button", { name: /Germany/ });
+  expect(document.activeElement).toBe(search);
+
+  fireEvent.mouseDown(option);
+  fireEvent.focusOut(search, { relatedTarget: null });
+  expect(screen.queryByRole("dialog")).not.toBeNull();
+
+  fireEvent.click(option);
+  expect(onChange).toHaveBeenCalledWith("DE", "Germany");
+  expect(onChange).toHaveBeenCalledTimes(1);
+});
+
+it("still closes a facet when the pointer presses outside it", async () => {
+  vi.mocked(Service.countries).mockResolvedValue([]);
+  render(<FacetSelect kind="country" label="Country" value="" onChange={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  expect(screen.queryByRole("dialog")).not.toBeNull();
+  fireEvent.mouseDown(document.body);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});

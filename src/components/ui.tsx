@@ -134,7 +134,13 @@ export function FacetSelect(props: {
 
   return (
     <div ref={rootRef} className="relative" onBlur={(e) => {
-      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+      // A null relatedTarget is not a focus move away: macOS WebKit does not
+      // give <button> focus on click, so pressing an option drops focus to the
+      // document (webkit.org/b/229895). Closing here would unmount the option
+      // before its click is dispatched, so let the pointer path below decide.
+      const next = e.relatedTarget as Node | null;
+      if (!next) return;
+      if (!e.currentTarget.contains(next)) setOpen(false);
     }} onKeyDown={(e) => {
       if (e.altKey || e.ctrlKey || e.metaKey || !["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
       if (!open) {
@@ -192,6 +198,9 @@ export function FacetSelect(props: {
                 <button
                   key={f.value}
                   type="button"
+                  // Keep the search box focused while pressing an option, so the
+                  // prefix and the keyboard position survive the click.
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     onChange(f.value, f.label);
                     close();
@@ -212,6 +221,7 @@ export function FacetSelect(props: {
           {value && (
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 onChange("", "");
                 close();
