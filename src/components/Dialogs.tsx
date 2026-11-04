@@ -31,7 +31,7 @@ export function Modal(props: { title: string; onClose: () => void; children: Rea
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
+      className="fixed inset-x-0 bottom-0 top-[var(--app-titlebar-height)] z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) props.onClose();
       }}

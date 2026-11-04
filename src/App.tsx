@@ -10,6 +10,7 @@ import { StationList } from "./components/StationList";
 import { PlayerBar } from "./components/PlayerBar";
 import { AddStationDialog, PlayURLDialog } from "./components/Dialogs";
 import { NowPlayingLayer } from "./components/NowPlayingLayer";
+import { TitleBar } from "./components/TitleBar";
 
 export default function App() {
   useLocale();
@@ -97,6 +98,7 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
+      <TitleBar />
       <div className="flex min-h-0 flex-1">
         <Sidebar onAddStation={() => openDialog("add")} onPlayURL={() => openDialog("url")} />
         <main className="flex min-w-0 flex-1 flex-col">

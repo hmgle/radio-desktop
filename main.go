@@ -68,11 +68,14 @@ func main() {
 		applySettings(svc.GetSettings())
 		svc.OnSettingsChange = func(v app.Settings) { mygo.RunOnMain(func() { applySettings(svc.GetSettings()) }) }
 		win := mygo.NewWindow(mygo.WindowOptions{
-			Title:           "Radio Desktop",
-			Width:           1000,
-			Height:          680,
-			MinWidth:        840,
-			MinHeight:       560,
+			Title:     "Radio Desktop",
+			Width:     1000,
+			Height:    680,
+			MinWidth:  840,
+			MinHeight: 560,
+			// Keep native controls even when the window manager draws no title bar.
+			TitleBarStyle:   mygo.TitleBarHidden,
+			TitleBarHeight:  40,
 			BackgroundColor: "light-dark(#f6f7f9, #0f1115)",
 			StateKey:        "main",
 			URL:             "/",
