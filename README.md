@@ -39,6 +39,7 @@ uv run --no-project tools/test-audio-isolation.py --server pulseaudio  # 普通 
 ## 构建
 
 ```sh
+bun install --frozen-lockfile               # 首次构建或依赖变更后安装前端依赖
 bun run build                              # 当前平台（macOS 产出 .app 与 .dmg）
 go tool mygo build -platform linux/amd64   # 交叉编译 Linux
 ```
