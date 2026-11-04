@@ -17,6 +17,18 @@ describe("radio store", () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
   afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+  it("dismisses station details before opening another modal, including menu commands", async () => {
+    const { useRadio } = await import("./store");
+    for (const action of [() => useRadio.getState().openDialog("add"),
+      () => useRadio.getState().handleUICommand("add"),
+      () => useRadio.getState().handleUICommand("playURL")]) {
+      useRadio.setState({ nowPlayingOpen: true, dialog: null });
+      action();
+      expect(useRadio.getState().nowPlayingOpen).toBe(false);
+      expect(useRadio.getState().dialog).not.toBeNull();
+    }
+  });
+
   it("ignores stale search and pagination responses", async () => {
     const { Service } = await import("./mygo");
     const { useRadio } = await import("./store");

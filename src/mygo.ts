@@ -155,6 +155,13 @@ export const Service = {
   clearHistory(): Promise<void> {
     return call("Service.ClearHistory");
   },
+  /**
+   * CopyText uses the native clipboard, including on webviews without the
+   * browser Clipboard API.
+   */
+  copyText(text: string): Promise<void> {
+    return call("Service.CopyText", text);
+  },
   /** Countries lists country facets for the filter dropdown. */
   countries(prefix: string): Promise<Facet[]> {
     return call("Service.Countries", prefix);
@@ -196,6 +203,10 @@ export const Service = {
   /** Languages lists language facets for the filter dropdown. */
   languages(prefix: string): Promise<Facet[]> {
     return call("Service.Languages", prefix);
+  },
+  /** OpenHomepage opens station links in the default browser. */
+  openHomepage(rawURL: string): Promise<void> {
+    return call("Service.OpenHomepage", rawURL);
   },
   /**
    * PlayStation selects a station for playback: the ICY sidecar starts and

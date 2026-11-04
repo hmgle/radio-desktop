@@ -159,7 +159,7 @@ export const useRadio = create<RadioState>((set, get) => ({
   artworkUrl: "",
   volume: 80,
 
-  openDialog: (dialog) => set({ dialog }),
+  openDialog: (dialog) => set((s) => ({ dialog, nowPlayingOpen: dialog ? false : s.nowPlayingOpen })),
 
   openNowPlaying: (nowPlayingOpen) => set({ nowPlayingOpen }),
 
@@ -209,10 +209,10 @@ export const useRadio = create<RadioState>((set, get) => ({
         set({ sessionId: 0 });
         break;
       case "add":
-        set({ dialog: "add" });
+        s.openDialog("add");
         break;
       case "playURL":
-        set({ dialog: "url" });
+        s.openDialog("url");
         break;
     }
   },

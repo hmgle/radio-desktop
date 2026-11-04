@@ -5,7 +5,7 @@ import { Service } from "../mygo";
 import { useRadio } from "../store";
 
 /** Modal shell with a keyboard focus trap and focus restoration. */
-export function Modal(props: { title: string; onClose: () => void; children: React.ReactNode }) {
+export function Modal(props: { title: string; onClose: () => void; children: React.ReactNode; className?: string }) {
   const previousFocus = useRef(document.activeElement as HTMLElement | null);
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ export function Modal(props: { title: string; onClose: () => void; children: Rea
         if (e.target === e.currentTarget) props.onClose();
       }}
     >
-      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="w-88 max-w-[calc(100vw-2rem)] rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={props.className ?? "w-88 max-w-[calc(100vw-2rem)] rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900"}>
         <h2 id={titleId} className="mb-3 text-sm font-semibold">{props.title}</h2>
         {props.children}
       </div>

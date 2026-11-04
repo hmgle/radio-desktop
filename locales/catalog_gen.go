@@ -425,11 +425,11 @@ func (msgs Messages) Failed() string {
 	return Catalog.Format(msgs.locale, "failed", nil)
 }
 
-// ViewArtwork says "Now playing"
+// ViewArtwork says "View station details"
 // in the language the app shows.
 func ViewArtwork() string { return In(i18n.Locale()).ViewArtwork() }
 
-// ViewArtwork says "Now playing"
+// ViewArtwork says "View station details"
 // in the language of msgs.
 func (msgs Messages) ViewArtwork() string {
 	return Catalog.Format(msgs.locale, "viewArtwork", nil)
@@ -1345,11 +1345,11 @@ func (msgs Messages) ShortcutList() string {
 	return Catalog.Format(msgs.locale, "shortcutList", nil)
 }
 
-// ShortcutEsc says "Close dialog or Now Playing"
+// ShortcutEsc says "Close dialog or station details"
 // in the language the app shows.
 func ShortcutEsc() string { return In(i18n.Locale()).ShortcutEsc() }
 
-// ShortcutEsc says "Close dialog or Now Playing"
+// ShortcutEsc says "Close dialog or station details"
 // in the language of msgs.
 func (msgs Messages) ShortcutEsc() string {
 	return Catalog.Format(msgs.locale, "shortcutEsc", nil)
@@ -1495,4 +1495,214 @@ func ClearHistoryFailed() string { return In(i18n.Locale()).ClearHistoryFailed()
 // in the language of msgs.
 func (msgs Messages) ClearHistoryFailed() string {
 	return Catalog.Format(msgs.locale, "clearHistoryFailed", nil)
+}
+
+// StationDetails says "Station details"
+// in the language the app shows.
+func StationDetails() string { return In(i18n.Locale()).StationDetails() }
+
+// StationDetails says "Station details"
+// in the language of msgs.
+func (msgs Messages) StationDetails() string {
+	return Catalog.Format(msgs.locale, "stationDetails", nil)
+}
+
+// NowPlaying says "Now playing"
+// in the language the app shows.
+func NowPlaying() string { return In(i18n.Locale()).NowPlaying() }
+
+// NowPlaying says "Now playing"
+// in the language of msgs.
+func (msgs Messages) NowPlaying() string {
+	return Catalog.Format(msgs.locale, "nowPlaying", nil)
+}
+
+// Playing says "Playing"
+// in the language the app shows.
+func Playing() string { return In(i18n.Locale()).Playing() }
+
+// Playing says "Playing"
+// in the language of msgs.
+func (msgs Messages) Playing() string {
+	return Catalog.Format(msgs.locale, "playing", nil)
+}
+
+// Paused says "Paused"
+// in the language the app shows.
+func Paused() string { return In(i18n.Locale()).Paused() }
+
+// Paused says "Paused"
+// in the language of msgs.
+func (msgs Messages) Paused() string {
+	return Catalog.Format(msgs.locale, "paused", nil)
+}
+
+// NoTrackInfo says "No track information provided"
+// in the language the app shows.
+func NoTrackInfo() string { return In(i18n.Locale()).NoTrackInfo() }
+
+// NoTrackInfo says "No track information provided"
+// in the language of msgs.
+func (msgs Messages) NoTrackInfo() string {
+	return Catalog.Format(msgs.locale, "noTrackInfo", nil)
+}
+
+// StationInfo says "About this station"
+// in the language the app shows.
+func StationInfo() string { return In(i18n.Locale()).StationInfo() }
+
+// StationInfo says "About this station"
+// in the language of msgs.
+func (msgs Messages) StationInfo() string {
+	return Catalog.Format(msgs.locale, "stationInfo", nil)
+}
+
+// Region says "Region"
+// in the language the app shows.
+func Region() string { return In(i18n.Locale()).Region() }
+
+// Region says "Region"
+// in the language of msgs.
+func (msgs Messages) Region() string {
+	return Catalog.Format(msgs.locale, "region", nil)
+}
+
+// AudioFormat says "Audio format"
+// in the language the app shows.
+func AudioFormat() string { return In(i18n.Locale()).AudioFormat() }
+
+// AudioFormat says "Audio format"
+// in the language of msgs.
+func (msgs Messages) AudioFormat() string {
+	return Catalog.Format(msgs.locale, "audioFormat", nil)
+}
+
+// Bitrate says "Bitrate"
+// in the language the app shows.
+func Bitrate() string { return In(i18n.Locale()).Bitrate() }
+
+// Bitrate says "Bitrate"
+// in the language of msgs.
+func (msgs Messages) Bitrate() string {
+	return Catalog.Format(msgs.locale, "bitrate", nil)
+}
+
+// Unknown says "Not provided"
+// in the language the app shows.
+func Unknown() string { return In(i18n.Locale()).Unknown() }
+
+// Unknown says "Not provided"
+// in the language of msgs.
+func (msgs Messages) Unknown() string {
+	return Catalog.Format(msgs.locale, "unknown", nil)
+}
+
+// Tags says "Tags"
+// in the language the app shows.
+func Tags() string { return In(i18n.Locale()).Tags() }
+
+// Tags says "Tags"
+// in the language of msgs.
+func (msgs Messages) Tags() string {
+	return Catalog.Format(msgs.locale, "tags", nil)
+}
+
+// NoTags says "No tags provided"
+// in the language the app shows.
+func NoTags() string { return In(i18n.Locale()).NoTags() }
+
+// NoTags says "No tags provided"
+// in the language of msgs.
+func (msgs Messages) NoTags() string {
+	return Catalog.Format(msgs.locale, "noTags", nil)
+}
+
+// StreamAddress says "Stream address"
+// in the language the app shows.
+func StreamAddress() string { return In(i18n.Locale()).StreamAddress() }
+
+// StreamAddress says "Stream address"
+// in the language of msgs.
+func (msgs Messages) StreamAddress() string {
+	return Catalog.Format(msgs.locale, "streamAddress", nil)
+}
+
+// OriginalStreamAddress says "Original stream address"
+// in the language the app shows.
+func OriginalStreamAddress() string { return In(i18n.Locale()).OriginalStreamAddress() }
+
+// OriginalStreamAddress says "Original stream address"
+// in the language of msgs.
+func (msgs Messages) OriginalStreamAddress() string {
+	return Catalog.Format(msgs.locale, "originalStreamAddress", nil)
+}
+
+// StationHomepage says "Station homepage"
+// in the language the app shows.
+func StationHomepage() string { return In(i18n.Locale()).StationHomepage() }
+
+// StationHomepage says "Station homepage"
+// in the language of msgs.
+func (msgs Messages) StationHomepage() string {
+	return Catalog.Format(msgs.locale, "stationHomepage", nil)
+}
+
+// Copy says "Copy"
+// in the language the app shows.
+func Copy() string { return In(i18n.Locale()).Copy() }
+
+// Copy says "Copy"
+// in the language of msgs.
+func (msgs Messages) Copy() string {
+	return Catalog.Format(msgs.locale, "copy", nil)
+}
+
+// Copied says "Copied"
+// in the language the app shows.
+func Copied() string { return In(i18n.Locale()).Copied() }
+
+// Copied says "Copied"
+// in the language of msgs.
+func (msgs Messages) Copied() string {
+	return Catalog.Format(msgs.locale, "copied", nil)
+}
+
+// CopyFailed says "Could not copy. Select the address to copy it manually."
+// in the language the app shows.
+func CopyFailed() string { return In(i18n.Locale()).CopyFailed() }
+
+// CopyFailed says "Could not copy. Select the address to copy it manually."
+// in the language of msgs.
+func (msgs Messages) CopyFailed() string {
+	return Catalog.Format(msgs.locale, "copyFailed", nil)
+}
+
+// OpenHomepage says "Open homepage"
+// in the language the app shows.
+func OpenHomepage() string { return In(i18n.Locale()).OpenHomepage() }
+
+// OpenHomepage says "Open homepage"
+// in the language of msgs.
+func (msgs Messages) OpenHomepage() string {
+	return Catalog.Format(msgs.locale, "openHomepage", nil)
+}
+
+// OpenHomepageFailed says "Could not open the homepage. Copy the address and open it in your browser."
+// in the language the app shows.
+func OpenHomepageFailed() string { return In(i18n.Locale()).OpenHomepageFailed() }
+
+// OpenHomepageFailed says "Could not open the homepage. Copy the address and open it in your browser."
+// in the language of msgs.
+func (msgs Messages) OpenHomepageFailed() string {
+	return Catalog.Format(msgs.locale, "openHomepageFailed", nil)
+}
+
+// TemporaryStation says "URL preview"
+// in the language the app shows.
+func TemporaryStation() string { return In(i18n.Locale()).TemporaryStation() }
+
+// TemporaryStation says "URL preview"
+// in the language of msgs.
+func (msgs Messages) TemporaryStation() string {
+	return Catalog.Format(msgs.locale, "temporaryStation", nil)
 }

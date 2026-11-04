@@ -62,12 +62,6 @@ body {
   animation-delay: 0.4s;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .eq-bar, .np-layer, .np-layer-body {
-    animation: none;
-  }
-}
-
 /* Now Playing layer entrance. */
 @keyframes np-in {
   from {
@@ -84,6 +78,12 @@ body {
 }
 .np-layer-body {
   animation: np-in 320ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eq-bar, .np-layer, .np-layer-body {
+    animation: none;
+  }
 }
 
 /* Use explicit media colors as well as color-scheme: older system WebKit

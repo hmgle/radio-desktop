@@ -160,7 +160,7 @@ export interface Messages {
    */
   failed(): string;
   /**
-   * `Now playing`
+   * `View station details`
    */
   viewArtwork(): string;
   /**
@@ -528,7 +528,7 @@ export interface Messages {
    */
   shortcutList(): string;
   /**
-   * `Close dialog or Now Playing`
+   * `Close dialog or station details`
    */
   shortcutEsc(): string;
   /**
@@ -587,6 +587,90 @@ export interface Messages {
    * `Could not clear history. Please retry.`
    */
   clearHistoryFailed(): string;
+  /**
+   * `Station details`
+   */
+  stationDetails(): string;
+  /**
+   * `Now playing`
+   */
+  nowPlaying(): string;
+  /**
+   * `Playing`
+   */
+  playing(): string;
+  /**
+   * `Paused`
+   */
+  paused(): string;
+  /**
+   * `No track information provided`
+   */
+  noTrackInfo(): string;
+  /**
+   * `About this station`
+   */
+  stationInfo(): string;
+  /**
+   * `Region`
+   */
+  region(): string;
+  /**
+   * `Audio format`
+   */
+  audioFormat(): string;
+  /**
+   * `Bitrate`
+   */
+  bitrate(): string;
+  /**
+   * `Not provided`
+   */
+  unknown(): string;
+  /**
+   * `Tags`
+   */
+  tags(): string;
+  /**
+   * `No tags provided`
+   */
+  noTags(): string;
+  /**
+   * `Stream address`
+   */
+  streamAddress(): string;
+  /**
+   * `Original stream address`
+   */
+  originalStreamAddress(): string;
+  /**
+   * `Station homepage`
+   */
+  stationHomepage(): string;
+  /**
+   * `Copy`
+   */
+  copy(): string;
+  /**
+   * `Copied`
+   */
+  copied(): string;
+  /**
+   * `Could not copy. Select the address to copy it manually.`
+   */
+  copyFailed(): string;
+  /**
+   * `Open homepage`
+   */
+  openHomepage(): string;
+  /**
+   * `Could not open the homepage. Copy the address and open it in your browser.`
+   */
+  openHomepageFailed(): string;
+  /**
+   * `URL preview`
+   */
+  temporaryStation(): string;
 }
 
 const catalog = createCatalog<Messages>({
@@ -743,6 +827,27 @@ const catalog = createCatalog<Messages>({
     "clearing": [],
     "historyCleared": [],
     "clearHistoryFailed": [],
+    "stationDetails": [],
+    "nowPlaying": [],
+    "playing": [],
+    "paused": [],
+    "noTrackInfo": [],
+    "stationInfo": [],
+    "region": [],
+    "audioFormat": [],
+    "bitrate": [],
+    "unknown": [],
+    "tags": [],
+    "noTags": [],
+    "streamAddress": [],
+    "originalStreamAddress": [],
+    "stationHomepage": [],
+    "copy": [],
+    "copied": [],
+    "copyFailed": [],
+    "openHomepage": [],
+    "openHomepageFailed": [],
+    "temporaryStation": [],
   },
   messages: {
     "en": {
@@ -785,7 +890,7 @@ const catalog = createCatalog<Messages>({
       "connecting": "Connecting…",
       "ready": "Ready to play",
       "failed": "Playback failed",
-      "viewArtwork": "Now playing",
+      "viewArtwork": "View station details",
       "noStation": "No station selected",
       "unfavorite": "Remove favorite",
       "closeEsc": "Close (Esc)",
@@ -877,7 +982,7 @@ const catalog = createCatalog<Messages>({
       "shortcutURL": "Play URL",
       "shortcutSettings": "Open settings",
       "shortcutList": "Select a station / play selection",
-      "shortcutEsc": "Close dialog or Now Playing",
+      "shortcutEsc": "Close dialog or station details",
       "apply": "Apply",
       "sleepTimer": "Sleep timer",
       "sleepHint": "Stops playback at the deadline, even after switching stations. Resets when you quit.",
@@ -892,6 +997,27 @@ const catalog = createCatalog<Messages>({
       "clearing": "Clearing…",
       "historyCleared": "Listening history cleared.",
       "clearHistoryFailed": "Could not clear history. Please retry.",
+      "stationDetails": "Station details",
+      "nowPlaying": "Now playing",
+      "playing": "Playing",
+      "paused": "Paused",
+      "noTrackInfo": "No track information provided",
+      "stationInfo": "About this station",
+      "region": "Region",
+      "audioFormat": "Audio format",
+      "bitrate": "Bitrate",
+      "unknown": "Not provided",
+      "tags": "Tags",
+      "noTags": "No tags provided",
+      "streamAddress": "Stream address",
+      "originalStreamAddress": "Original stream address",
+      "stationHomepage": "Station homepage",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "Could not copy. Select the address to copy it manually.",
+      "openHomepage": "Open homepage",
+      "openHomepageFailed": "Could not open the homepage. Copy the address and open it in your browser.",
+      "temporaryStation": "URL preview",
     },
     "zh-CN": {
       "errorDetails": "错误详情",
@@ -933,7 +1059,7 @@ const catalog = createCatalog<Messages>({
       "connecting": "正在连接…",
       "ready": "待播放",
       "failed": "播放失败",
-      "viewArtwork": "查看大图",
+      "viewArtwork": "查看电台详情",
       "noStation": "未选择电台",
       "unfavorite": "取消收藏",
       "closeEsc": "关闭 (Esc)",
@@ -1025,7 +1151,7 @@ const catalog = createCatalog<Messages>({
       "shortcutURL": "播放链接",
       "shortcutSettings": "打开设置",
       "shortcutList": "选择电台 / 播放选中项",
-      "shortcutEsc": "关闭弹窗或播放大图",
+      "shortcutEsc": "关闭弹窗或电台详情",
       "apply": "应用",
       "sleepTimer": "睡眠定时",
       "sleepHint": "计时跨切台保留，到期停止播放；退出应用后不保留。",
@@ -1040,6 +1166,27 @@ const catalog = createCatalog<Messages>({
       "clearing": "正在清空…",
       "historyCleared": "播放历史已清空",
       "clearHistoryFailed": "清空失败，请重试。",
+      "stationDetails": "电台详情",
+      "nowPlaying": "正在播放",
+      "playing": "播放中",
+      "paused": "已暂停",
+      "noTrackInfo": "电台暂未提供节目信息",
+      "stationInfo": "关于电台",
+      "region": "地区",
+      "audioFormat": "音频格式",
+      "bitrate": "码率",
+      "unknown": "未提供",
+      "tags": "标签",
+      "noTags": "电台暂未提供标签",
+      "streamAddress": "流地址",
+      "originalStreamAddress": "原始流地址",
+      "stationHomepage": "电台主页",
+      "copy": "复制",
+      "copied": "已复制",
+      "copyFailed": "复制失败，请选中地址手动复制。",
+      "openHomepage": "打开主页",
+      "openHomepageFailed": "无法打开主页，请复制地址后在浏览器中打开。",
+      "temporaryStation": "链接试听",
     },
   },
 });
