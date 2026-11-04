@@ -54,7 +54,7 @@ function StationDetails() {
 
   return (
     <div className="np-layer-body min-h-0 flex-1 overflow-y-auto overscroll-contain pb-8 pt-3">
-      <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[250px_minmax(0,1fr)] lg:gap-12">
+      <div className="mx-auto grid max-w-5xl gap-8 min-[560px]:grid-cols-[200px_minmax(0,1fr)] md:grid-cols-[250px_minmax(0,1fr)] lg:gap-12">
         <section aria-label={m.nowPlaying()} className="flex min-w-0 flex-col items-center gap-5 pt-1">
           <CoverBig artwork={active ? artworkUrl : ""} favicon={station.favicon} />
           <div className="w-full text-center">
