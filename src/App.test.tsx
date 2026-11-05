@@ -1,0 +1,173 @@
+// @vitest-environment jsdom
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import App from "./App";
+import { useRadio } from "./store";
+
+vi.mock("./player", () => ({ player: { stop: vi.fn() } }));
+vi.mock("./mygo", () => ({ Service: {}, events: {} }));
+vi.mock("mygo-runtime", () => ({ currentWindow: { setTitle: vi.fn().mockResolvedValue(undefined) }, isMyGo: () => false }));
+vi.mock("./components/Sidebar", () => ({ Sidebar: () => <aside /> }));
+vi.mock("./components/FilterBar", () => ({ FilterBar: () => <input id="search-input" aria-label="Search" /> }));
+vi.mock("./components/StationList", () => ({ StationList: () => <div tabIndex={0}>stations</div> }));
+vi.mock("./components/PlayerBar", () => ({ PlayerBar: () => <footer /> }));
+vi.mock("./components/NowPlayingLayer", () => ({ NowPlayingLayer: () => useRadio((s) => s.nowPlayingOpen) ? <button>Now playing</button> : null }));
+vi.mock("./components/SettingsPage", () => ({ SettingsPage: () => <div>preferences</div> }));
+vi.mock("./components/Dialogs", () => ({ AddStationDialog: () => <div role="dialog" aria-modal="true">add</div>, PlayURLDialog: () => <div role="dialog" aria-modal="true">url</div> }));
+
+beforeEach(() => {
+  useRadio.setState({ init: vi.fn().mockResolvedValue(undefined), togglePlay: vi.fn(), settingsOpen: false, nowPlayingOpen: false, dialog: null });
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { return window.setTimeout(() => callback(0), 0); });
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it("opens preferences by keyboard without unmounting the station view", async () => {
+  render(<App />);
+  const list = screen.getByText("stations");
+  fireEvent.keyDown(document.body, { key: ",", ctrlKey: true });
+  expect(screen.getByText("preferences")).toBeTruthy();
+  expect(screen.getByText("stations")).toBe(list);
+  fireEvent.keyDown(document.body, { code: "Space" });
+  expect(useRadio.getState().togglePlay).not.toHaveBeenCalled();
+  fireEvent.keyDown(document.body, { key: "f", ctrlKey: true });
+  expect(useRadio.getState().settingsOpen).toBe(false);
+  await vi.waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Search")));
+});
+
+it("does not play or focus the hidden search through a modal", () => {
+  render(<App />);
+  act(() => useRadio.getState().openDialog("add"));
+  fireEvent.keyDown(document.body, { code: "Space" });
+  fireEvent.keyDown(document.body, { key: "f", ctrlKey: true });
+  fireEvent.keyDown(document.body, { key: ",", ctrlKey: true });
+  expect(useRadio.getState().dialog).toBe("add");
+  expect(useRadio.getState().settingsOpen).toBe(false);
+  expect(useRadio.getState().togglePlay).not.toHaveBeenCalled();
+  expect(document.activeElement).not.toBe(screen.getByLabelText("Search"));
+});
+
+it.each(["keyboard", "native menu"])("blocks %s navigation before the dialog DOM is committed", (source) => {
+  render(<App />);
+  act(() => {
+    useRadio.getState().openDialog("add");
+    expect(document.querySelector('[role="dialog"][aria-modal="true"]')).toBeNull();
+    if (source === "keyboard") {
+      fireEvent.keyDown(document.body, { key: "l", ctrlKey: true });
+      fireEvent.keyDown(document.body, { key: ",", ctrlKey: true });
+    } else {
+      useRadio.getState().handleUICommand("playURL");
+      useRadio.getState().handleUICommand("settings");
+    }
+  });
+  expect(useRadio.getState().dialog).toBe("add");
+  expect(useRadio.getState().settingsOpen).toBe(false);
+});
+
+it.each(["summary", "summary child", "custom button child"])("preserves Space activation on a %s outside settings", (target) => {
+  render(<><App />
+    <details><summary><span>Details</span></summary><p>Explanation</p></details>
+    <div role="button" tabIndex={0}><span>Custom control</span></div>
+  </>);
+  const summary = screen.getByText("Details").closest("summary")!;
+  const button = screen.getByRole("button", { name: "Custom control" });
+  (target === "custom button child" ? button : summary).focus();
+  const element = target === "summary" ? summary : screen.getByText(target === "summary child" ? "Details" : "Custom control");
+  const event = new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true });
+  fireEvent(element, event);
+  expect(useRadio.getState().togglePlay).not.toHaveBeenCalled();
+  expect(event.defaultPrevented).toBe(false);
+});
+
+it.each(["link", "link child"])("does not toggle playback with Space on a %s outside a modal", (target) => {
+  render(<><App /><a href="https://example.com/help"><span>Help</span></a></>);
+  const link = screen.getByRole("link", { name: "Help" });
+  link.focus();
+  const element = target === "link" ? link : screen.getByText("Help");
+  const event = new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true });
+  fireEvent(element, event);
+  expect(useRadio.getState().togglePlay).not.toHaveBeenCalled();
+  expect(event.defaultPrevented).toBe(false);
+});
+
+it("still toggles playback with Space on the focusable station list", () => {
+  render(<App />);
+  const list = screen.getByText("stations");
+  list.focus();
+  const event = new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true });
+  fireEvent(list, event);
+  expect(useRadio.getState().togglePlay).toHaveBeenCalledOnce();
+  expect(event.defaultPrevented).toBe(true);
+});
+
+it("handles playback shortcuts dispatched on document", () => {
+  render(<App />);
+  const event = new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true });
+  fireEvent(document, event);
+  expect(useRadio.getState().togglePlay).toHaveBeenCalledOnce();
+  expect(event.defaultPrevented).toBe(true);
+});
+
+it.each(["ctrlKey", "metaKey"])("closes Now Playing before focusing search with %s+F", async (modifier) => {
+  useRadio.setState({ nowPlayingOpen: true });
+  render(<App />);
+  const overlay = screen.getByRole("button", { name: "Now playing" });
+  overlay.focus();
+  fireEvent.keyDown(overlay, { key: "f", [modifier]: true });
+  expect(useRadio.getState().nowPlayingOpen).toBe(false);
+  expect(screen.queryByRole("button", { name: "Now playing" })).toBeNull();
+  await vi.waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Search")));
+});
+
+it("keeps a local confirmation modal open when settings shortcuts are pressed", () => {
+  useRadio.setState({ settingsOpen: true });
+  render(<><App /><div role="dialog" aria-modal="true"><button>Confirm</button></div></>);
+  const confirm = screen.getByRole("button", { name: "Confirm" });
+  confirm.focus();
+  const openSettings = vi.spyOn(useRadio.getState(), "openSettings");
+  fireEvent.keyDown(confirm, { key: ",", ctrlKey: true });
+  fireEvent.keyDown(confirm, { key: ",", metaKey: true });
+  fireEvent.keyDown(confirm, { key: "f", ctrlKey: true });
+  act(() => {
+    for (const command of ["settings", "add", "playURL"]) useRadio.getState().handleUICommand(command);
+  });
+  expect(openSettings).not.toHaveBeenCalled();
+  expect(useRadio.getState().dialog).toBeNull();
+  expect(document.activeElement).toBe(confirm);
+  expect(useRadio.getState().settingsOpen).toBe(true);
+  openSettings.mockRestore();
+});
+
+it("does not move focus behind an overlay opened before the next animation frame", () => {
+  let nextFrame!: FrameRequestCallback;
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { nextFrame = callback; return 1; });
+  render(<App />);
+  fireEvent.keyDown(document.body, { key: "f", ctrlKey: true });
+  act(() => useRadio.getState().openNowPlaying(true));
+  const overlay = screen.getByRole("button", { name: "Now playing" });
+  overlay.focus();
+  act(() => nextFrame(0));
+  expect(document.activeElement).toBe(overlay);
+});
+
+it.each(["ctrlKey", "metaKey"])("ignores navigation shortcuts with extra modifiers on %s", (modifier) => {
+  render(<App />);
+  for (const extra of ["shiftKey", "altKey"]) {
+    for (const key of ["N", "L", "F", ","]) {
+      const event = new KeyboardEvent("keydown", { key, [modifier]: true, [extra]: true, bubbles: true, cancelable: true });
+      fireEvent(document.body, event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(useRadio.getState().dialog).toBeNull();
+      expect(useRadio.getState().settingsOpen).toBe(false);
+      expect(document.activeElement).not.toBe(screen.getByLabelText("Search"));
+    }
+  }
+});
+
+it.each(["ctrlKey", "metaKey"])("opens station dialogs with unmodified %s shortcuts", (modifier) => {
+  render(<App />);
+  fireEvent.keyDown(document.body, { key: "n", [modifier]: true });
+  expect(useRadio.getState().dialog).toBe("add");
+  act(() => useRadio.getState().openDialog(null));
+  fireEvent.keyDown(document.body, { key: "l", [modifier]: true });
+  expect(useRadio.getState().dialog).toBe("url");
+});

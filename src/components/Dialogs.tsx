@@ -1,26 +1,43 @@
-import { useEffect, useState } from "react";
+import { errorText } from "../i18n";
+import { messages as m } from "../locales";
+import { useEffect, useId, useRef, useState } from "react";
 import { Service } from "../mygo";
 import { useRadio } from "../store";
 
-/** Minimal modal shell: closes on backdrop click or Escape. */
-function Modal(props: { title: string; onClose: () => void; children: React.ReactNode }) {
+/** Modal shell with a keyboard focus trap and focus restoration. */
+export function Modal(props: { title: string; onClose: () => void; children: React.ReactNode; className?: string }) {
+  const previousFocus = useRef(document.activeElement as HTMLElement | null);
+  const titleId = useId();
+  const panel = useRef<HTMLDivElement>(null);
+  const close = useRef(props.onClose);
+  close.current = props.onClose;
   useEffect(() => {
+    const previous = previousFocus.current;
+    const focusable = () => [...(panel.current?.querySelectorAll<HTMLElement>('a[href]:not([tabindex="-1"]), summary:not([tabindex="-1"]), button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])];
+    if (!panel.current?.contains(document.activeElement)) (focusable()[0] ?? panel.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") props.onClose();
+      if (e.key === "Escape") { e.preventDefault(); close.current(); }
+      if (e.key === "Tab") {
+        const fields = focusable();
+        const index = fields.indexOf(document.activeElement as HTMLElement);
+        if (!fields.length) { e.preventDefault(); panel.current?.focus(); }
+        else if (e.shiftKey && index <= 0) { e.preventDefault(); fields.at(-1)?.focus(); }
+        else if (!e.shiftKey && (index < 0 || index === fields.length-1)) { e.preventDefault(); fields[0]?.focus(); }
+      }
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [props]);
+    return () => { document.removeEventListener("keydown", onKey); previous?.focus(); };
+  }, []);
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
+      className="fixed inset-x-0 bottom-0 top-[var(--app-titlebar-height)] z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) props.onClose();
       }}
     >
-      <div className="w-88 rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
-        <h2 className="mb-3 text-sm font-semibold">{props.title}</h2>
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={props.className ?? "w-88 max-w-[calc(100vw-2rem)] rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900"}>
+        <h2 id={titleId} className="mb-3 text-sm font-semibold">{props.title}</h2>
         {props.children}
       </div>
     </div>
@@ -55,44 +72,47 @@ export function AddStationDialog(props: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="添加自定义电台" onClose={props.onClose}>
+    <Modal title={m.addCustom()} onClose={props.onClose}>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-2.5">
         <input
           autoFocus
           required
+          aria-label={m.stationName()}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="电台名称"
+          placeholder={m.stationName()}
           className={inputClass}
         />
         <input
           required
+          aria-label={m.streamURL()}
           value={url}
           onChange={(e) => setURL(e.target.value)}
-          placeholder="流地址 https://… (mp3/aac/HLS)"
+          placeholder={m.streamURL()}
           className={inputClass}
         />
         <input
+          aria-label={m.homepage()}
           value={homepage}
           onChange={(e) => setHomepage(e.target.value)}
-          placeholder="主页（可选）"
+          placeholder={m.homepage()}
           className={inputClass}
         />
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-red-500">{errorText(error)}</p>}
         <div className="mt-1 flex justify-end gap-2">
           <button
             type="button"
             onClick={props.onClose}
             className="rounded-lg px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
-            取消
+            {m.cancel()}
           </button>
           <button
             type="submit"
             disabled={busy}
             className="rounded-lg bg-[var(--accent)] px-3.5 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
-            {busy ? "添加中…" : "添加并保存"}
+            {busy ? m.adding() : m.addSave()}
           </button>
         </div>
       </form>
@@ -116,28 +136,29 @@ export function PlayURLDialog(props: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="播放流地址" onClose={props.onClose}>
+    <Modal title={m.playURL()} onClose={props.onClose}>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-2.5">
         <input
           autoFocus
           required
+          aria-label={m.streamAddress()}
           value={url}
           onChange={(e) => setURL(e.target.value)}
           placeholder="https://example.com/live.mp3"
           className={inputClass}
         />
-        <p className="text-[11px] text-neutral-400">直接试听，不加入电台库。</p>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        <p className="text-[11px] text-neutral-400">{m.previewHint()}</p>
+        {error && <p className="text-xs text-red-500">{errorText(error)}</p>}
         <div className="mt-1 flex justify-end gap-2">
           <button
             type="button"
             onClick={props.onClose}
             className="rounded-lg px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
-            取消
+            {m.cancel()}
           </button>
           <button type="submit" className="rounded-lg bg-[var(--accent)] px-3.5 py-1.5 text-sm font-medium text-white">
-            播放
+            {m.play()}
           </button>
         </div>
       </form>

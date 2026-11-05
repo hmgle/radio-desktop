@@ -2,6 +2,7 @@ package icy
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -41,6 +42,9 @@ func TestParseBlock(t *testing.T) {
 			map[string]string{"StreamTitle": "Hardpack - KB Song", "StreamUrl": "https://broadcaster.live365.com/static/assets/img/blankart.jpg", "StreamArtwork": ""}},
 		{"control chars", []byte("StreamTitle='Bad\x01Title\x00';"), map[string]string{"StreamTitle": "BadTitle"}},
 		{"missing", []byte("StreamUrl='x';"), map[string]string{"StreamUrl": "x"}},
+		{"empty key", []byte("=oops;StreamTitle='x';"), map[string]string{"StreamTitle": "x"}},
+		{"extra separator", []byte("A='1';;B='2';"), map[string]string{"A": "1", "B": "2"}},
+		{"unterminated quote", []byte("StreamTitle='x"), map[string]string{"StreamTitle": "x"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -201,6 +205,36 @@ func TestSidecarStopIsFastAndIdempotent(t *testing.T) {
 	s := Start(srv.URL, "radio-desktop-test", func(Meta) {})
 	s.Stop()
 	s.Stop() // must not deadlock
+}
+
+func TestRejectsOversizedMetadataInterval(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("icy-metaint", "1073741824")
+	}))
+	defer srv.Close()
+	s := &Sidecar{url: srv.URL, userAgent: "test"}
+	if err := s.connect(context.Background()); err == nil {
+		t.Fatal("accepted oversized metadata interval")
+	}
+}
+
+func TestSidecarStopInterruptsBackoff(t *testing.T) {
+	requests := make(chan struct{}, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- struct{}{}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+	s := Start(srv.URL, "test", func(Meta) {})
+	<-requests
+	time.Sleep(50 * time.Millisecond)
+	done := make(chan struct{})
+	go func() { s.Stop(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("Stop did not interrupt reconnect backoff")
+	}
 }
 
 func TestCleanTitleTrims(t *testing.T) {

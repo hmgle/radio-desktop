@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -88,10 +89,14 @@ func (s *Sidecar) run(ctx context.Context) {
 		if errors.Is(err, errNoMetaInt) {
 			return
 		}
-		time.Sleep(backoff)
-		if backoff < 30*time.Second {
-			backoff *= 3
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
 		}
+		backoff = min(backoff*3, 30*time.Second)
 	}
 }
 
@@ -111,7 +116,17 @@ func (s *Sidecar) connect(ctx context.Context) error {
 	// Transparent gzip would shift every frame and misalign metaint.
 	req.Header.Set("Accept-Encoding", "identity")
 
-	client := &http.Client{} // no overall timeout; the watchdog cancels
+	transport := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		DialContext:         (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	if base, ok := http.DefaultTransport.(*http.Transport); ok {
+		transport = base.Clone()
+	}
+	transport.ResponseHeaderTimeout = 15 * time.Second
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport} // no overall stream timeout
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -127,12 +142,18 @@ func (s *Sidecar) connect(ctx context.Context) error {
 		ArtworkURL: headerArtwork(resp.Header.Get("icy-cover")),
 	}
 	metaint, _ := strconv.Atoi(resp.Header.Get("icy-metaint"))
+	if metaint > 16<<20 {
+		return errors.New("icy: metadata interval exceeds 16 MiB")
+	}
 	if metaint <= 0 {
 		if meta.Name != "" || meta.Genre != "" || meta.ArtworkURL != "" {
 			s.onMeta(meta)
 		}
 		return errNoMetaInt
 	}
+	s.mu.Lock()
+	s.lastRead = time.Now()
+	s.mu.Unlock()
 
 	// Idle watchdog: streams can hang mid-frame; force a reconnect.
 	go func() {
@@ -156,21 +177,23 @@ func (s *Sidecar) connect(ctx context.Context) error {
 
 	title := ""
 	artwork := meta.ArtworkURL
-	buf := make([]byte, metaint)
-	metaLen := make([]byte, 1)
-	for {
-		if _, err := io.ReadFull(resp.Body, buf); err != nil {
-			return err
-		}
+	reader := activityReader{Reader: resp.Body, onRead: func() {
 		s.mu.Lock()
 		s.lastRead = time.Now()
 		s.mu.Unlock()
-		if _, err := io.ReadFull(resp.Body, metaLen); err != nil {
+	}}
+	buf := make([]byte, metaint)
+	metaLen := make([]byte, 1)
+	for {
+		if _, err := io.ReadFull(reader, buf); err != nil {
+			return err
+		}
+		if _, err := io.ReadFull(reader, metaLen); err != nil {
 			return err
 		}
 		if n := int(metaLen[0]) * 16; n > 0 {
 			block := make([]byte, n)
-			if _, err := io.ReadFull(resp.Body, block); err != nil {
+			if _, err := io.ReadFull(reader, block); err != nil {
 				return err
 			}
 			attrs := ParseBlock(block)
@@ -190,6 +213,19 @@ func (s *Sidecar) connect(ctx context.Context) error {
 	}
 }
 
+type activityReader struct {
+	io.Reader
+	onRead func()
+}
+
+func (r activityReader) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	if n > 0 {
+		r.onRead()
+	}
+	return n, err
+}
+
 // ParseBlock parses one ICY metadata block — "key='value';key2='value2'"
 // with ” escapes inside single quotes — into its attributes. Sources
 // differ in what they send: StreamTitle always, and StreamArtwork /
@@ -198,13 +234,28 @@ func ParseBlock(block []byte) map[string]string {
 	m := make(map[string]string, 3)
 	i := 0
 	for i < len(block) {
+		for i < len(block) && (block[i] == ';' || block[i] == ' ' || block[i] == '\x00') {
+			i++
+		}
 		eq := bytes.IndexByte(block[i:], '=')
 		if eq < 0 {
 			break
 		}
+		if semi := bytes.IndexByte(block[i:i+eq], ';'); semi >= 0 {
+			i += semi + 1
+			continue
+		}
 		key := strings.TrimSpace(string(block[i : i+eq]))
 		j := i + eq + 1
-		if key == "" || j >= len(block) {
+		if key == "" {
+			semi := bytes.IndexByte(block[j:], ';')
+			if semi < 0 {
+				break
+			}
+			i = j + semi + 1
+			continue
+		}
+		if j >= len(block) {
 			break
 		}
 		var val []byte
@@ -224,7 +275,10 @@ func ParseBlock(block []byte) map[string]string {
 				val = append(val, c)
 				k++
 			}
-			next = k + 1
+			next = k
+			if next < len(block) {
+				next++
+			}
 		} else {
 			// Unquoted value: runs to the next separator.
 			sep := bytes.IndexByte(block[j:], ';')
@@ -235,7 +289,12 @@ func ParseBlock(block []byte) map[string]string {
 			next = j + sep
 		}
 		if key != "" {
-			m[key] = cleanTitle(val)
+			if key == "StreamTitle" {
+				m[key] = cleanTitle(val)
+			} else {
+				// Encoding repair is for display text, never URL values.
+				m[key] = cleanText(string(val))
+			}
 		}
 		// Resume at the attribute after the next ';'.
 		semi := bytes.IndexByte(block[next:], ';')
@@ -306,23 +365,4 @@ func looksLikeImageURL(u string) bool {
 func httpURL(raw string) bool {
 	u, err := url.Parse(raw)
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
-}
-
-// cleanTitle strips control characters and whitespace noise and caps the
-// length, mirroring radio-cli's clean_text.
-func cleanTitle(b []byte) string {
-	out := make([]byte, 0, len(b))
-	for _, c := range b {
-		switch {
-		case c < 0x20 || c == 0x7f:
-			// drop
-		default:
-			out = append(out, c)
-		}
-	}
-	s := strings.TrimSpace(string(out))
-	if len(s) > 1024 {
-		s = s[:1024]
-	}
-	return s
 }

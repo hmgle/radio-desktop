@@ -1,12 +1,11 @@
+import { SleepTimerStatus } from "./SleepTimerControl";
+import { errorText } from "../i18n";
+import { messages as m } from "../locales";
 import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
-import { EqBars, HeartIcon, RadioIcon, flagEmoji } from "./ui";
+import { EqBars, HeartIcon, RadioIcon, CountryFlag } from "./ui";
 
-const STATE_LABEL: Record<string, string> = {
-  connecting: "正在连接…",
-  ready: "待播放",
-  failed: "播放失败",
-};
 
 /**
  * Cover image with a fallback chain: track artwork → station favicon →
@@ -35,9 +34,7 @@ function CoverArt(props: { artwork?: string; favicon?: string; playing: boolean 
       )}
       {playing && (
         <span className="absolute inset-x-0 bottom-0 flex h-3.5 items-end justify-center gap-[2px] bg-gradient-to-t from-black/60 to-transparent pb-0.5">
-          <span className="eq-bar block h-2 w-[2px] rounded-sm bg-white" />
-          <span className="eq-bar block h-2 w-[2px] rounded-sm bg-white" />
-          <span className="eq-bar block h-2 w-[2px] rounded-sm bg-white" />
+          <EqBars compact />
         </span>
       )}
     </div>
@@ -45,14 +42,20 @@ function CoverArt(props: { artwork?: string; favicon?: string; playing: boolean 
 }
 
 export function PlayerBar() {
-  const { station, title, icyName, playState, artworkUrl, volume, togglePlay, setVolume, toggleFavorite } =
-    useRadio();
+  const STATE_LABEL: Record<string, string> = {
+    connecting: m.connecting(),
+    ready: m.ready(),
+    failed: m.failed(),
+  };
+  const { station, title, icyName, playState, playbackError, artworkUrl, volume, togglePlay, setVolume, toggleFavorite } =
+    useRadio(useShallow((s) => ({ station: s.station, title: s.title, icyName: s.icyName, playState: s.playState, playbackError: s.playbackError, artworkUrl: s.artworkUrl, volume: s.volume, togglePlay: s.togglePlay, setVolume: s.setVolume, toggleFavorite: s.toggleFavorite })));
   const openNowPlaying = useRadio((s) => s.openNowPlaying);
 
   const playing = playState === "playing";
+  const active = playing || playState === "connecting";
   const disabled = !station;
   const subtitle =
-    title || (icyName && station && icyName !== station.name ? icyName : "") || "—";
+    (playState === "failed" ? errorText(playbackError) : "") || title || (icyName && station && icyName !== station.name ? icyName : "") || "—";
 
   return (
     <footer className="flex h-16 shrink-0 items-center gap-3 border-t border-neutral-200 bg-white/80 px-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/70">
@@ -60,8 +63,9 @@ export function PlayerBar() {
       <button
         type="button"
         onClick={() => openNowPlaying(true)}
-        title="查看大图"
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-1 py-1 text-left transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40"
+        disabled={disabled}
+        title={m.viewArtwork()}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-1 py-1 text-left transition-colors hover:bg-neutral-200/40 disabled:cursor-default disabled:hover:bg-transparent dark:hover:bg-neutral-800/40"
       >
         <CoverArt
           artwork={playing || playState === "connecting" ? artworkUrl : ""}
@@ -71,16 +75,17 @@ export function PlayerBar() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             {playing && <EqBars className="shrink-0" />}
-            <p className="truncate text-sm font-medium">
-              {station?.name || "未选择电台"}
+            <p title={station?.name} className="truncate text-sm font-medium">
+              {station?.name || m.noStation()}
               {station?.countrycode && (
                 <span className="ml-1.5 text-[11px] font-normal text-neutral-400">
-                  {flagEmoji(station.countrycode) || ""} {station.country || station.countrycode}
+                  <CountryFlag code={station.countrycode} className="mr-1" />
+                  {station.country || station.countrycode}
                 </span>
               )}
             </p>
           </div>
-          {/* ICY title marquee when it overflows */}
+          {/* ICY title */}
           <div className="mt-0.5 overflow-hidden">
             <p
               className={`truncate text-xs text-neutral-500 dark:text-neutral-400 ${
@@ -88,15 +93,16 @@ export function PlayerBar() {
               }`}
               title={subtitle}
             >
-              {playing || playState === "connecting" ? subtitle : STATE_LABEL[playState] || subtitle}
+              {playing || playState === "connecting" || (playState === "failed" && playbackError) ? subtitle : STATE_LABEL[playState] || subtitle}
             </p>
           </div>
         </div>
       </button>
 
+      <SleepTimerStatus />
       {/* Controls */}
       <div className="flex shrink-0 items-center gap-1.5">
-        {station && (
+        {station?.stationuuid && (
           <button
             type="button"
             onClick={() => void toggleFavorite(station)}
@@ -105,7 +111,7 @@ export function PlayerBar() {
                 ? "text-[var(--accent)]"
                 : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
             }`}
-            title={station.favorite ? "取消收藏" : "收藏"}
+            title={station.favorite ? m.unfavorite() : m.favorite()}
           >
             <HeartIcon filled={station.favorite} />
           </button>
@@ -115,9 +121,9 @@ export function PlayerBar() {
           onClick={togglePlay}
           disabled={disabled}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow transition-transform hover:scale-105 active:scale-95 disabled:opacity-30"
-          title={playing ? "暂停" : "播放"}
+          title={active ? m.pause() : m.play()}
         >
-          {playing ? (
+          {active ? (
             <svg viewBox="0 0 24 24" fill="currentColor" className="h-4.5 w-4.5">
               <rect x="6" y="5" width="4" height="14" rx="1" />
               <rect x="14" y="5" width="4" height="14" rx="1" />
@@ -127,6 +133,10 @@ export function PlayerBar() {
               <path d="M8 5.5v13a.6.6 0 0 0 .92.5l10.2-6.5a.6.6 0 0 0 0-1L8.92 5A.6.6 0 0 0 8 5.5z" />
             </svg>
           )}
+        </button>
+
+        <button type="button" onClick={() => useRadio.getState().handleUICommand("stop")} disabled={disabled || playState === "idle" || playState === "ready"} aria-label={m.stop()} title={m.stop()} className="rounded-full p-2 text-neutral-500 hover:bg-neutral-200 disabled:opacity-30 dark:hover:bg-neutral-800">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
         </button>
 
         {/* Volume */}
@@ -140,6 +150,7 @@ export function PlayerBar() {
             )}
           </svg>
           <input
+            aria-label={m.volume()}
             type="range"
             min={0}
             max={100}

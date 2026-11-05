@@ -22,8 +22,15 @@ export interface Meta {
  * <audio> element and in which order to fall back.
  */
 export interface PlayInfo {
+  sessionId: number;
   station: Station;
   candidates: string[];
+}
+
+/** PlaybackMeta identifies the playback session that produced the metadata. */
+export interface PlaybackMeta {
+  sessionId: number;
+  meta: Meta;
 }
 
 export interface Progress {
@@ -47,6 +54,43 @@ export interface SearchRequest {
 export interface SearchResult {
   total: number;
   items: Station[];
+}
+
+/**
+ * Settings contains the listener's persistent preferences. Volume stays in
+ * its existing preference so upgrades retain the last listening level.
+ */
+export interface Settings {
+  language: string;
+  appearance: string;
+  resume: string;
+  autoSyncDays: number;
+  closeBehavior: string;
+  playbackAnimations: boolean;
+}
+
+/**
+ * SettingsPatch changes only supplied fields, avoiding lost updates when
+ * different controls save in quick succession.
+ */
+export interface SettingsPatch {
+  language?: string;
+  appearance?: string;
+  resume?: string;
+  autoSyncDays?: number;
+  closeBehavior?: string;
+  playbackAnimations?: boolean;
+}
+
+/**
+ * SleepTimer describes a timer for this process only. Generation orders
+ * replies and events, including callbacks already queued before cancellation.
+ */
+export interface SleepTimer {
+  /** Unix milliseconds; zero means disabled */
+  deadline: number;
+  generation: number;
+  expired: boolean;
 }
 
 export interface Station {
@@ -75,6 +119,7 @@ export interface Station {
 /** Status is the startup snapshot for resuming the previous session. */
 export interface Status {
   volume: number;
+  lastSource: string;
   lastStationUUID: string;
   /** unix seconds, 0 = never */
   lastSyncAt: number;
@@ -108,6 +153,17 @@ export const Service = {
   addFavorite(uuid: string): Promise<void> {
     return call("Service.AddFavorite", uuid);
   },
+  /** ClearHistory deletes listening records and preserves the current selection. */
+  clearHistory(): Promise<void> {
+    return call("Service.ClearHistory");
+  },
+  /**
+   * CopyText uses the native clipboard, including on webviews without the
+   * browser Clipboard API.
+   */
+  copyText(text: string): Promise<void> {
+    return call("Service.CopyText", text);
+  },
   /** Countries lists country facets for the filter dropdown. */
   countries(prefix: string): Promise<Facet[]> {
     return call("Service.Countries", prefix);
@@ -130,6 +186,14 @@ export const Service = {
   getPlayInfo(uuid: string): Promise<PlayInfo> {
     return call("Service.GetPlayInfo", uuid);
   },
+  /** GetSettings returns the current persisted settings. */
+  getSettings(): Promise<Settings> {
+    return call("Service.GetSettings");
+  },
+  /** GetSleepTimer returns the active timer or its most recent expiration. */
+  getSleepTimer(): Promise<SleepTimer> {
+    return call("Service.GetSleepTimer");
+  },
   /** GetStation returns one station by uuid. */
   getStation(uuid: string): Promise<Station> {
     return call("Service.GetStation", uuid);
@@ -141,6 +205,10 @@ export const Service = {
   /** Languages lists language facets for the filter dropdown. */
   languages(prefix: string): Promise<Facet[]> {
     return call("Service.Languages", prefix);
+  },
+  /** OpenHomepage opens station links in the default browser. */
+  openHomepage(rawURL: string): Promise<void> {
+    return call("Service.OpenHomepage", rawURL);
   },
   /**
    * PlayStation selects a station for playback: the ICY sidecar starts and
@@ -171,8 +239,8 @@ export const Service = {
    * the system's media controls: "playing", "paused" or anything else
    * clears them.
    */
-  reportPlaybackState(state: string): Promise<void> {
-    return call("Service.ReportPlaybackState", state);
+  reportPlaybackState(state: string, sessionID: number): Promise<void> {
+    return call("Service.ReportPlaybackState", state, sessionID);
   },
   /**
    * ReportStarted is called by the frontend once the <audio> element is
@@ -185,6 +253,14 @@ export const Service = {
   /** Search runs a station list query. */
   search(req: SearchRequest): Promise<SearchResult> {
     return call("Service.Search", req);
+  },
+  /** SetLastSource remembers the selected station list for startup restoration. */
+  setLastSource(source: string): Promise<void> {
+    return call("Service.SetLastSource", source);
+  },
+  /** SetSleepTimer replaces the countdown. Zero cancels it. */
+  setSleepTimer(minutes: number): Promise<SleepTimer> {
+    return call("Service.SetSleepTimer", minutes);
   },
   /** SetVolume persists the volume preference. */
   setVolume(volume: number): Promise<void> {
@@ -214,6 +290,13 @@ export const Service = {
   tags(prefix: string): Promise<Facet[]> {
     return call("Service.Tags", prefix);
   },
+  /**
+   * UpdateSettings persists a validated patch before publishing it. Failed
+   * writes leave the previous settings active.
+   */
+  updateSettings(p: SettingsPatch): Promise<Settings> {
+    return call("Service.UpdateSettings", p);
+  },
 } as const;
 
 // ---- Events ----
@@ -233,9 +316,11 @@ export const events = {
    */
   uiCommand: event<string>("uiCommand"),
   /** EventICYMeta carries ICY name/genre/title of the playing stream. */
-  icyMeta: event<Meta>("icyMeta"),
+  icyMeta: event<PlaybackMeta>("icyMeta"),
   /** EventSyncProgress reports catalog sync page progress. */
   syncProgress: event<Progress>("syncProgress"),
   /** EventSyncDone fires when a sync finishes (Error == "" on success). */
   syncDone: event<SyncResult>("syncDone"),
+  settingsChanged: event<Settings>("settingsChanged"),
+  sleepTimerChanged: event<SleepTimer>("sleepTimerChanged"),
 } as const;

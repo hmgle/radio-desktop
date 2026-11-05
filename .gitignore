@@ -5,3 +5,6 @@ node_modules/
 mygo_windows_*.syso
 .DS_Store
 .zcode/
+
+/docs/internal/
+/docs/handoff-*.md

@@ -23,18 +23,15 @@ import (
 )
 
 const (
-	// autoSyncDays refreshes a catalog older than this on startup
-	// (radio-cli's auto_sync_days).
-	autoSyncDays = 7
 	// defaultVolume matches radio-cli's default.
 	defaultVolume = 80
-	userAgent     = "radio-desktop/0.1.0"
+	userAgent     = "radio-desktop/0.2.0"
 )
 
 // Events pushed to the frontend. Subscribe with the generated client.
 var (
 	// EventICYMeta carries ICY name/genre/title of the playing stream.
-	EventICYMeta = mygo.NewEvent[icy.Meta]("icyMeta")
+	EventICYMeta = mygo.NewEvent[PlaybackMeta]("icyMeta")
 	// EventSyncProgress reports catalog sync page progress.
 	EventSyncProgress = mygo.NewEvent[directory.Progress]("syncProgress")
 	// EventSyncDone fires when a sync finishes (Error == "" on success).
@@ -53,13 +50,21 @@ type SyncResult struct {
 // PlayInfo is returned by PlayStation/PlayURL: what to load into the
 // <audio> element and in which order to fall back.
 type PlayInfo struct {
+	SessionID  uint64        `json:"sessionId"`
 	Station    model.Station `json:"station"`
 	Candidates []string      `json:"candidates"`
+}
+
+// PlaybackMeta identifies the playback session that produced the metadata.
+type PlaybackMeta struct {
+	SessionID uint64   `json:"sessionId"`
+	Meta      icy.Meta `json:"meta"`
 }
 
 // Status is the startup snapshot for resuming the previous session.
 type Status struct {
 	Volume          int    `json:"volume"`
+	LastSource      string `json:"lastSource"`
 	LastStationUUID string `json:"lastStationUUID"`
 	LastSyncAt      int64  `json:"lastSyncAt"` // unix seconds, 0 = never
 	CatalogSize     int    `json:"catalogSize"`
@@ -78,10 +83,20 @@ type Service struct {
 	// its favorite mark.
 	OnUIStateChange func()
 
+	// OnSettingsChange applies persisted settings outside the settings lock.
+	OnSettingsChange func(Settings)
+	settingsMu       sync.Mutex
+	settings         Settings
+
+	sleepMu    sync.Mutex
+	sleepTimer *time.Timer
+	sleepState SleepTimer
+
 	mu          sync.Mutex
 	currentUUID string
 	sidecar     *icy.Sidecar
 	playingURL  string
+	sessionID   uint64
 	syncing     bool
 	syncCancel  context.CancelFunc
 }
@@ -136,7 +151,7 @@ func New(st *store.Store, dir *directory.Client) *Service {
 			}
 		}
 	})
-	return &Service{store: st, dir: dir, np: np}
+	return &Service{store: st, dir: dir, np: np, settings: loadSettings(st)}
 }
 
 // StartupSync kicks a background sync when the catalog is empty or stale.
@@ -148,8 +163,8 @@ func (s *Service) StartupSync() {
 		log.Printf("startup sync: %v", err)
 		return
 	}
-	stale := time.Since(last) > autoSyncDays*24*time.Hour
-	if size == 0 || stale {
+	days := s.GetSettings().AutoSyncDays
+	if shouldStartupSync(size, last, days, time.Now()) {
 		go s.SyncNow()
 	}
 }
@@ -158,12 +173,6 @@ func (s *Service) StartupSync() {
 
 // Search runs a station list query.
 func (s *Service) Search(req store.SearchRequest) (store.SearchResult, error) {
-	if req.Limit <= 0 || req.Limit > 500 {
-		req.Limit = 50
-	}
-	if req.Offset < 0 {
-		req.Offset = 0
-	}
 	return s.store.Search(req)
 }
 
@@ -217,15 +226,15 @@ func (s *Service) AddCustomStation(name, url, homepage string) (model.Station, e
 	name = strings.TrimSpace(name)
 	url = strings.TrimSpace(url)
 	if name == "" {
-		return model.Station{}, errors.New("名称不能为空")
+		return model.Station{}, errors.New("radio:nameRequired")
 	}
 	st := model.Station{
 		Name:     name,
 		URL:      url,
 		Homepage: strings.TrimSpace(homepage),
 	}
-	if st.StreamCandidates(nil) == nil {
-		return model.Station{}, errors.New("URL 必须是 http(s) 地址")
+	if len(st.StreamCandidates(nil)) == 0 {
+		return model.Station{}, errors.New("radio:invalidURL")
 	}
 	if err := s.store.AddCustomStation(&st); err != nil {
 		return model.Station{}, err
@@ -261,15 +270,10 @@ func (s *Service) PlayStation(uuid string) (PlayInfo, error) {
 		return PlayInfo{}, err
 	}
 	if len(info.Candidates) == 0 {
-		return PlayInfo{}, errors.New("该电台没有可播放的 http(s) 地址")
+		return PlayInfo{}, errors.New("radio:noPlayableURL")
 	}
-	s.startSidecar(info.Candidates[0])
-	s.mu.Lock()
-	s.currentUUID = uuid
-	s.mu.Unlock()
-	s.np.setStation(info.Station.Name, info.Station.Country)
-	s.np.setArtURL(info.Station.Favicon)
-	go s.np.announce()
+	s.startSidecar(&info)
+	s.np.announce()
 	s.uiChanged()
 	if err := s.store.SetMeta("pref_last_station", uuid); err != nil {
 		log.Printf("save last station: %v", err)
@@ -283,17 +287,12 @@ func (s *Service) PlayURL(url string) (PlayInfo, error) {
 	st := model.Station{Name: hostOf(url), URL: url}
 	candidates := st.StreamCandidates(nil)
 	if len(candidates) == 0 {
-		return PlayInfo{}, errors.New("URL 必须是 http(s) 地址")
+		return PlayInfo{}, errors.New("radio:invalidURL")
 	}
 	st.TagsList = []string{}
 	info := PlayInfo{Station: st, Candidates: candidates}
-	s.startSidecar(candidates[0])
-	s.mu.Lock()
-	s.currentUUID = ""
-	s.mu.Unlock()
-	s.np.setStation(st.Name, "")
-	s.np.setArtURL("")
-	go s.np.announce()
+	s.startSidecar(&info)
+	s.np.announce()
 	s.uiChanged()
 	// Ephemeral streams are not persisted as the last station.
 	return info, nil
@@ -318,7 +317,13 @@ func (s *Service) ReportStarted(uuid string) error {
 // StopPlayback stops the ICY sidecar and the system's Now Playing entry.
 func (s *Service) StopPlayback() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.stopPlaybackLocked()
+	s.mu.Unlock()
+	s.uiChanged()
+}
+
+func (s *Service) stopPlaybackLocked() {
+	s.sessionID++ // invalidate reports still queued for the stopped session
 	if s.sidecar != nil {
 		s.sidecar.Stop()
 		s.sidecar = nil
@@ -326,23 +331,29 @@ func (s *Service) StopPlayback() {
 	s.playingURL = ""
 	s.currentUUID = ""
 	s.np.clear()
-	s.uiChanged()
 }
 
 // ReportPlaybackState mirrors the frontend audio element's state into
 // the system's media controls: "playing", "paused" or anything else
 // clears them.
-func (s *Service) ReportPlaybackState(state string) {
+func (s *Service) ReportPlaybackState(state string, sessionID uint64) {
+	s.mu.Lock()
+	if sessionID == 0 || sessionID != s.sessionID {
+		s.mu.Unlock()
+		return
+	}
 	switch state {
 	case "playing":
 		s.np.setState(mygo.PlaybackPlaying)
 	case "paused", "ready", "connecting":
 		s.np.setState(mygo.PlaybackPaused)
 	default: // idle, failed
-		s.np.clear()
+		s.stopPlaybackLocked()
+		s.mu.Unlock()
 		s.uiChanged()
 		return
 	}
+	s.mu.Unlock()
 	s.np.announce()
 	s.uiChanged()
 }
@@ -369,18 +380,27 @@ func (s *Service) GetStatus() (Status, error) {
 		}
 	}
 	lastUUID, _, _ := s.store.GetMeta("pref_last_station")
+	lastSource, _, _ := s.store.GetMeta("pref_last_source")
+	if !validSource(lastSource) {
+		lastSource = "all"
+	}
 	size, err := s.store.CatalogSize()
 	if err != nil {
 		return Status{}, err
 	}
 	lastSync, _ := s.lastSyncTime()
+	var lastSyncAt int64
+	if !lastSync.IsZero() {
+		lastSyncAt = lastSync.Unix()
+	}
 	s.mu.Lock()
 	syncing := s.syncing
 	s.mu.Unlock()
 	return Status{
 		Volume:          vol,
+		LastSource:      lastSource,
 		LastStationUUID: lastUUID,
-		LastSyncAt:      lastSync.Unix(),
+		LastSyncAt:      lastSyncAt,
 		CatalogSize:     size,
 		Syncing:         syncing,
 	}, nil
@@ -424,10 +444,10 @@ func (s *Service) sync(ctx context.Context) SyncResult {
 	if size == 0 {
 		top, err := s.dir.Bootstrap(ctx)
 		if err != nil {
-			return SyncResult{Error: "bootstrap 失败: " + err.Error()}
+			return SyncResult{Error: "radio:syncFailed: " + err.Error()}
 		}
 		if err := s.store.PublishCatalog(top); err != nil {
-			return SyncResult{Error: "bootstrap 写入失败: " + err.Error()}
+			return SyncResult{Error: "radio:syncFailed: " + err.Error()}
 		}
 		EventSyncDone.Broadcast(SyncResult{Total: len(top), Phase: "bootstrap"})
 	}
@@ -437,15 +457,15 @@ func (s *Service) sync(ctx context.Context) SyncResult {
 	})
 	if err != nil {
 		if ctx.Err() != nil {
-			return SyncResult{Error: "同步已取消"}
+			return SyncResult{Error: "radio:syncCancelled"}
 		}
-		return SyncResult{Error: "同步失败: " + err.Error()}
+		return SyncResult{Error: "radio:syncFailed: " + err.Error()}
 	}
 	if err := s.store.PublishCatalog(stations); err != nil {
 		if errors.Is(err, store.ErrShrink) {
-			return SyncResult{Error: "同步中止：新目录数量异常缩减，已保留旧目录（" + err.Error() + "）"}
+			return SyncResult{Error: "radio:syncShrink: " + err.Error()}
 		}
-		return SyncResult{Error: "写入失败: " + err.Error()}
+		return SyncResult{Error: "radio:syncFailed: " + err.Error()}
 	}
 	if err := s.store.SetMeta("last_sync", strconv.FormatInt(time.Now().Unix(), 10)); err != nil {
 		log.Printf("save last_sync: %v", err)
@@ -455,15 +475,22 @@ func (s *Service) sync(ctx context.Context) SyncResult {
 
 // ---- helpers ----
 
-func (s *Service) startSidecar(url string) {
+func (s *Service) startSidecar(info *PlayInfo) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.sidecar != nil {
 		s.sidecar.Stop()
 	}
-	s.playingURL = url
-	s.sidecar = icy.Start(url, userAgent, func(m icy.Meta) {
-		EventICYMeta.Broadcast(m)
+	s.sessionID++
+	info.SessionID = s.sessionID
+	sessionID := s.sessionID
+	s.currentUUID = info.Station.StationUUID
+	s.np.setStation(info.Station.Name, info.Station.Country)
+	s.np.setArtURL(info.Station.Favicon)
+	s.np.setState(mygo.PlaybackPaused)
+	s.playingURL = info.Candidates[0]
+	s.sidecar = icy.Start(s.playingURL, userAgent, func(m icy.Meta) {
+		EventICYMeta.Broadcast(PlaybackMeta{SessionID: sessionID, Meta: m})
 		s.np.setMeta(m.Title, m.ArtworkURL)
 		s.np.announce()
 	})
@@ -487,3 +514,22 @@ func hostOf(rawURL string) string {
 	}
 	return rawURL
 }
+
+func validSource(source string) bool {
+	return source == "all" || source == "favorites" || source == "history" || source == "custom"
+}
+
+// SetLastSource remembers the selected station list for startup restoration.
+func (s *Service) SetLastSource(source string) error {
+	if !validSource(source) {
+		return errors.New("radio:invalidSettings")
+	}
+	return s.store.SetMeta("pref_last_source", source)
+}
+
+func shouldStartupSync(size int, last time.Time, days int, now time.Time) bool {
+	return size == 0 || days > 0 && now.Sub(last) > time.Duration(days)*24*time.Hour
+}
+
+// ClearHistory deletes listening records and preserves the current selection.
+func (s *Service) ClearHistory() error { return s.store.ClearHistory() }

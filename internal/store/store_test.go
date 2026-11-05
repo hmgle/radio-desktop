@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"radio-desktop/internal/model"
 )
@@ -17,6 +18,35 @@ func testStore(t *testing.T) *Store {
 	}
 	t.Cleanup(func() { s.Close() })
 	return s
+}
+
+func TestReadDuringCatalogWrite(t *testing.T) {
+	s := testStore(t)
+	mustPublish(t, s, station("aaaaaaaa-1111-2222-3333-444444444444", "A"))
+	tx, err := s.db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("UPDATE stations SET name = 'pending'"); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		res, err := s.Search(SearchRequest{})
+		if err == nil && (res.Total != 1 || res.Items[0].Name != "A") {
+			err = fmt.Errorf("unexpected snapshot: %+v", res)
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("read blocked behind write transaction")
+	}
 }
 
 func station(uuid, name string) model.Station {
@@ -140,9 +170,13 @@ func TestSearchEscapesLikeWildcards(t *testing.T) {
 
 func TestFavoritesAndHistorySources(t *testing.T) {
 	s := testStore(t)
+	if err := s.AddFavorite(""); err == nil {
+		t.Fatal("accepted an empty favorite ID")
+	}
 	a := station("aaaaaaaa-1111-2222-3333-444444444444", "A")
 	b := station("bbbbbbbb-1111-2222-3333-444444444444", "B")
-	mustPublish(t, s, a, b)
+	c := station("cccccccc-1111-2222-3333-444444444444", "Unplayed")
+	mustPublish(t, s, a, b, c)
 
 	if err := s.AddFavorite(a.StationUUID); err != nil {
 		t.Fatal(err)
@@ -206,6 +240,34 @@ func TestCustomStations(t *testing.T) {
 	res, _ = s.Search(SearchRequest{})
 	if res.Total != 1 {
 		t.Fatalf("after custom removal total = %d", res.Total)
+	}
+}
+
+func TestCustomTokensSurviveUpdateAndPublish(t *testing.T) {
+	s := testStore(t)
+	catalog := station("aaaaaaaa-1111-2222-3333-444444444444", "Catalog")
+	mustPublish(t, s, catalog)
+	custom := model.Station{Name: "Custom", URL: "https://example.com", Tags: "unique-tag", Language: "unique-language"}
+	if err := s.AddCustomStation(&custom); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddCustomStation(&custom); err != nil {
+		t.Fatal(err)
+	}
+	mustPublish(t, s, catalog)
+	for _, req := range []SearchRequest{{Tag: "unique-tag"}, {Language: "unique-language"}} {
+		res, err := s.Search(req)
+		if err != nil || res.Total != 1 {
+			t.Fatalf("search %+v: %+v, %v", req, res, err)
+		}
+	}
+	tags, err := s.Tags("unique-tag", 10)
+	if err != nil || len(tags) != 1 || tags[0].Count != 1 {
+		t.Fatalf("tags: %+v, %v", tags, err)
+	}
+	countries, err := s.Countries("_", 10)
+	if err != nil || len(countries) != 0 {
+		t.Fatalf("countries: %+v, %v", countries, err)
 	}
 }
 
@@ -299,5 +361,37 @@ func TestMetaAndTokensRebuilt(t *testing.T) {
 	}
 	if v, _, _ := s.GetMeta("last_sync"); v != "67890" {
 		t.Fatalf("meta update = %q", v)
+	}
+}
+
+func TestClearHistoryPreservesOtherData(t *testing.T) {
+	s := testStore(t)
+	custom := station("", "Custom")
+	if err := s.AddCustomStation(&custom); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddFavorite(custom.StationUUID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddPlay(custom.StationUUID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetMeta("pref_last_station", custom.StationUUID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ClearHistory(); err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.Search(SearchRequest{Source: "history"})
+	if err != nil || result.Total != 0 {
+		t.Fatalf("history = %+v, %v", result, err)
+	}
+	st, ok, err := s.GetStation(custom.StationUUID)
+	if err != nil || !ok || !st.Favorite || !st.Custom {
+		t.Fatalf("station changed: %+v, %v", st, err)
+	}
+	last, _, err := s.GetMeta("pref_last_station")
+	if err != nil || last != custom.StationUUID {
+		t.Fatal("last selection changed")
 	}
 }

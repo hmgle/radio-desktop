@@ -1,3 +1,5 @@
+import { SettingsPage } from "./components/SettingsPage";
+import { useLocale } from "./i18n";
 import { useEffect } from "react";
 import { currentWindow } from "mygo-runtime";
 import { useRadio } from "./store";
@@ -8,8 +10,11 @@ import { StationList } from "./components/StationList";
 import { PlayerBar } from "./components/PlayerBar";
 import { AddStationDialog, PlayURLDialog } from "./components/Dialogs";
 import { NowPlayingLayer } from "./components/NowPlayingLayer";
+import { TitleBar } from "./components/TitleBar";
 
 export default function App() {
+  useLocale();
+  const settingsOpen = useRadio((s) => s.settingsOpen);
   const init = useRadio((s) => s.init);
   const dialog = useRadio((s) => s.dialog);
   const openDialog = useRadio((s) => s.openDialog);
@@ -18,22 +23,50 @@ export default function App() {
     void init();
   }, [init]);
 
-  // Space toggles play/pause and Cmd/Ctrl+F focuses the search box,
-  // unless typing in an input.
+  // Space toggles play/pause outside interactive controls; Cmd/Ctrl+F
+  // returns to the station view and focuses search.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      const typing =
-        el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT";
-      if (e.code === "Space" && !typing) {
+      const interactive =
+        el.closest?.('input, textarea, select, button, summary, a[href], [role="button"]') || el.isContentEditable;
+      const state = useRadio.getState();
+      const key = e.key.toLowerCase();
+      const command = (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
+      const navigation = command && [",", "n", "l", "f"].includes(key);
+      const closeSettings = e.key === "Escape" && state.settingsOpen;
+      const togglePlayback = e.code === "Space" && !interactive && !state.settingsOpen;
+      if (!navigation && !closeSettings && !togglePlayback) return;
+      if (state.dialog || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if (command && key === ",") {
+        e.preventDefault();
+        state.openSettings(true);
+        return;
+      }
+      if (command && (key === "n" || key === "l")) {
+        e.preventDefault();
+        state.openDialog(key === "n" ? "add" : "url");
+        return;
+      }
+      if (closeSettings) {
+        state.openSettings(false);
+        return;
+      }
+      if (togglePlayback) {
         e.preventDefault();
         useRadio.getState().togglePlay();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+      if (command && key === "f") {
         e.preventDefault();
-        const input = document.getElementById("search-input") as HTMLInputElement | null;
-        input?.focus();
-        input?.select();
+        // Returning to the station view also dismisses Now Playing.
+        state.openSettings(false);
+        requestAnimationFrame(() => {
+          const current = useRadio.getState();
+          if (current.settingsOpen || current.nowPlayingOpen || current.dialog || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+          const input = document.getElementById("search-input") as HTMLInputElement | null;
+          input?.focus();
+          input?.select();
+        });
       }
     };
     document.addEventListener("keydown", onKey);
@@ -55,18 +88,25 @@ export default function App() {
 
   // Stop the ICY sidecar when the page unloads.
   useEffect(() => {
-    const onBeforeUnload = () => player.stop();
+    const onBeforeUnload = () => {
+      void useRadio.getState().flushVolume();
+      player.stop();
+    };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
   return (
     <div className="flex h-full flex-col">
+      <TitleBar />
       <div className="flex min-h-0 flex-1">
         <Sidebar onAddStation={() => openDialog("add")} onPlayURL={() => openDialog("url")} />
         <main className="flex min-w-0 flex-1 flex-col">
-          <FilterBar />
-          <StationList />
+          <div className="flex min-h-0 flex-1 flex-col" hidden={settingsOpen}>
+            <FilterBar />
+            <StationList />
+          </div>
+          {settingsOpen && <SettingsPage />}
         </main>
       </div>
       <PlayerBar />

@@ -1,12 +1,14 @@
+import { useSettings } from "./settings";
 import { create } from "zustand";
 import { Service, events } from "./mygo";
-import type { Meta, Progress, Station, Status, SyncResult } from "./mygo";
+import type { PlaybackMeta, PlayInfo, Progress, Station, Status, SyncResult, SleepTimer } from "./mygo";
 import { player, type PlayState } from "./player";
 
 export type Source = "all" | "favorites" | "history" | "custom";
 export type SortKey = "popularity" | "votes" | "name" | "bitrate" | "random";
 
 const PAGE_SIZE = 50;
+const VOLUME_KEY = "radio.volume";
 
 interface RadioState {
   // station list
@@ -21,6 +23,7 @@ interface RadioState {
   total: number;
   loading: boolean;
   loadingMore: boolean;
+  searchError: string;
 
   // app status
   status: Status | null;
@@ -28,9 +31,17 @@ interface RadioState {
   lastSyncResult: SyncResult | null;
   dialog: "add" | "url" | null;
   nowPlayingOpen: boolean;
+  settingsOpen: boolean;
+  openSettings: (open: boolean) => void;
+
+  sleepTimer: SleepTimer;
+  sleepError: string;
+  setSleepTimer: (minutes: number) => Promise<void>;
 
   // playback
   playState: PlayState;
+  playbackError: string;
+  sessionId: number;
   station: Station | null;
   title: string;
   icyName: string;
@@ -43,6 +54,7 @@ interface RadioState {
   handleUICommand: (action: string) => void;
   setSource: (s: Source) => void;
   setQuery: (q: string) => void;
+  clearSearch: () => void;
   setFilter: (patch: Partial<Pick<RadioState, "country" | "language" | "tag" | "minBitrate" | "sort">>) => void;
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
@@ -51,6 +63,7 @@ interface RadioState {
   playURL: (url: string) => Promise<void>;
   togglePlay: () => void;
   setVolume: (v: number) => void;
+  flushVolume: () => Promise<void>;
   toggleFavorite: (station: Station) => Promise<void>;
   syncNow: () => void;
   init: () => Promise<void>;
@@ -58,6 +71,57 @@ interface RadioState {
 
 let volumeTimer: ReturnType<typeof setTimeout> | null = null;
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let searchSeq = 0;
+let initialized = false;
+let playSeq = 0;
+let restoreSeq = 0;
+let sourceSave = Promise.resolve();
+let pendingPlayback = false;
+const pendingMetadata = new Map<number, PlaybackMeta>();
+
+function applySleepTimer(timer: SleepTimer) {
+  const s = useRadio.getState();
+  if (timer.generation < s.sleepTimer.generation) return;
+  const newlyExpired = timer.expired && !(s.sleepTimer.generation === timer.generation && s.sleepTimer.expired);
+  useRadio.setState({ sleepTimer: timer });
+  if (newlyExpired) s.handleUICommand("stop");
+}
+
+function applyMetadata(event: PlaybackMeta) {
+  const s = useRadio.getState();
+  if (pendingPlayback || event.sessionId !== s.sessionId || !s.sessionId || s.playState === "idle" || s.playState === "failed") return;
+  const m = event.meta;
+  useRadio.setState({ title: m.title, icyName: m.name, artworkUrl: m.artworkUrl,
+    station: s.station && !s.station.stationuuid && m.name ? { ...s.station, name: m.name } : s.station });
+}
+
+async function startPlayback(load: () => Promise<PlayInfo>, failedStation?: Station) {
+  restoreSeq++;
+  const seq = ++playSeq;
+  pendingPlayback = true;
+  try {
+    const info = await load();
+    if (seq !== playSeq) {
+      void Service.reportPlaybackState("idle", info.sessionId).catch(() => {});
+      return;
+    }
+    pendingPlayback = false;
+    useRadio.setState({ station: info.station, sessionId: info.sessionId, title: "", icyName: "", artworkUrl: "", playbackError: "" });
+    player.play(info);
+    const meta = pendingMetadata.get(info.sessionId);
+    if (meta) applyMetadata(meta);
+    pendingMetadata.clear();
+  } catch (e) {
+    if (seq !== playSeq) return;
+    pendingPlayback = false;
+    pendingMetadata.clear();
+    if (failedStation) {
+      player.stop();
+      useRadio.setState({ station: failedStation, playState: "failed", playbackError: String(e), sessionId: 0, title: "", icyName: "", artworkUrl: "" });
+    }
+    throw e;
+  }
+}
 
 export const useRadio = create<RadioState>((set, get) => ({
   source: "all",
@@ -71,31 +135,51 @@ export const useRadio = create<RadioState>((set, get) => ({
   total: 0,
   loading: false,
   loadingMore: false,
+  searchError: "",
 
   status: null,
   syncProgress: null,
   lastSyncResult: null,
   dialog: null,
   nowPlayingOpen: false,
+  settingsOpen: false,
+  openSettings: (settingsOpen) => set({ settingsOpen, nowPlayingOpen: false, dialog: null }),
+
+  sleepTimer: { deadline: 0, generation: 0, expired: false },
+  sleepError: "",
+  setSleepTimer: async (minutes) => {
+    set({ sleepError: "" });
+    try { applySleepTimer(await Service.setSleepTimer(minutes)); }
+    catch (e) { set({ sleepError: String(e) }); }
+  },
 
   playState: "idle",
+  playbackError: "",
+  sessionId: 0,
   station: null,
   title: "",
   icyName: "",
   artworkUrl: "",
   volume: 80,
 
-  openDialog: (dialog) => set({ dialog }),
+  openDialog: (dialog) => set((s) => ({ dialog, nowPlayingOpen: dialog ? false : s.nowPlayingOpen })),
 
   openNowPlaying: (nowPlayingOpen) => set({ nowPlayingOpen }),
 
   handleUICommand: (action) => {
     const s = get();
+    // Native menu accelerators can arrive without a DOM keydown event.
+    if (["settings", "add", "playURL"].includes(action) &&
+        (s.dialog || (typeof document !== "undefined" && document.querySelector('[role="dialog"][aria-modal="true"]')))) return;
     switch (action) {
+      case "settings":
+        get().openSettings(true);
+        break;
       case "toggle":
         s.togglePlay();
         break;
       case "random": {
+        const request = ++restoreSeq;
         // A random station over the whole catalog, ignoring filters.
         void Service.search({
           query: "",
@@ -105,12 +189,13 @@ export const useRadio = create<RadioState>((set, get) => ({
           minBitrate: 0,
           sort: "random",
           source: "all",
-          limit: 1,
+          limit: 2,
           offset: 0,
         })
           .then((res) => {
-            const station = res.items[0];
-            if (station) return s.playStation(station);
+            if (request !== restoreSeq) return;
+            const station = res.items.find((item) => item.stationuuid !== get().station?.stationuuid);
+            if (station) return get().playStation(station);
           })
           .catch((e) => console.error("random play failed", e));
         break;
@@ -119,24 +204,32 @@ export const useRadio = create<RadioState>((set, get) => ({
         if (s.station) void s.toggleFavorite(s.station);
         break;
       case "stop":
+        restoreSeq++;
+        playSeq++;
+        pendingPlayback = false;
+        pendingMetadata.clear();
         player.stop();
-        Service.stopPlayback().catch(() => {});
+        set({ sessionId: 0 });
         break;
       case "add":
-        set({ dialog: "add" });
+        s.openDialog("add");
         break;
       case "playURL":
-        set({ dialog: "url" });
+        s.openDialog("url");
         break;
     }
   },
 
   setSource: (source) => {
-    set({ source });
+    restoreSeq++;
+    sourceSave = sourceSave.then(() => Service.setLastSource(source)).catch((e) => console.error("save source failed", e));
+    set({ source, settingsOpen: false });
     void get().refresh();
   },
 
   setQuery: (query) => {
+    restoreSeq++;
+    searchSeq++;
     set({ query });
     // 200ms debounce, like radio-cli's TUI search.
     if (searchTimer) clearTimeout(searchTimer);
@@ -144,13 +237,22 @@ export const useRadio = create<RadioState>((set, get) => ({
   },
 
   setFilter: (patch) => {
+    restoreSeq++;
     set(patch);
     void get().refresh();
   },
 
+  clearSearch: () => {
+    restoreSeq++;
+    if (searchTimer) clearTimeout(searchTimer);
+    set({ query: "", country: "", language: "", tag: "", minBitrate: 0 });
+    void get().refresh();
+  },
+
   refresh: async () => {
+    const seq = ++searchSeq;
     const s = get();
-    set({ loading: true, items: [], total: 0 });
+    set({ loading: true, loadingMore: false, searchError: "", items: [], total: 0 });
     try {
       const res = await Service.search({
         query: s.query,
@@ -163,9 +265,9 @@ export const useRadio = create<RadioState>((set, get) => ({
         limit: PAGE_SIZE,
         offset: 0,
       });
-      set({ items: res.items, total: res.total, loading: false });
+      if (seq === searchSeq) set({ items: res.items, total: res.total, loading: false });
     } catch (e) {
-      set({ loading: false });
+      if (seq === searchSeq) set({ loading: false, searchError: String(e) });
       console.error("search failed", e);
     }
   },
@@ -173,7 +275,8 @@ export const useRadio = create<RadioState>((set, get) => ({
   loadMore: async () => {
     const s = get();
     if (s.loading || s.loadingMore || s.items.length >= s.total) return;
-    set({ loadingMore: true });
+    const seq = searchSeq;
+    set({ loadingMore: true, searchError: "" });
     try {
       const res = await Service.search({
         query: s.query,
@@ -186,21 +289,18 @@ export const useRadio = create<RadioState>((set, get) => ({
         limit: PAGE_SIZE,
         offset: s.items.length,
       });
-      set((st) => ({ items: [...st.items, ...res.items], loadingMore: false }));
+      if (seq === searchSeq) set((st) => ({ items: [...st.items, ...res.items], loadingMore: false }));
     } catch (e) {
-      set({ loadingMore: false });
+      if (seq === searchSeq) set({ loadingMore: false, searchError: String(e) });
       console.error("loadMore failed", e);
     }
   },
 
   playStation: async (station) => {
     try {
-      const info = await Service.playStation(station.stationuuid);
-      player.play(info);
-      set({ station: info.station, title: "", icyName: "", artworkUrl: "" });
+      await startPlayback(() => Service.playStation(station.stationuuid), station);
     } catch (e) {
       console.error("playStation failed", e);
-      set({ station, playState: "failed" });
     }
   },
 
@@ -208,9 +308,7 @@ export const useRadio = create<RadioState>((set, get) => ({
     const uuid = get().status?.lastStationUUID;
     if (!uuid) return;
     try {
-      const info = await Service.playStation(uuid);
-      player.play(info);
-      set({ station: info.station, title: "", icyName: "", artworkUrl: "" });
+      await startPlayback(() => Service.playStation(uuid));
     } catch (e) {
       console.error("resume failed", e);
     }
@@ -218,31 +316,43 @@ export const useRadio = create<RadioState>((set, get) => ({
 
   playURL: async (url) => {
     try {
-      const info = await Service.playURL(url);
-      player.play(info);
-      set({ station: info.station, title: "", icyName: "", artworkUrl: "" });
+      await startPlayback(() => Service.playURL(url));
     } catch (e) {
       console.error("playURL failed", e);
+      throw e;
     }
   },
 
   togglePlay: () => {
+    restoreSeq++;
     const s = get();
-    if (s.playState === "idle") {
-      void s.playLastStation();
+    if (s.playState === "idle" || s.playState === "failed" || s.playState === "ready") {
+      if (s.station?.stationuuid) void s.playStation(s.station);
+      else if (s.station?.url) void s.playURL(s.station.url).catch(() => {});
+      else void s.playLastStation();
       return;
     }
     player.toggle();
   },
 
   setVolume: (volume) => {
+    volume = Math.min(100, Math.max(0, Math.round(volume)));
     set({ volume });
     player.setVolume(volume);
+    try { localStorage.setItem(VOLUME_KEY, String(volume)); } catch { /* storage may be unavailable */ }
     if (volumeTimer) clearTimeout(volumeTimer);
-    volumeTimer = setTimeout(() => void Service.setVolume(volume).catch(() => {}), 500);
+    volumeTimer = setTimeout(() => void get().flushVolume(), 500);
+  },
+
+  flushVolume: async () => {
+    if (volumeTimer === null) return;
+    clearTimeout(volumeTimer);
+    volumeTimer = null;
+    try { await Service.setVolume(get().volume); } catch (e) { console.error("save volume failed", e); }
   },
 
   toggleFavorite: async (station) => {
+    if (!station.stationuuid) return;
     const optimistic = !station.favorite;
     set((st) => ({
       items: st.items.map((it) =>
@@ -260,21 +370,28 @@ export const useRadio = create<RadioState>((set, get) => ({
         items: st.items.map((it) =>
           it.stationuuid === station.stationuuid ? { ...it, favorite: station.favorite } : it,
         ),
+        station: st.station?.stationuuid === station.stationuuid ? { ...st.station, favorite: station.favorite } : st.station,
       }));
     }
   },
 
   syncNow: () => {
-    set({ syncProgress: null });
-    Service.syncNow().catch((e) => console.error("sync failed", e));
+    set((s) => ({ syncProgress: null, status: s.status ? { ...s.status, syncing: true } : s.status }));
+    Service.syncNow().catch((e) => {
+      set((s) => ({ status: s.status ? { ...s.status, syncing: false } : s.status }));
+      console.error("sync failed", e);
+    });
   },
 
   init: async () => {
+    if (initialized) return;
+    initialized = true;
+    const restore = restoreSeq;
     // Player snapshots flow into the store, and their state into the
     // system's media controls (Now Playing, media keys).
     player.onSnapshot = (snap) => {
-      set({ playState: snap.state, station: snap.station ?? get().station });
-      Service.reportPlaybackState(snap.state).catch(() => {});
+      set({ playState: snap.state, playbackError: snap.error, station: snap.station ?? get().station });
+      Service.reportPlaybackState(snap.state, get().sessionId).catch(() => {});
     };
 
     // The media keys and Control Center toggle playback through the same
@@ -286,23 +403,18 @@ export const useRadio = create<RadioState>((set, get) => ({
     // Menu-bar and tray actions arrive here too.
     events.uiCommand.on((action: string) => get().handleUICommand(action));
 
-    events.icyMeta.on((m: Meta) => {
-      set((st) => ({
-        title: m.title || st.title,
-        icyName: m.name || st.icyName,
-        // Empty means the stream explicitly has no cover: fall back to
-        // the station logo rather than keeping a stale one.
-        artworkUrl: m.artworkUrl,
-        // icy-name can upgrade an ephemeral URL's display name.
-        station:
-          st.station && !st.station.stationuuid && m.name
-            ? { ...st.station, name: m.name }
-            : st.station,
-      }));
+    events.sleepTimerChanged.on(applySleepTimer);
+    void Service.getSleepTimer().then(applySleepTimer).catch(() => {});
+
+    events.icyMeta.on((event: PlaybackMeta) => {
+      if (pendingPlayback) {
+        pendingMetadata.set(event.sessionId, event);
+        if (pendingMetadata.size > 8) pendingMetadata.delete(pendingMetadata.keys().next().value!);
+      } else applyMetadata(event);
     });
     events.syncProgress.on((p: Progress) => set({ syncProgress: p }));
     events.syncDone.on((r: SyncResult) => {
-      set({ syncProgress: null, lastSyncResult: r });
+      set((s) => ({ syncProgress: null, lastSyncResult: r, status: s.status ? { ...s.status, syncing: r.phase === "bootstrap" } : s.status }));
       if (!r.error) {
         void get().refresh();
         void Service.getStatus().then((status) => set({ status })).catch(() => {});
@@ -310,16 +422,30 @@ export const useRadio = create<RadioState>((set, get) => ({
     });
 
     try {
+      await useSettings.getState().load();
+      const resume = useSettings.getState().value.resume;
       const status = await Service.getStatus();
-      set({ volume: status.volume, status });
-      player.setVolume(status.volume);
-      // Arm the last station without autoplaying: the play button resumes.
-      if (status.lastStationUUID) {
+      let volume = status.volume;
+      try {
+        const saved = localStorage.getItem(VOLUME_KEY);
+        if (saved !== null && /^\d+$/.test(saved) && Number(saved) <= 100) volume = Number(saved);
+      } catch { /* storage may be unavailable */ }
+      set({ volume, status });
+      player.setVolume(volume);
+      if (volume !== status.volume) void Service.setVolume(volume).catch(() => {});
+      if (resume !== "off" && restore === restoreSeq) {
+        const source = status.lastSource;
+        if (["all", "favorites", "history", "custom"].includes(source)) set({ source: source as Source });
+      }
+      if (resume !== "off" && restore === restoreSeq && status.lastStationUUID) {
         try {
           const info = await Service.getPlayInfo(status.lastStationUUID);
-          if (info.candidates.length > 0) {
-            player.arm(info.station, info.candidates);
-            set({ station: info.station });
+          if (info.candidates.length > 0 && restore === restoreSeq) {
+            if (resume === "play") await get().playStation(info.station);
+            else {
+              player.arm(info.station, info.candidates);
+              set({ station: info.station });
+            }
           }
         } catch {
           // Last station vanished from the catalog; start idle.

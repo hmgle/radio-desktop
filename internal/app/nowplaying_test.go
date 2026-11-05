@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo"
 )
@@ -39,6 +40,63 @@ func TestFetchArtwork(t *testing.T) {
 	}
 	if _, err := fetchArtwork(srv.URL + "/404"); err == nil {
 		t.Fatal("404 accepted as artwork")
+	}
+}
+
+func TestClearCancelsPendingArtworkAndCannotRevivePlayback(t *testing.T) {
+	started, cancelled := make(chan struct{}), make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+		close(cancelled)
+	}))
+	defer srv.Close()
+	n := newNowPlaying()
+	n.setStation("Station", "")
+	n.setArtURL(srv.URL)
+	n.announce()
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("artwork request not started")
+	}
+	n.clear()
+	select {
+	case <-cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("clear did not cancel artwork")
+	}
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		n.mu.Lock()
+		publishing := n.publishing
+		n.mu.Unlock()
+		if !publishing {
+			if _, showing := mygo.NowPlaying.Info(); showing {
+				t.Fatal("stopped playback was revived")
+			}
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("publisher did not stop")
+}
+
+func TestIdenticalNowPlayingStateDoesNotInvalidatePublication(t *testing.T) {
+	n := newNowPlaying()
+	n.setStation("Station", "")
+	n.setArtURL("https://example.com/logo.png")
+	n.setMeta("Song", "https://example.com/cover.png")
+	n.setState(mygo.PlaybackPlaying)
+	revision := n.revision
+	n.setMeta("Song", "https://example.com/cover.png")
+	n.setState(mygo.PlaybackPlaying)
+	if n.revision != revision {
+		t.Fatal("identical state invalidated publication")
+	}
+	n.setMeta("", "")
+	if n.artURL != n.fallbackArtURL || n.title != "" {
+		t.Fatal("empty metadata did not restore station artwork")
 	}
 }
 

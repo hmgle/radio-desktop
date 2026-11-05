@@ -1,0 +1,90 @@
+// @vitest-environment jsdom
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { useRadio } from "../store";
+import type { Station } from "../mygo";
+import { StationList } from "./StationList";
+
+vi.mock("../player", () => ({ player: {} }));
+vi.mock("../mygo", () => ({ Service: {}, events: {} }));
+
+let observers: { callback: IntersectionObserverCallback; observe: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> }[];
+const station = (id: string): Station => ({ stationuuid: id, name: id, tagsList: [] } as unknown as Station);
+
+beforeEach(() => {
+  observers = [];
+  vi.stubGlobal("IntersectionObserver", class {
+    observe = vi.fn();
+    disconnect = vi.fn();
+    constructor(callback: IntersectionObserverCallback) {
+      observers.push({ callback, observe: this.observe, disconnect: this.disconnect });
+    }
+  });
+  vi.stubGlobal("CSS", { escape: (value: string) => value });
+  Element.prototype.scrollIntoView = vi.fn();
+  useRadio.setState({ items: [], total: 0, loading: false, loadingMore: false,
+    query: "", country: "", language: "", tag: "", minBitrate: 0, searchError: "",
+    loadMore: vi.fn().mockResolvedValue(undefined), playStation: vi.fn().mockResolvedValue(undefined),
+    refresh: vi.fn().mockResolvedValue(undefined), clearSearch: vi.fn(),
+    toggleFavorite: vi.fn().mockResolvedValue(undefined) });
+});
+
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it("observes a sentinel appearing after an empty/loading render, including refresh", () => {
+  render(<StationList />);
+  expect(observers).toHaveLength(0);
+  act(() => useRadio.setState({ loading: true }));
+  act(() => useRadio.setState({ loading: false, items: [station("a")], total: 3 }));
+  expect(observers).toHaveLength(1);
+  expect(observers[0]!.observe).toHaveBeenCalledWith(expect.any(HTMLElement));
+  act(() => observers[0]!.callback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
+  expect(useRadio.getState().loadMore).toHaveBeenCalledTimes(1);
+  act(() => useRadio.setState({ loading: true, items: [] }));
+  expect(observers[0]!.disconnect).toHaveBeenCalled();
+  act(() => useRadio.setState({ loading: false, items: [station("b")], total: 2 }));
+  expect(observers).toHaveLength(2);
+});
+
+it("keeps arrow navigation on row buttons without playing on their Enter", () => {
+  useRadio.setState({ items: [station("a"), station("b")], total: 2 });
+  render(<StationList />);
+  const heart = screen.getAllByTitle("Favorite")[0]!;
+  fireEvent.keyDown(heart, { key: "ArrowDown" });
+  fireEvent.keyDown(heart, { key: "Enter" });
+  expect(useRadio.getState().playStation).not.toHaveBeenCalled();
+  fireEvent.keyDown(screen.getByLabelText("Station list"), { key: "Enter" });
+  expect(useRadio.getState().playStation).toHaveBeenCalledWith(expect.objectContaining({ stationuuid: "a" }));
+});
+
+it("shows local flag artwork beside the station's country label", () => {
+  const germany = { ...station("a"), countrycode: "de", country: "Germany" } as Station;
+  useRadio.setState({ items: [germany], total: 1 });
+  render(<StationList />);
+  const row = document.querySelector('[data-uuid="a"]')!;
+  expect(row.querySelectorAll('img[alt=""]')).toHaveLength(1);
+  expect(row.textContent).toContain("Germany");
+  expect(row.innerHTML).not.toMatch(/[\u{1F1E6}-\u{1F1FF}]/u);
+});
+
+// Failed searches used to look like an empty catalog, without a retry action.
+it("retries a failed search and clears active filters from an empty result", () => {
+  useRadio.setState({ searchError: "SQLite unavailable" });
+  render(<StationList />);
+  expect(screen.getByRole("alert").textContent).toContain("SQLite unavailable");
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(useRadio.getState().refresh).toHaveBeenCalledOnce();
+  act(() => useRadio.setState({ searchError: "", query: "missing" }));
+  fireEvent.click(screen.getByRole("button", { name: "Clear search and filters" }));
+  expect(useRadio.getState().clearSearch).toHaveBeenCalledOnce();
+});
+
+it("retries a failed page without losing rows or automatically fetching again", () => {
+  useRadio.setState({ searchError: "Page failed", items: [station("a")], total: 2 });
+  render(<StationList />);
+  expect(screen.getByText("a")).toBeTruthy();
+  expect(observers).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(useRadio.getState().loadMore).toHaveBeenCalledOnce();
+  expect(useRadio.getState().refresh).not.toHaveBeenCalled();
+});

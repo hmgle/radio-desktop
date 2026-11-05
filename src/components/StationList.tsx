@@ -1,8 +1,11 @@
+import { messages as m } from "../locales";
 import { useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useRadio } from "../store";
 import type { Station } from "../mygo";
 import { Service } from "../mygo";
-import { EqBars, HeartIcon, RadioIcon, flagEmoji } from "./ui";
+import { EqBars, HeartIcon, RadioIcon, CountryFlag } from "./ui";
+import { ErrorDetails } from "./ErrorDetails";
 
 function StationRow(props: { station: Station; selected: boolean }) {
   const { station, selected } = props;
@@ -16,10 +19,10 @@ function StationRow(props: { station: Station; selected: boolean }) {
   const [imgFailed, setImgFailed] = useState(false);
 
   const meta: string[] = [];
-  if (station.countrycode) meta.push(`${flagEmoji(station.countrycode) || "🌍"} ${station.country || station.countrycode}`);
+  if (station.countrycode) meta.push(station.country || station.countrycode);
   if (station.bitrate) meta.push(`${station.bitrate}kbps`);
   if (station.codec) meta.push(station.codec.toUpperCase());
-  if (station.custom) meta.push("自定义");
+  if (station.custom) meta.push(m.custom());
 
   return (
     <div
@@ -52,11 +55,12 @@ function StationRow(props: { station: Station; selected: boolean }) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm ${active ? "font-medium text-[var(--accent)]" : ""}`}>
+        <p title={station.name} className={`truncate text-sm ${active ? "font-medium text-[var(--accent)]" : ""}`}>
           {station.name}
         </p>
         <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-          {meta.length > 0 && <span>{meta.join(" · ")}</span>}
+          {station.countrycode && <CountryFlag code={station.countrycode} />}
+          {meta.length > 0 && <span className="truncate">{meta.join(" · ")}</span>}
           {station.tagsList.length > 0 && (
             <span className="truncate opacity-70">
               {" · "}
@@ -67,10 +71,10 @@ function StationRow(props: { station: Station; selected: boolean }) {
       </div>
 
       {active && playState === "connecting" && (
-        <span className="shrink-0 text-[11px] text-neutral-400">连接中…</span>
+        <span className="shrink-0 text-[11px] text-neutral-400">{m.connecting()}</span>
       )}
       {active && playState === "failed" && (
-        <span className="shrink-0 text-[11px] text-red-500">播放失败</span>
+        <span className="shrink-0 text-[11px] text-red-500">{m.failed()}</span>
       )}
 
       <button
@@ -82,9 +86,9 @@ function StationRow(props: { station: Station; selected: boolean }) {
         className={`shrink-0 rounded-lg p-1.5 transition-colors ${
           station.favorite
             ? "text-[var(--accent)]"
-            : "text-neutral-300 opacity-0 hover:text-neutral-500 group-hover:opacity-100 dark:text-neutral-600 dark:hover:text-neutral-300"
+            : "text-neutral-400 opacity-0 hover:text-neutral-600 group-hover:opacity-100 group-focus-within:opacity-100 dark:text-neutral-500 dark:hover:text-neutral-300"
         }`}
-        title={station.favorite ? "取消收藏" : "收藏"}
+        title={station.favorite ? m.unfavorite() : m.favorite()}
       >
         <HeartIcon filled={station.favorite} />
       </button>
@@ -101,8 +105,8 @@ function StationRow(props: { station: Station; selected: boolean }) {
               console.error("remove custom station failed", err);
             }
           }}
-          className="shrink-0 rounded-lg p-1.5 text-neutral-300 opacity-0 transition-colors hover:text-red-500 group-hover:opacity-100 dark:text-neutral-600"
-          title="删除自定义电台"
+          className="shrink-0 rounded-lg p-1.5 text-neutral-400 opacity-0 transition-colors hover:text-red-500 group-hover:opacity-100 group-focus-within:opacity-100 dark:text-neutral-500"
+          title={m.removeCustom()}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
             <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
@@ -115,13 +119,22 @@ function StationRow(props: { station: Station; selected: boolean }) {
 
 export function StationList() {
   const { items, total, loading, loadingMore, loadMore, source, refresh, playStation } =
-    useRadio();
+    useRadio(useShallow((s) => ({ items: s.items, total: s.total, loading: s.loading, loadingMore: s.loadingMore, loadMore: s.loadMore, source: s.source, refresh: s.refresh, playStation: s.playStation })));
+  const query = useRadio((s) => s.query);
+  const country = useRadio((s) => s.country);
+  const language = useRadio((s) => s.language);
+  const tag = useRadio((s) => s.tag);
+  const minBitrate = useRadio((s) => s.minBitrate);
+  const sort = useRadio((s) => s.sort);
+  const searchError = useRadio((s) => s.searchError);
+  const clearSearch = useRadio((s) => s.clearSearch);
+  const filtered = !!(query || country || language || tag || minBitrate);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [selectedIdx, setSelectedIdx] = useState(-1);
 
   // A fresh list starts unselected.
-  useEffect(() => setSelectedIdx(-1), [source]);
+  useEffect(() => setSelectedIdx(-1), [source, query, country, language, tag, minBitrate, sort]);
 
   // The keyboard selection follows the list into view.
   useEffect(() => {
@@ -140,6 +153,7 @@ export function StationList() {
     else if (e.key === "Home") next = 0;
     else if (e.key === "End") next = items.length - 1;
     else if (e.key === "Enter" && selectedIdx >= 0 && items[selectedIdx]) {
+      if (e.target !== e.currentTarget) return;
       e.preventDefault();
       void playStation(items[selectedIdx]!);
       return;
@@ -149,35 +163,37 @@ export function StationList() {
   };
 
   // Infinite scroll: fetch the next page when the sentinel scrolls in.
+  const hasItems = !loading && items.length > 0;
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el) return;
+    if (!el || !hasItems || items.length >= total || searchError) return;
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) void loadMore();
       },
-      { rootMargin: "400px" },
+      { root: listRef.current, rootMargin: "400px" },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [loadMore]);
+  }, [loadMore, hasItems, items.length, total, searchError]);
 
   const emptyHint =
     source === "all"
-      ? "目录为空或没有匹配的电台，试试更新目录或更换关键词"
+      ? m.emptyAll()
       : source === "favorites"
-        ? "还没有收藏，点击列表右侧的 ♥ 收藏电台"
+        ? m.emptyFavorites()
         : source === "history"
-          ? "还没有播放记录"
-          : "还没有自定义电台，点击左侧“添加电台”";
+          ? m.emptyHistory()
+          : m.emptyCustom();
 
   return (
     <div
       ref={listRef}
       tabIndex={0}
       onKeyDown={onKey}
-      aria-label="电台列表"
-      className="flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent)]/30"
+      aria-label={m.stationList()}
+      aria-busy={loading || loadingMore}
+      className="min-h-0 flex-1 overflow-y-auto px-3 py-3 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent)]/30"
     >
       {loading ? (
         <div className="flex flex-col gap-2 px-0">
@@ -185,17 +201,17 @@ export function StationList() {
             <div key={i} className="h-14 animate-pulse rounded-xl bg-neutral-200/60 dark:bg-neutral-800/60" />
           ))}
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && !searchError ? (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
           <RadioIcon className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
-          <p className="max-w-64 text-xs leading-relaxed text-neutral-400">{emptyHint}</p>
-          {source === "all" && (
+          <p role="status" className="max-w-64 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">{filtered ? m.noMatches() : emptyHint}</p>
+          {(filtered || source === "all") && (
             <button
               type="button"
-              onClick={() => void refresh()}
+              onClick={() => filtered ? clearSearch() : void refresh()}
               className="rounded-lg border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
-              刷新
+              {filtered ? m.resetSearch() : m.refresh()}
             </button>
           )}
         </div>
@@ -205,15 +221,20 @@ export function StationList() {
             <StationRow key={st.stationuuid} station={st} selected={i === selectedIdx} />
           ))}
           <div ref={sentinelRef} className="h-4" />
-          <p className="py-2 text-center text-[11px] text-neutral-400">
+          {!searchError && <p className="py-2 text-center text-[11px] text-neutral-400">
             {loadingMore
-              ? "加载中…"
+              ? m.loading()
               : items.length >= total
-                ? `共 ${total.toLocaleString()} 个电台`
-                : `已显示 ${items.length.toLocaleString()} / ${total.toLocaleString()}`}
-          </p>
+                ? m.stations(total)
+                : m.shown(items.length, total)}
+          </p>}
         </div>
       )}
+      {searchError && <div role="alert" className="my-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+        <p>{m.searchFailed()}</p>
+        <ErrorDetails error={searchError} />
+        <button type="button" onClick={() => void (items.length ? loadMore() : refresh())} className="mt-3 rounded-lg border border-current px-3 py-1.5 text-xs hover:bg-red-100 dark:hover:bg-red-900/30">{m.retry()}</button>
+      </div>}
     </div>
   );
 }
