@@ -1,0 +1,28 @@
+name: Bug report
+description: Report a problem with Radio Desktop
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: App version or commit, OS version, architecture, and Linux desktop/WebKit version if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include a public stream URL for playback problems. Remove tokens and private data.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots and error details
+      description: Optional. Review attachments for personal data before posting.

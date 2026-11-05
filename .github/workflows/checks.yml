@@ -3,6 +3,7 @@ name: Checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -40,11 +41,11 @@ jobs:
       - run: go tool mygo vet .
       - name: Install audio isolation dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpulse0
-      - run: RADIO_AUDIO_TEST=1 go test ./internal/...
+      - run: RADIO_AUDIO_TEST=1 go test ./...
       - name: Check generated bindings
         run: |
           go tool mygo generate
-          git diff --exit-code -- src/mygo.ts
+          git diff --exit-code -- src/mygo.ts src/locales.ts locales/catalog_gen.go
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build:web

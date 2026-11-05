@@ -1,0 +1,45 @@
+name: Desktop packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+      - run: bun install --frozen-lockfile
+      - name: Build desktop packages
+        run: bun run build
+      - name: Check generated sources
+        run: git diff --exit-code -- src/mygo.ts src/locales.ts locales/catalog_gen.go
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: radio-desktop-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          path: |
+            build/**/*.deb
+            build/**/*.tar.gz
+            build/**/*.dmg
+          if-no-files-found: error
+          retention-days: 14
