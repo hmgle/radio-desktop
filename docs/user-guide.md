@@ -11,7 +11,9 @@ Search matches names, countries, languages, and tags. Combine it with country, l
 The country dropdown accepts code, catalog-name, or Simplified Chinese-name
 prefixes, including a single character. For example, `中` finds locally available
 entries such as China and the Central African Republic; `中国` narrows the list
-further. Select a result to apply its country code. Chinese-name matching works
+further. Common short names `香港` and `澳门` also match Hong Kong and Macao,
+including single-character prefixes `香` and `澳`. Select a result to apply its
+country code. Chinese-name matching works
 in either interface language. In the Chinese interface, candidates and the
 selected filter show Chinese names with codes, such as `中国 (CN)`; switching
 languages updates both. The English interface uses catalog names, as does the

@@ -384,7 +384,7 @@ func (s *Store) RemoveCustomStation(uuid string) error {
 // ---- facets ----
 
 // Countries lists country facets (value = ISO code) with station counts.
-// Prefixes match codes, catalog names, or Simplified Chinese display names.
+// Prefixes match codes, catalog names, or Simplified Chinese names and aliases.
 func (s *Store) Countries(prefix string, limit int) ([]Facet, error) {
 	q := "SELECT country, MAX(countryname), COUNT(*) n FROM stations WHERE active = 1 AND country <> ''"
 	args := []any{}
@@ -422,10 +422,16 @@ var chineseCountryNames = func() map[string]string {
 	return labels
 }()
 
+// Search aliases supplement CLDR names without changing display labels.
+var chineseCountryAliases = map[string]string{
+	"HK": "香港",
+	"MO": "澳门",
+}
+
 func chineseCountryPrefixCodes(prefix string) []string {
 	var codes []string
 	for code, name := range chineseCountryNames {
-		if strings.HasPrefix(name, prefix) {
+		if strings.HasPrefix(name, prefix) || strings.HasPrefix(chineseCountryAliases[code], prefix) {
 			codes = append(codes, code)
 		}
 	}

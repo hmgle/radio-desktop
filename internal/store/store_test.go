@@ -392,7 +392,11 @@ func TestCountryFacetsChinesePrefixes(t *testing.T) {
 		{"central", 10, []string{"CF"}},
 		{"qz", 10, []string{"QZ"}},
 		{"zz", 10, []string{"ZZ"}},
-		{"香港", 10, []string{}},
+		{"香", 10, []string{"HK"}},
+		{"香港", 10, []string{"HK"}},
+		{" 香港　", 10, []string{"HK"}},
+		{"澳", 10, []string{"AU", "MO"}},
+		{"澳门", 10, []string{"MO"}},
 		{"国", 10, []string{}},
 		{"日本", 10, []string{}},
 		{"%", 10, []string{}},
@@ -400,6 +404,8 @@ func TestCountryFacetsChinesePrefixes(t *testing.T) {
 		{"' OR 1=1 --", 10, []string{}},
 		{"", 1, []string{"AU"}},
 		{"中国", 1, []string{"CN"}},
+		{"香", 1, []string{"HK"}},
+		{"澳门", 1, []string{"MO"}},
 	} {
 		t.Run(fmt.Sprintf("%s/%d", tc.prefix, tc.limit), func(t *testing.T) {
 			facets, err := s.Countries(tc.prefix, tc.limit)
