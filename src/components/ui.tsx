@@ -1,5 +1,5 @@
 import { messages as m } from "../locales";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Service } from "../mygo";
 import type { Facet } from "../mygo";
 import { countryFlagUrl } from "../flags";
@@ -61,6 +61,9 @@ export function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
+/** Both outcomes of a facet query travel through the same deferred update. */
+type FacetUpdate = { rows: Facet[] } | { error: true };
+
 /**
  * A dropdown that lazy-loads facet values (country/language/tag) from the
  * backend, with a prefix search box. Uses a <button> + absolutely
@@ -77,21 +80,46 @@ export function FacetSelect(props: {
   const [open, setOpen] = useState(false);
   const [facets, setFacets] = useState<Facet[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [pending, setPending] = useState(false);
   const [prefix, setPrefix] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  /** Pointer is down inside the popup: rows must not change under it. */
+  const pressing = useRef(false);
+  /** An update that arrived mid-press and waits for the press to finish. */
+  const queued = useRef<FacetUpdate | null>(null);
+  /** Focus sat inside the popup before the list was updated. */
+  const focusInside = useRef(false);
   const panelId = useId();
   const close = () => {
     setOpen(false);
     triggerRef.current?.focus();
   };
+  const apply = useCallback((update: FacetUpdate) => {
+    focusInside.current = panelRef.current?.contains(document.activeElement) ?? false;
+    if ("rows" in update) {
+      setFacets(update.rows);
+      setFailed(false);
+    } else {
+      setFailed(true);
+    }
+    setPending(false);
+  }, []);
+  const deliver = useCallback((update: FacetUpdate) => {
+    // Success and failure alike must wait out a press: showing the error in
+    // place of the rows would unmount the button being pressed.
+    if (pressing.current) queued.current = update;
+    else apply(update);
+  }, [apply]);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
-    setFacets(null);
+    queued.current = null;
     setFailed(false);
+    setPending(true);
     const load = async () => {
       try {
         const list =
@@ -100,18 +128,62 @@ export function FacetSelect(props: {
             : kind === "language"
               ? await Service.languages(prefix)
               : await Service.tags(prefix);
-        if (active) setFacets(list);
+        if (active) deliver({ rows: list });
       } catch (e) {
         console.error("facets failed", e);
-        if (active) setFailed(true);
+        if (active) deliver({ error: true });
       }
     };
     const timer = setTimeout(() => void load(), prefix ? 200 : 0);
     return () => { active = false; clearTimeout(timer); };
-  }, [open, kind, prefix]);
+  }, [open, kind, prefix, deliver]);
+
+  // Deliver held results only after the press has become a click, so the click
+  // still lands on the row it started on.
+  useEffect(() => {
+    if (!open) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const release = () => {
+      if (!pressing.current) return;
+      pressing.current = false;
+      const update = queued.current;
+      queued.current = null;
+      if (update) timer = setTimeout(() => apply(update), 0);
+    };
+    document.addEventListener("pointerup", release, true);
+    document.addEventListener("pointercancel", release, true);
+    // Fallback for engines without pointer events; a second call is a no-op.
+    document.addEventListener("mouseup", release, true);
+    return () => {
+      document.removeEventListener("pointerup", release, true);
+      document.removeEventListener("pointercancel", release, true);
+      document.removeEventListener("mouseup", release, true);
+      if (timer) clearTimeout(timer);
+    };
+  }, [open, apply]);
+
+  // A swap can delete the option that holds keyboard focus, which strands the
+  // arrow keys and Enter on <body>; fall back to the search box.
+  useEffect(() => {
+    if (!open || !focusInside.current) return;
+    focusInside.current = false;
+    if (!panelRef.current?.contains(document.activeElement)) searchRef.current?.focus();
+  }, [facets, failed, open]);
 
   useEffect(() => {
-    if (!open) return setPrefix(""), undefined;
+    if (!open) {
+      // Drop the previous visit's rows so a reopened popup never shows a stale
+      // prefix result, and never leaves a request marked as in flight.
+      setPrefix("");
+      setFacets(null);
+      setFailed(false);
+      setPending(false);
+      pressing.current = false;
+      queued.current = null;
+      focusInside.current = false;
+      return;
+    }
+    pressing.current = false; // the press that opened the popup has ended
     const onDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
@@ -133,9 +205,17 @@ export function FacetSelect(props: {
   const shown = facets ?? [];
 
   return (
-    <div ref={rootRef} className="relative" onBlur={(e) => {
-      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
-    }} onKeyDown={(e) => {
+    <div ref={rootRef} className="relative"
+      onMouseDown={() => { pressing.current = true; }}
+      onPointerDown={() => { pressing.current = true; }}
+      onBlur={(e) => {
+        const next = e.relatedTarget as Node | null;
+        // macOS WebKit drops focus to the document instead of the pressed button
+        // (webkit.org/b/229895). Ignore that only while a press inside the popup
+        // is in flight; losing focus for real still closes the popup.
+        if (!next && pressing.current) return;
+        if (!next || !e.currentTarget.contains(next)) setOpen(false);
+      }} onKeyDown={(e) => {
       if (e.altKey || e.ctrlKey || e.metaKey || !["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
       if (!open) {
         if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setOpen(true); }
@@ -172,6 +252,7 @@ export function FacetSelect(props: {
         <div ref={panelRef} id={panelId} role="dialog" aria-label={label} className="absolute top-9 left-0 z-30 flex max-h-[min(20rem,calc(100vh-15rem))] w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
           <div className="border-b border-neutral-100 p-2 dark:border-neutral-800">
             <input
+              ref={searchRef}
               autoFocus
               aria-label={m.searchFacet(label)}
               value={prefix}
@@ -180,11 +261,12 @@ export function FacetSelect(props: {
               className="h-7 w-full rounded-md bg-neutral-100 px-2 text-xs outline-none dark:bg-neutral-800"
             />
           </div>
-          <div className="min-h-20 flex-1 overflow-y-auto overscroll-contain py-1">
-            {failed ? (
-              <p className="p-3 text-center text-xs text-red-500">{m.loadFailed()}</p>
-            ) : facets === null ? (
-              <p className="p-3 text-center text-xs text-neutral-400">{m.loading()}</p>
+          <div className="min-h-20 flex-1 overflow-y-auto overscroll-contain py-1" aria-busy={pending}>
+            {failed && facets !== null && (
+              <p role="status" className="px-3 py-1.5 text-[11px] text-red-500">{m.loadFailed()}</p>
+            )}
+            {facets === null ? (
+              <p className={`p-3 text-center text-xs ${failed ? "text-red-500" : "text-neutral-400"}`}>{failed ? m.loadFailed() : m.loading()}</p>
             ) : shown.length === 0 ? (
               <p className="p-3 text-center text-xs text-neutral-400">{m.noMatches()}</p>
             ) : (
@@ -192,6 +274,9 @@ export function FacetSelect(props: {
                 <button
                   key={f.value}
                   type="button"
+                  // Keep the search box focused while pressing an option, so the
+                  // prefix and the keyboard position survive the click.
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     onChange(f.value, f.label);
                     close();
@@ -212,6 +297,7 @@ export function FacetSelect(props: {
           {value && (
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 onChange("", "");
                 close();
