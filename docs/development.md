@@ -71,12 +71,19 @@ Windows installers install for the current user under `%LOCALAPPDATA%\Programs`,
 
 After updating dependencies, run `bun install --frozen-lockfile`, `go mod download`, and `uv run --no-project tools/update-notices.py` to refresh bundled license texts. Review the result for newly added components.
 
-When distributing binaries, provide the corresponding source for that exact version under GPL-3.0, including the lockfile and build instructions, and preserve third-party license notices. Keep version metadata and release notes aligned. Packaging workflows create CI artifacts; they do not publish a GitHub Release or sign packages.
+When distributing binaries, provide the corresponding source for that exact version under GPL-3.0, including the lockfile and build instructions, and preserve third-party license notices. Keep version metadata and release notes aligned. Packages are currently unsigned; the release workflow prepares a draft for manual review and publication.
 
 ## CI
 
 - **Checks** runs formatting, Go vet, MyGo vet, backend tests, generated binding checks, frontend tests, and the web build on pushes and pull requests. Live network/audio playback tests are opt-in locally.
 - **Desktop packages** runs on manual dispatch, with Linux, macOS, and Windows x64 builds and downloadable workflow artifacts. The Windows job also runs the backend tests and requires an NSIS installer before uploading. It uses read-only repository permissions and does not publish releases.
+- **Release draft** runs on `v*` tags. The tag must equal `v` plus the version in `mygo.json`, and `CHANGELOG.md` must have a nonempty section for that version (plain or bracketed headings, with optional dates). It runs Checks and all three package builds before creating a draft containing the version's changelog notes, installers, and `SHA256SUMS`. Tags containing a prerelease suffix create prerelease drafts. Reruns can replace draft assets, but refuse to change a published release. Review all packages before publishing the draft; this workflow does not sign packages or configure in-app updates.
+
+Validate release metadata locally before tagging:
+
+```sh
+go run ./tools/release -tag v0.2.0 -notes /tmp/radio-release-notes.md
+```
 
 ## Source map
 

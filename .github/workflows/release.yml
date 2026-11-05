@@ -1,0 +1,84 @@
+name: Release draft
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Validate tag and release notes
+        run: go run ./tools/release -tag "$GITHUB_REF_NAME" -notes "$RUNNER_TEMP/notes.md"
+
+  checks:
+    needs: validate
+    uses: ./.github/workflows/checks.yml
+
+  build:
+    needs: checks
+    uses: ./.github/workflows/packages.yml
+
+  draft:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Read release notes
+        run: go run ./tools/release -tag "$GITHUB_REF_NAME" -notes "$RUNNER_TEMP/notes.md"
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: radio-desktop-*-${{ github.sha }}
+          path: packages
+          merge-multiple: true
+      - name: Collect packages and checksums
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          files=(packages/**/*.deb packages/**/*.tar.gz packages/**/*.dmg packages/**/*-setup-*.exe)
+          test "${#files[@]}" -gt 0
+          mkdir release-assets
+          for file in "${files[@]}"; do
+            target="release-assets/$(basename "$file")"
+            test ! -e "$target"
+            cp "$file" "$target"
+          done
+          cd release-assets
+          sha256sum -- * > SHA256SUMS
+      - name: Create draft and upload packages
+        shell: bash
+        run: |
+          if draft=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft); then
+            if [ "$draft" != true ]; then
+              echo "Refusing to replace assets of a published release" >&2
+              exit 1
+            fi
+          else
+            flags=()
+            if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+              flags+=(--prerelease)
+            fi
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+              --draft --verify-tag --title "$GITHUB_REF_NAME" \
+              --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+          fi
+          gh release upload "$GITHUB_REF_NAME" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" --clobber

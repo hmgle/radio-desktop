@@ -2,6 +2,7 @@ name: Desktop packages
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
