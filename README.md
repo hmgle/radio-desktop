@@ -35,6 +35,8 @@ Screenshots show the Linux desktop application; native controls vary by platform
 
 ## Get started
 
+Download a package for your platform from [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest). macOS packages are unsigned disk images; Linux packages include a `.deb` and a tarball with an installer. To build from source, follow the steps below.
+
 The documented desktop targets are **macOS and Linux**. Windows has not been validated for this project.
 
 Build from source using **Go 1.27.3 or newer** and **Bun 1.4.2** (the version used in CI):

@@ -33,6 +33,8 @@ MP3、AAC、HLS 的支持取决于系统 WebView 和编解码器。HLS 优先使
 
 ## 安装与启动
 
+从 [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest) 下载对应平台的安装包。macOS 提供未签名的磁盘映像，Linux 提供 `.deb` 和带安装脚本的 tarball。源码构建方法如下。
+
 本文档面向 **macOS 和 Linux**，Windows 尚未经过本项目验证。
 
 安装 **Go 1.27.3 或更新版本**及 **Bun 1.4.2**（与 CI 一致），在项目检出目录执行：

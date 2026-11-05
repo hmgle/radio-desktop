@@ -61,7 +61,7 @@ Output is placed under `build/<platform>-<architecture>/`. Cross builds require 
 | macOS | `.app`, `.dmg` |
 | Linux | Executable, `.desktop`, `.deb`, tarball with user-level `install.sh`, and `PKGBUILD` |
 
-To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.1.0_amd64.deb`. For the tarball, extract it and review/run its `install.sh`. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
+To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.2.0_amd64.deb`. For the tarball, extract it and review/run its `install.sh`. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
 
 `mygo.json` controls the app version, identifier, packaging, extra resources, and Linux dependencies. `package.json` declares the SPDX license. Packages include `LICENSE` and `THIRD_PARTY_NOTICES.md`; the frontend also embeds the Twemoji attribution in `third-party-notices.txt`.
 
