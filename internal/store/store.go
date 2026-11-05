@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/text/language/display"
 	_ "modernc.org/sqlite"
 
 	"radio-desktop/internal/model"
@@ -382,14 +383,39 @@ func (s *Store) RemoveCustomStation(uuid string) error {
 // ---- facets ----
 
 // Countries lists country facets (value = ISO code) with station counts.
+// Prefixes match codes, catalog names, or Simplified Chinese display names.
 func (s *Store) Countries(prefix string, limit int) ([]Facet, error) {
 	q := "SELECT country, MAX(countryname), COUNT(*) n FROM stations WHERE active = 1 AND country <> ''"
 	args := []any{}
 	if p := strings.TrimSpace(prefix); p != "" {
-		q += " AND (country LIKE ? ESCAPE '\\' OR countryname LIKE ? ESCAPE '\\')"
+		q += " AND (country LIKE ? ESCAPE '\\' OR countryname LIKE ? ESCAPE '\\'"
 		args = append(args, escapeLike(strings.ToUpper(p))+"%", escapeLike(strings.ToLower(p))+"%")
+		// Resolve localized prefixes before grouping and LIMIT; the catalog
+		// retains its original labels and counts, and needs no migration.
+		codes := chineseCountryPrefixCodes(p)
+		if len(codes) > 0 {
+			q += " OR country IN (" + strings.TrimSuffix(strings.Repeat("?,", len(codes)), ",") + ")"
+			for _, code := range codes {
+				args = append(args, code)
+			}
+		}
+		q += ")"
 	}
 	return s.queryFacets(q+" GROUP BY country ORDER BY n DESC, country", limit, args)
+}
+
+func chineseCountryPrefixCodes(prefix string) []string {
+	// Reuse the Chinese CLDR names in the existing text dependency. A
+	// single character is useful here because this only completes countries.
+	names := display.SimplifiedChinese.Regions()
+	var codes []string
+	for _, region := range display.Values.Regions() {
+		code := region.String()
+		if len(code) == 2 && code != "ZZ" && strings.HasPrefix(names.Name(region), prefix) {
+			codes = append(codes, code)
+		}
+	}
+	return codes
 }
 
 // Languages lists language facets from the lang junction table.

@@ -20,6 +20,7 @@
   "searchHistory": "在最近播放中搜索…",
   "searchCustom": "在我的电台中搜索…",
   "country": "国家/地区",
+  "searchCountryPrefix": "代码或中文／英文名称前缀",
   "language": "语言",
   "tag": "标签",
   "unlimitedBitrate": "码率不限",

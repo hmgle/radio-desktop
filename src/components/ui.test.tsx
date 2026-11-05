@@ -66,6 +66,29 @@ it("keeps the country label and selection accessible in a facet with a decorativ
   expect(onChange).toHaveBeenCalledWith("UG", label);
 });
 
+it("queries a Chinese country prefix and selects its original code", async () => {
+  vi.mocked(Service.countries).mockImplementation(async (prefix) => prefix === "中" ? [
+    { value: "CN", label: "china", count: 7 },
+    { value: "CF", label: "central african republic", count: 2 },
+  ] : []);
+  const onChange = vi.fn();
+  render(<FacetSelect kind="country" label="Country" value="" onChange={onChange} />);
+  const trigger = screen.getByRole("button", { name: "Country" });
+  fireEvent.click(trigger);
+  const search = screen.getByRole("textbox");
+  expect(search.getAttribute("placeholder")).toBe(m.searchCountryPrefix());
+  fireEvent.change(search, { target: { value: "中" } });
+  const china = await screen.findByRole("button", { name: /china/ });
+  expect(Service.countries).toHaveBeenLastCalledWith("中");
+  expect(screen.queryByRole("button", { name: /central african republic/ })).not.toBeNull();
+  fireEvent.keyDown(search, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(china);
+  fireEvent.click(china);
+  expect(onChange).toHaveBeenCalledWith("CN", "china");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(trigger);
+});
+
 // Keyboard selection used to leave focus in the removed popup.
 it("navigates facet options with arrows and returns focus on selection or Escape", async () => {
   vi.mocked(Service.countries).mockResolvedValue([

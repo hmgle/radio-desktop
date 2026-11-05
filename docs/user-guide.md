@@ -8,6 +8,13 @@ On first launch, Radio Desktop downloads a small popular-station catalog, then s
 
 Search matches names, countries, languages, and tags. Combine it with country, language, tag, and minimum bitrate filters. Dropdowns have their own search fields. Use **Reset** or **Clear search and filters** to remove restrictions. Scroll to load more stations.
 
+The country dropdown accepts code, catalog-name, or Simplified Chinese-name
+prefixes, including a single character. For example, `中` finds locally available
+entries such as China and the Central African Republic; `中国` narrows the list
+further. Select a result to apply its country code. Chinese-name matching works
+in either interface language, and candidates keep their catalog labels and
+station counts. Language and tag dropdowns match their catalog-value prefixes.
+
 Click a station to play it. The bottom bar has play/pause, stop, favorite, and volume controls. Click the artwork or station information to expand station details. Track titles and artwork appear only when the broadcaster supplies compatible metadata; missing artwork does not mean playback has failed.
 
 **Play URL** previews an HTTP(S) stream without saving it. Use a direct audio or HLS URL, rather than a station's website. **Add station** saves a name, stream URL, and optional homepage to **My stations**. Temporary URL previews cannot be favorited; save them as a custom station first. Deleting a custom station removes its saved entry.

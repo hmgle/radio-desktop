@@ -257,7 +257,7 @@ export function FacetSelect(props: {
               aria-label={m.searchFacet(label)}
               value={prefix}
               onChange={(e) => setPrefix(e.target.value)}
-              placeholder={m.searchFacet(label)}
+              placeholder={kind === "country" ? m.searchCountryPrefix() : m.searchFacet(label)}
               className="h-7 w-full rounded-md bg-neutral-100 px-2 text-xs outline-none dark:bg-neutral-800"
             />
           </div>

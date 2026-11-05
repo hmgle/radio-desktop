@@ -235,6 +235,16 @@ func (msgs Messages) Country() string {
 	return Catalog.Format(msgs.locale, "country", nil)
 }
 
+// SearchCountryPrefix says "Code or Chinese/English name prefix"
+// in the language the app shows.
+func SearchCountryPrefix() string { return In(i18n.Locale()).SearchCountryPrefix() }
+
+// SearchCountryPrefix says "Code or Chinese/English name prefix"
+// in the language of msgs.
+func (msgs Messages) SearchCountryPrefix() string {
+	return Catalog.Format(msgs.locale, "searchCountryPrefix", nil)
+}
+
 // Language says "Language"
 // in the language the app shows.
 func Language() string { return In(i18n.Locale()).Language() }

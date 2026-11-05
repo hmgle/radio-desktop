@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -342,6 +343,78 @@ func TestFacets(t *testing.T) {
 	ts, _ := s.Tags("", 10)
 	if len(ts) != 3 { // rock, jazz, news
 		t.Fatalf("tags: %+v", ts)
+	}
+}
+
+func TestCountryFacetsChinesePrefixes(t *testing.T) {
+	s := testStore(t)
+	var stations []model.Station
+	for _, country := range []struct {
+		code, name string
+		count      int
+	}{
+		{"AU", "Australia", 4},
+		{"CF", "Central African Republic", 1},
+		{"CN", "China", 2},
+		{"HK", "Hong Kong", 1},
+		{"MO", "Macao", 1},
+		{"TW", "Taiwan", 1},
+		{"QZ", "Unrecognized country", 1},
+		{"JP", "Japan", 1},
+	} {
+		for range country.count {
+			st := station(fmt.Sprintf("country-%d", len(stations)), "Country fixture")
+			st.Country, st.CountryCode = country.name, country.code
+			stations = append(stations, st)
+		}
+	}
+	mustPublish(t, s, stations...)
+	if _, err := s.db.Exec("UPDATE stations SET active=0 WHERE country='JP'"); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		prefix string
+		limit  int
+		codes  []string
+	}{
+		{"中", 10, []string{"CN", "CF", "HK", "MO"}},
+		{" 中国　", 10, []string{"CN", "HK", "MO"}},
+		{"中国香", 10, []string{"HK"}},
+		{"台", 10, []string{"TW"}},
+		{" c ", 10, []string{"CN", "CF"}},
+		{"cn", 10, []string{"CN"}},
+		{"CHi", 10, []string{"CN"}},
+		{"central", 10, []string{"CF"}},
+		{"qz", 10, []string{"QZ"}},
+		{"香港", 10, []string{}},
+		{"国", 10, []string{}},
+		{"日本", 10, []string{}},
+		{"%", 10, []string{}},
+		{"_", 10, []string{}},
+		{"' OR 1=1 --", 10, []string{}},
+		{"", 1, []string{"AU"}},
+		{"中国", 1, []string{"CN"}},
+	} {
+		t.Run(fmt.Sprintf("%s/%d", tc.prefix, tc.limit), func(t *testing.T) {
+			facets, err := s.Countries(tc.prefix, tc.limit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			codes := []string{}
+			for _, facet := range facets {
+				codes = append(codes, facet.Value)
+				if facet.Value == "CN" && (facet.Count != 2 || facet.Label != "china") {
+					t.Fatalf("country count or catalog label changed: %+v", facet)
+				}
+			}
+			if !reflect.DeepEqual(codes, tc.codes) {
+				t.Fatalf("codes = %v, want %v", codes, tc.codes)
+			}
+		})
+	}
+	selected, err := s.Search(SearchRequest{Country: "CN"})
+	if err != nil || selected.Total != 2 || selected.Items[0].Country != "China" {
+		t.Fatalf("country filter or original metadata changed: %+v, %v", selected, err)
 	}
 }
 

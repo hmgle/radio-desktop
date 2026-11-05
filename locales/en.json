@@ -20,6 +20,7 @@
   "retry": "Retry",
   "sortOrder": "Sort order",
   "country": "Country",
+  "searchCountryPrefix": "Code or Chinese/English name prefix",
   "language": "Language",
   "tag": "Tag",
   "unlimitedBitrate": "Any bitrate",

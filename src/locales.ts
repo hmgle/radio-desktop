@@ -84,6 +84,10 @@ export interface Messages {
    */
   country(): string;
   /**
+   * `Code or Chinese/English name prefix`
+   */
+  searchCountryPrefix(): string;
+  /**
    * `Language`
    */
   language(): string;
@@ -737,6 +741,7 @@ const catalog = createCatalog<Messages>({
     "retry": [],
     "sortOrder": [],
     "country": [],
+    "searchCountryPrefix": [],
     "language": [],
     "tag": [],
     "unlimitedBitrate": [],
@@ -916,6 +921,7 @@ const catalog = createCatalog<Messages>({
       "retry": "Retry",
       "sortOrder": "Sort order",
       "country": "Country",
+      "searchCountryPrefix": "Code or Chinese/English name prefix",
       "language": "Language",
       "tag": "Tag",
       "unlimitedBitrate": "Any bitrate",
@@ -1094,6 +1100,7 @@ const catalog = createCatalog<Messages>({
       "retry": "重试",
       "sortOrder": "排序方式",
       "country": "国家/地区",
+      "searchCountryPrefix": "代码或中文／英文名称前缀",
       "language": "语言",
       "tag": "标签",
       "unlimitedBitrate": "码率不限",
