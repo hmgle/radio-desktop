@@ -47,6 +47,16 @@ uv run --no-project tools/test-audio-isolation.py --server pulseaudio
 
 The real WebView regression requires a graphical session (or `xvfb-run`), Go, Bun, FFmpeg, mpv, PipeWire, WirePlumber 0.5+, `pactl`/`parec`, and `dbus-daemon`. PulseAudio is needed for the second variant. It starts private audio services and uses generated local media and a virtual sink; it does not need public radio streams or a physical sound card. Linux playback assigns an application-specific volume restoration identity to avoid overwriting other players' saved Music-role volumes.
 
+Linux desktop smoke test:
+
+```sh
+uv run --no-project tools/test-desktop.py
+# On a headless Linux machine with Xvfb and D-Bus installed:
+dbus-run-session -- xvfb-run -a uv run --no-project tools/test-desktop.py
+```
+
+This builds the app with the `radio_e2e` tag and the inspector enabled, then uses MyGo Automation to open settings through the native menu, change the theme and language, quit normally, and verify the preferences after restart. It needs the ordinary Linux runtime libraries, Go, Bun, uv, and a display. The test uses private temporary XDG directories and a private automation socket, and routes directory requests to a local proxy that rejects external requests. No live streams or audio services are required. Failures print app logs and page text. The test currently supports Linux; normal builds exclude the automation import.
+
 ## Packages
 
 ```sh
@@ -78,6 +88,7 @@ When distributing binaries, provide the corresponding source for that exact vers
 - **Checks** runs formatting, Go vet, MyGo vet, backend tests, generated binding checks, frontend tests, and the web build on pushes and pull requests. Live network/audio playback tests are opt-in locally.
 - **Desktop packages** runs on manual dispatch, with Linux, macOS, and Windows x64 builds and downloadable workflow artifacts. The Windows job also runs the backend tests and requires an NSIS installer before uploading. It uses read-only repository permissions and does not publish releases.
 - **Release draft** runs on `v*` tags. The tag must equal `v` plus the version in `mygo.json`, and `CHANGELOG.md` must have a nonempty section for that version (plain or bracketed headings, with optional dates). It runs Checks and all three package builds before creating a draft containing the version's changelog notes, installers, and `SHA256SUMS`. Tags containing a prerelease suffix create prerelease drafts. Reruns can replace draft assets, but refuse to change a published release. Review all packages before publishing the draft; this workflow does not sign packages or configure in-app updates.
+- **Desktop smoke test** is a separate manual Linux workflow using Xvfb and a private D-Bus session. It exercises real native menus and WebView persistence without adding a graphical runtime to ordinary Checks.
 
 Validate release metadata locally before tagging:
 
