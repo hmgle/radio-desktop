@@ -30,5 +30,9 @@
   "i18n": {
     "dir": "locales",
     "source": "en"
-  }
+  },
+  "resources": [
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ]
 }
