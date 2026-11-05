@@ -98,6 +98,34 @@ function states(): string[] {
 }
 
 describe("player state machine", () => {
+  it("can recover successful listening sessions repeatedly without accumulating failures", async () => {
+    playerApi.play(info(["https://a/1"]));
+    audio.readyState = 3;
+    audio.dispatch("playing");
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(60_001);
+      playerApi.recover();
+      await vi.advanceTimersByTimeAsync(1000);
+      audio.dispatch("playing");
+      expect(states().at(-1)).toBe("playing");
+      expect(audio.src).toBe("https://a/1");
+    }
+    expect(audio.playCalls).toBe(5);
+  });
+
+  it("retains the sliding-window budget even when each recovery briefly plays", async () => {
+    playerApi.play(info(["https://a/1", "https://a/2"]));
+    audio.readyState = 3;
+    audio.dispatch("playing");
+    for (let i = 0; i < 7; i++) {
+      playerApi.recover();
+      await vi.advanceTimersByTimeAsync(7000);
+      audio.dispatch("playing");
+    }
+    expect(audio.src).toBe("https://a/2");
+    expect(states().at(-1)).toBe("playing");
+  });
+
   it("coalesces wake/network signals into one normal retry without another play report", async () => {
     playerApi.play(info(["https://a/1"]));
     audio.dispatch("playing");

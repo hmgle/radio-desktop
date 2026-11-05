@@ -73,6 +73,10 @@ class RadioPlayer {
       if (!this.info || (this.lastState !== "connecting" && this.lastState !== "playing")) return;
       this.buffering = false;
       if (this.lastState === "playing") return;
+      // A successful connection ends consecutive failures, including
+      // ordinary wake recoveries hours apart. Keep the sliding-window
+      // budget so briefly playing streams cannot retry without a limit.
+      this.candidateFails = 0;
       this.emit("playing");
       if (this.level < 1) this.fade(1, FADE_IN_MS);
       if (this.reported) return;
