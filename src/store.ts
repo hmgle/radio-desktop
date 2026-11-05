@@ -403,6 +403,8 @@ export const useRadio = create<RadioState>((set, get) => ({
     // Menu-bar and tray actions arrive here too.
     events.uiCommand.on((action: string) => get().handleUICommand(action));
 
+    events.playbackRecovery.on(() => player.recover());
+
     events.sleepTimerChanged.on(applySleepTimer);
     void Service.getSleepTimer().then(applySleepTimer).catch(() => {});
 

@@ -316,6 +316,11 @@ export const events = {
    * their dialogs).
    */
   uiCommand: event<string>("uiCommand"),
+  /**
+   * EventPlaybackRecovery asks the active player to use its normal bounded
+   * reconnect path. It never starts a paused or exhausted playback session.
+   */
+  playbackRecovery: event<string>("playbackRecovery"),
   /** EventICYMeta carries ICY name/genre/title of the playing stream. */
   icyMeta: event<PlaybackMeta>("icyMeta"),
   /** EventSyncProgress reports catalog sync page progress. */

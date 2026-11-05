@@ -57,6 +57,7 @@ func main() {
 	mygo.Use(fetch.Plugin)
 
 	mygo.App.WhenReady(func() {
+		app.WatchPlaybackRecovery()
 		applySettings := func(v app.Settings) {
 			language := v.Language
 			if language == "system" {

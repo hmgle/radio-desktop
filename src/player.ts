@@ -145,10 +145,12 @@ class RadioPlayer {
   toggle() {
     switch (this.state) {
       case "playing":
+        // Record the user's intent before the fade, so a wake/network
+        // event during these 180ms cannot reconnect a paused station.
+        this.emit("paused");
         this.fade(0, FADE_OUT_MS, () => {
           this.audio.pause();
           this.clearWatchdog();
-          if (this.lastState === "playing") this.emit("paused");
         });
         break;
       case "connecting":
@@ -177,6 +179,12 @@ class RadioPlayer {
     this.level = 1;
     this.applyVolume();
     this.emit("idle");
+  }
+
+  /** Native wake/connectivity signals share the stream failure budget,
+   *  candidate order and backoff. A pending retry coalesces nearby signals. */
+  recover() {
+    this.onStreamEnded(this.gen);
   }
 
   get state(): PlayState {
@@ -341,6 +349,7 @@ class RadioPlayer {
 
   private handleFailure(myGen: number) {
     if (myGen !== this.gen) return;
+    this.fadeGen++; // cancel a station-switch fade before scheduling its retry
     this.clearWatchdog();
     this.releaseSource();
     const now = Date.now();

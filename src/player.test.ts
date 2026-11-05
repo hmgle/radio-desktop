@@ -98,6 +98,71 @@ function states(): string[] {
 }
 
 describe("player state machine", () => {
+  it("coalesces wake/network signals into one normal retry without another play report", async () => {
+    playerApi.play(info(["https://a/1"]));
+    audio.dispatch("playing");
+    playerApi.recover();
+    playerApi.recover();
+    expect(audio.playCalls).toBe(1);
+    await vi.advanceTimersByTimeAsync(999);
+    expect(audio.playCalls).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(audio.playCalls).toBe(2);
+    audio.dispatch("playing");
+    const { Service } = await import("./mygo");
+    expect(Service.reportStarted).toHaveBeenCalledOnce();
+  });
+
+  it("keeps candidate order and stops recovery when the retry budget is exhausted", async () => {
+    playerApi.play(info(["https://a/1", "https://a/2"]));
+    for (let i = 0; i < 5; i++) {
+      playerApi.recover();
+      await vi.advanceTimersByTimeAsync(7000);
+      if (i === 2) expect(audio.src).toBe("https://a/2");
+    }
+    expect(states().at(-1)).toBe("failed");
+    const calls = audio.playCalls;
+    playerApi.recover();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(audio.playCalls).toBe(calls);
+  });
+
+  it("does not recover idle, armed, or paused audio, including an unfinished pause fade", async () => {
+    playerApi.recover();
+    playerApi.arm(info([]).station, ["https://a/1"]);
+    playerApi.recover();
+    expect(audio.playCalls).toBe(0);
+    playerApi.play(info(["https://a/1"]));
+    audio.dispatch("playing");
+    vi.stubGlobal("requestAnimationFrame", vi.fn());
+    playerApi.toggle();
+    playerApi.recover();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(audio.playCalls).toBe(1);
+    expect(audio.pauseCalls).toBe(1);
+    expect(states().at(-1)).toBe("paused");
+    vi.unstubAllGlobals();
+  });
+
+  it("cancels recovery on stop and cancels a station-switch fade on recovery", async () => {
+    playerApi.play(info(["https://a/1"]));
+    audio.dispatch("playing");
+    vi.stubGlobal("requestAnimationFrame", vi.fn());
+    playerApi.play(info(["https://b/1"]));
+    playerApi.recover();
+    await vi.advanceTimersByTimeAsync(220);
+    expect(audio.playCalls).toBe(1);
+    await vi.advanceTimersByTimeAsync(780);
+    expect(audio.playCalls).toBe(2);
+    expect(audio.src).toBe("https://b/1");
+    playerApi.recover();
+    playerApi.stop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(audio.playCalls).toBe(2);
+    expect(states().at(-1)).toBe("idle");
+    vi.unstubAllGlobals();
+  });
+
   it("reaches playing once the element starts, and reports the play once", async () => {
     playerApi.play(info(["https://a/1", "https://a/2"]));
     expect(states()).toEqual(["connecting"]);

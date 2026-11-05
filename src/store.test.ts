@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SearchResult, Station } from "./mygo";
 
-vi.mock("./player", () => ({ player: { setVolume: vi.fn(), arm: vi.fn(), stop: vi.fn(), toggle: vi.fn(), play: vi.fn() } }));
+vi.mock("./player", () => ({ player: { setVolume: vi.fn(), arm: vi.fn(), stop: vi.fn(), toggle: vi.fn(), play: vi.fn(), recover: vi.fn() } }));
 vi.mock("./mygo", () => ({
   Service: { search: vi.fn(), getStatus: vi.fn(), getSleepTimer: vi.fn().mockResolvedValue({ deadline: 0, generation: 0, expired: false }), setSleepTimer: vi.fn(), getPlayInfo: vi.fn(), setLastSource: vi.fn().mockResolvedValue(undefined), getSettings: vi.fn().mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide", playbackAnimations: false }), reportPlaybackState: vi.fn(), playStation: vi.fn(), playURL: vi.fn(), setVolume: vi.fn().mockResolvedValue(undefined) },
-  events: Object.fromEntries(["mediaCommand", "uiCommand", "icyMeta", "syncProgress", "syncDone", "settingsChanged", "sleepTimerChanged"].map((name) => [name, { on: vi.fn() }])),
+  events: Object.fromEntries(["mediaCommand", "uiCommand", "playbackRecovery", "icyMeta", "syncProgress", "syncDone", "settingsChanged", "sleepTimerChanged"].map((name) => [name, { on: vi.fn() }])),
 }));
 
 function deferred<T>() {
@@ -61,6 +61,10 @@ describe("radio store", () => {
     await Promise.all([useRadio.getState().init(), useRadio.getState().init()]);
     expect(events.mediaCommand.on).toHaveBeenCalledTimes(1);
     expect(events.uiCommand.on).toHaveBeenCalledTimes(1);
+    expect(events.playbackRecovery.on).toHaveBeenCalledTimes(1);
+    const { player } = await import("./player");
+    vi.mocked(events.playbackRecovery.on).mock.calls[0]![0]("resume");
+    expect(player.recover).toHaveBeenCalledOnce();
   });
 
   it("exposes search failures and preserves rows when a later page fails", async () => {
