@@ -12,8 +12,12 @@ The country dropdown accepts code, catalog-name, or Simplified Chinese-name
 prefixes, including a single character. For example, `中` finds locally available
 entries such as China and the Central African Republic; `中国` narrows the list
 further. Select a result to apply its country code. Chinese-name matching works
-in either interface language, and candidates keep their catalog labels and
-station counts. Language and tag dropdowns match their catalog-value prefixes.
+in either interface language. In the Chinese interface, candidates and the
+selected filter show Chinese names with codes, such as `中国 (CN)`; switching
+languages updates both. The English interface uses catalog names, as does the
+Chinese interface for unrecognized codes. Station counts and saved station
+metadata retain their original values. Language and tag dropdowns match their
+catalog-value prefixes.
 
 Click a station to play it. The bottom bar has play/pause, stop, favorite, and volume controls. Click the artwork or station information to expand station details. Track titles and artwork appear only when the broadcaster supplies compatible metadata; missing artwork does not mean playback has failed.
 

@@ -27,9 +27,10 @@ var ErrShrink = errors.New("store: catalog shrank below 75% of its previous size
 
 // Facet is a filter value with its station count.
 type Facet struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
-	Count int    `json:"count"`
+	Value   string `json:"value"`
+	Label   string `json:"label"`
+	LabelZh string `json:"labelZh,omitempty"`
+	Count   int    `json:"count"`
 }
 
 // SearchRequest describes a station list query.
@@ -401,17 +402,30 @@ func (s *Store) Countries(prefix string, limit int) ([]Facet, error) {
 		}
 		q += ")"
 	}
-	return s.queryFacets(q+" GROUP BY country ORDER BY n DESC, country", limit, args)
+	facets, err := s.queryFacets(q+" GROUP BY country ORDER BY n DESC, country", limit, args)
+	for i := range facets {
+		facets[i].LabelZh = chineseCountryNames[facets[i].Value]
+	}
+	return facets, err
 }
 
-func chineseCountryPrefixCodes(prefix string) []string {
-	// Reuse the Chinese CLDR names in the existing text dependency. A
-	// single character is useful here because this only completes countries.
+// Prefix matching and display share one set of Chinese CLDR names.
+var chineseCountryNames = func() map[string]string {
 	names := display.SimplifiedChinese.Regions()
-	var codes []string
+	labels := make(map[string]string)
 	for _, region := range display.Values.Regions() {
 		code := region.String()
-		if len(code) == 2 && code != "ZZ" && strings.HasPrefix(names.Name(region), prefix) {
+		if name := names.Name(region); len(code) == 2 && code != "ZZ" && name != "" {
+			labels[code] = name
+		}
+	}
+	return labels
+}()
+
+func chineseCountryPrefixCodes(prefix string) []string {
+	var codes []string
+	for code, name := range chineseCountryNames {
+		if strings.HasPrefix(name, prefix) {
 			codes = append(codes, code)
 		}
 	}

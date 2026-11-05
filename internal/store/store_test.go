@@ -360,6 +360,7 @@ func TestCountryFacetsChinesePrefixes(t *testing.T) {
 		{"MO", "Macao", 1},
 		{"TW", "Taiwan", 1},
 		{"QZ", "Unrecognized country", 1},
+		{"ZZ", "Unknown country", 1},
 		{"JP", "Japan", 1},
 	} {
 		for range country.count {
@@ -371,6 +372,10 @@ func TestCountryFacetsChinesePrefixes(t *testing.T) {
 	mustPublish(t, s, stations...)
 	if _, err := s.db.Exec("UPDATE stations SET active=0 WHERE country='JP'"); err != nil {
 		t.Fatal(err)
+	}
+	chineseLabels := map[string]string{
+		"AU": "澳大利亚", "CF": "中非共和国", "CN": "中国",
+		"HK": "中国香港特别行政区", "MO": "中国澳门特别行政区", "TW": "台湾",
 	}
 	for _, tc := range []struct {
 		prefix string
@@ -386,6 +391,7 @@ func TestCountryFacetsChinesePrefixes(t *testing.T) {
 		{"CHi", 10, []string{"CN"}},
 		{"central", 10, []string{"CF"}},
 		{"qz", 10, []string{"QZ"}},
+		{"zz", 10, []string{"ZZ"}},
 		{"香港", 10, []string{}},
 		{"国", 10, []string{}},
 		{"日本", 10, []string{}},
@@ -403,6 +409,9 @@ func TestCountryFacetsChinesePrefixes(t *testing.T) {
 			codes := []string{}
 			for _, facet := range facets {
 				codes = append(codes, facet.Value)
+				if facet.LabelZh != chineseLabels[facet.Value] {
+					t.Fatalf("Chinese label for %s = %q, want %q", facet.Value, facet.LabelZh, chineseLabels[facet.Value])
+				}
 				if facet.Value == "CN" && (facet.Count != 2 || facet.Label != "china") {
 					t.Fatalf("country count or catalog label changed: %+v", facet)
 				}

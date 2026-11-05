@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { CountryFlag, FacetSelect } from "./ui";
 import { Service } from "../mygo";
 import type { Facet } from "../mygo";
 import { messages as m } from "../locales";
+import { useState } from "react";
 
 vi.mock("../mygo", () => ({ Service: { countries: vi.fn() }, events: {} }));
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it.each(["CN", "DE", "UG", "TH", "ZA", "NP", "CH", "HK", "TW"])("bundles local artwork for %s", (code) => {
   const { container } = render(<CountryFlag code={code} />);
@@ -87,6 +88,45 @@ it("queries a Chinese country prefix and selects its original code", async () =>
   expect(onChange).toHaveBeenCalledWith("CN", "china");
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(document.activeElement).toBe(trigger);
+});
+
+it("localizes country options and the selection when the interface language changes", async () => {
+  const runtime = { locale: "zh-CN" };
+  vi.stubGlobal("mygo", runtime);
+  vi.mocked(Service.countries).mockResolvedValue([
+    { value: "CN", label: "china", labelZh: "中国", count: 7 },
+    { value: "CF", label: "central african republic", labelZh: "中非共和国", count: 2 },
+    { value: "QZ", label: "Unrecognized upstream name", count: 1 },
+    { value: "ZZ", label: "", count: 1 },
+  ]);
+  const onChange = vi.fn();
+  function CountryFilter() {
+    const [selected, setSelected] = useState({ value: "", label: "" });
+    return <FacetSelect kind="country" label={m.country()} value={selected.value} display={selected.label}
+      onChange={(value, label) => { onChange(value, label); setSelected({ value, label }); }} />;
+  }
+  const { rerender } = render(<CountryFilter />);
+  fireEvent.click(screen.getByRole("button", { name: "国家/地区" }));
+  const china = await screen.findByRole("button", { name: /^中国 \(CN\)/ });
+  expect(china.textContent).toContain("7");
+  expect(screen.queryByRole("button", { name: /^中非共和国 \(CF\)/ })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: /Unrecognized upstream name/ })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: /^ZZ/ })).not.toBeNull();
+  fireEvent.click(china);
+  expect(onChange).toHaveBeenCalledWith("CN", "china");
+  expect(screen.queryByRole("button", { name: "国家/地区: 中国 (CN)" })).not.toBeNull();
+
+  runtime.locale = "en";
+  rerender(<CountryFilter />);
+  const trigger = screen.getByRole("button", { name: "Country: china" });
+  fireEvent.click(trigger);
+  const englishOption = await within(screen.getByRole("dialog")).findByRole("button", { name: /^china/ });
+  englishOption.focus();
+  runtime.locale = "zh-CN";
+  rerender(<CountryFilter />);
+  expect(within(screen.getByRole("dialog")).getByRole("button", { name: /^中国 \(CN\)/ })).toBe(englishOption);
+  expect(document.activeElement).toBe(englishOption);
+  expect(screen.queryByRole("button", { name: "国家/地区: 中国 (CN)" })).not.toBeNull();
 });
 
 // Keyboard selection used to leave focus in the removed popup.

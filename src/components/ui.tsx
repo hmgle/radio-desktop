@@ -3,6 +3,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Service } from "../mygo";
 import type { Facet } from "../mygo";
 import { countryFlagUrl } from "../flags";
+import { currentLocale } from "mygo-runtime/i18n";
 
 /** Country flag from bundled SVG artwork, sized to the surrounding text.
  *
@@ -64,6 +65,12 @@ export function HeartIcon({ filled }: { filled: boolean }) {
 /** Both outcomes of a facet query travel through the same deferred update. */
 type FacetUpdate = { rows: Facet[] } | { error: true };
 
+function countryFacetLabel(facet: Facet, locale: string): string {
+  return locale === "zh-CN" && facet.labelZh
+    ? `${facet.labelZh} (${facet.value})`
+    : facet.label || facet.value;
+}
+
 /**
  * A dropdown that lazy-loads facet values (country/language/tag) from the
  * backend, with a prefix search box. Uses a <button> + absolutely
@@ -82,6 +89,9 @@ export function FacetSelect(props: {
   const [failed, setFailed] = useState(false);
   const [pending, setPending] = useState(false);
   const [prefix, setPrefix] = useState("");
+  // Retain the raw labels after closing so a language switch also updates
+  // the selected country's button without another catalog request.
+  const [selectedCountry, setSelectedCountry] = useState<Facet | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -203,6 +213,12 @@ export function FacetSelect(props: {
   }, [open]);
 
   const shown = facets ?? [];
+  const locale = currentLocale();
+  const currentCountry = shown.find((f) => f.value === value)
+    ?? (selectedCountry?.value === value ? selectedCountry : null);
+  const selectedLabel = kind === "country" && currentCountry
+    ? countryFacetLabel(currentCountry, locale)
+    : display || value;
 
   return (
     <div ref={rootRef} className="relative"
@@ -232,7 +248,8 @@ export function FacetSelect(props: {
       <button
         ref={triggerRef}
         type="button"
-        aria-label={value ? `${label}: ${display || value}` : label}
+        aria-label={value ? `${label}: ${selectedLabel}` : label}
+        title={value ? selectedLabel : label}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-haspopup="dialog"
@@ -243,7 +260,7 @@ export function FacetSelect(props: {
             : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
         }`}
       >
-        <span className="truncate">{value ? display || value : label}</span>
+        <span className="truncate">{value ? selectedLabel : label}</span>
         <svg viewBox="0 0 16 16" className="h-3 w-3 shrink-0 opacity-60" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M4 6l4 4 4-4" strokeLinecap="round" />
         </svg>
@@ -278,16 +295,18 @@ export function FacetSelect(props: {
                   // prefix and the keyboard position survive the click.
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
+                    if (kind === "country") setSelectedCountry(f);
                     onChange(f.value, f.label);
                     close();
                   }}
+                  title={kind === "country" ? countryFacetLabel(f, locale) : f.label}
                   className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
                     f.value === value ? "font-medium text-[var(--accent)]" : ""
                   }`}
                 >
                   <span className="flex items-center gap-1.5 truncate">
                     {kind === "country" && <CountryFlag code={f.value} />}
-                    <span className="truncate">{f.label}</span>
+                    <span className="truncate">{kind === "country" ? countryFacetLabel(f, locale) : f.label}</span>
                   </span>
                   <span className="ml-2 shrink-0 text-[10px] text-neutral-400">{f.count}</span>
                 </button>

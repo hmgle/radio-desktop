@@ -7,6 +7,7 @@ import { call, event } from "mygo-runtime";
 export interface Facet {
   value: string;
   label: string;
+  labelZh?: string;
   count: number;
 }
 
