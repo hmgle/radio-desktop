@@ -73,7 +73,7 @@ Output is placed under `build/<platform>-<architecture>/`. Cross builds require 
 | macOS | `.app`, `.dmg` |
 | Linux | Executable, `.desktop`, `.deb`, tarball with user-level `install.sh`, and `PKGBUILD` |
 
-To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.2.0_amd64.deb`. For the tarball, extract it and review/run its `install.sh`. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
+To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.2.1_amd64.deb`. For the tarball, extract it and review/run its `install.sh`. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
 
 Windows installers install for the current user under `%LOCALAPPDATA%\Programs`, create a Start menu shortcut, and provide an uninstaller in Settings > Apps. Run `bun run build` on Windows to build the installer; when cross-compiling from Linux, install NSIS (`makensis`) first. Windows installation, tray behavior, media controls, and MP3/AAC/HLS playback still need a real-machine smoke test.
 
@@ -87,14 +87,21 @@ When distributing binaries, provide the corresponding source for that exact vers
 
 - **Checks** runs formatting, Go vet, MyGo vet, backend tests, generated binding checks, frontend tests, and the web build on pushes and pull requests. Live network/audio playback tests are opt-in locally.
 - **Desktop packages** runs on manual dispatch, with Linux, macOS, and Windows x64 builds and downloadable workflow artifacts. The Windows job also runs the backend tests and requires an NSIS installer before uploading. It uses read-only repository permissions and does not publish releases.
-- **Release draft** runs on `v*` tags. The tag must equal `v` plus the version in `mygo.json`, and `CHANGELOG.md` must have a nonempty section for that version (plain or bracketed headings, with optional dates). It runs Checks and all three package builds before creating a draft containing the version's changelog notes, installers, and `SHA256SUMS`. Tags containing a prerelease suffix create prerelease drafts. Reruns can replace draft assets, but refuse to change a published release. Review all packages before publishing the draft; this workflow does not sign packages or configure in-app updates.
+- **Release draft** runs on `v*` tags. The tag must equal `v` plus the version in `mygo.json`, and `CHANGELOG.md` must have a nonempty section for that version (plain or bracketed headings, with optional dates). It runs Checks and all three package builds before creating a draft containing the version's changelog notes, installers, the matching source archive, and `SHA256SUMS`. Tags containing a prerelease suffix create prerelease drafts. Reruns can replace draft assets, but refuse to change a published release. Review all packages before publishing the draft; this workflow does not sign packages or configure in-app updates.
 - **Desktop smoke test** is a separate manual Linux workflow using Xvfb and a private D-Bus session. It exercises real native menus and WebView persistence without adding a graphical runtime to ordinary Checks.
 
-Validate release metadata locally before tagging:
+## Release a version
+
+Update `mygo.json`, the application and directory User-Agent strings, and the version section in `CHANGELOG.md`. Keep both READMEs and user guides aligned with download formats and behavior. Run the checks above and validate release metadata before committing and tagging:
 
 ```sh
-go run ./tools/release -tag v0.2.0 -notes /tmp/radio-release-notes.md
+go run ./tools/release -tag v0.2.1 -notes /tmp/radio-release-notes.md
+git tag -a v0.2.1 -m "Radio Desktop v0.2.1"
 ```
+
+Push the reviewed commit and tag to the GitHub remote. The release workflow builds Linux x86_64, macOS Apple Silicon (arm64), and Windows x64 from the same commit. Wait for it to finish, run the manual Desktop smoke test for that tag, and download the draft's assets. Check the SHA256 entries, package versions and architectures, bundled licenses, source contents, and platform runtime requirements before publishing. The source archive is generated with `git archive` from the tagged commit and includes tracked build inputs and lockfiles. It is covered by the same checksum file as the installers.
+
+Publish the reviewed draft from GitHub or with `gh release edit v0.2.1 --draft=false --latest`. Record validation limits in the release notes, particularly unsigned macOS/Windows packages and any platform installation or playback checks that were not run. A newer package preserves the normal user-data directory; there is no in-app update mechanism yet.
 
 ## Source map
 

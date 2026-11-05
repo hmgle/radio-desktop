@@ -25,7 +25,7 @@ import (
 const (
 	// defaultVolume matches radio-cli's default.
 	defaultVolume = 80
-	userAgent     = "radio-desktop/0.2.0"
+	userAgent     = "radio-desktop/0.2.1"
 )
 
 // Events pushed to the frontend. Subscribe with the generated client.

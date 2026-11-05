@@ -44,9 +44,11 @@ The sleep timer stops playback at the deadline, including after switching statio
 
 Closing a window usually leaves playback running. Use the tray to reopen it, control playback, or quit. If the desktop has no usable tray, the app quits on close. Media key and Now Playing availability varies by platform and desktop environment.
 
+After the system wakes or the network returns, an active or connecting station retries with the usual delay and candidate URL limits. Recovery signals do not restart paused, stopped, or failed playback. If retries are exhausted, click Play to try again; a network connection does not guarantee that a station is reachable.
+
 ## Keyboard shortcuts
 
-Use **Cmd** on macOS and **Ctrl** on Linux.
+Use **Cmd** on macOS and **Ctrl** on Linux and Windows.
 
 | Shortcut | Action |
 | --- | --- |
@@ -68,12 +70,15 @@ No Radio Desktop account is required. The app stores the catalog, favorites, cus
 | --- | --- |
 | macOS | `~/Library/Application Support/radio-desktop/` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/radio-desktop/` |
+| Windows | `%APPDATA%\radio-desktop\` |
 
 To back up or restore, **quit the app completely** and copy the entire directory, including any `radio.db-wal` and `radio.db-shm` files that remain. Hiding the window is not quitting. There is currently no built-in import/export or cloud synchronization.
 
 Network connections include Radio Browser server discovery and catalog downloads, a Radio Browser click report when a directory station starts playing, station audio streams, an extra ICY metadata connection where applicable, and station/track artwork requests. HLS resources are requested through the Go backend. Those services can see your IP address and their requested resources. Browsing the cached catalog is local. Some streams use unencrypted HTTP.
 
 Station data is maintained by Radio Browser contributors; availability, metadata accuracy, and broadcast rights are controlled by the relevant providers.
+
+To update the app, quit it and install the newer package for the same platform and architecture from [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest). Use your package manager for Linux `.deb` installations. Normal upgrades keep the data directory above; back it up first if needed. There is no in-app updater yet.
 
 ## Troubleshooting
 

@@ -59,7 +59,7 @@ func New(opts Options) *Client {
 		opts.ServersURL = defaultServersURL
 	}
 	if opts.UserAgent == "" {
-		opts.UserAgent = "radio-desktop/0.2.0"
+		opts.UserAgent = "radio-desktop/0.2.1"
 	}
 	return &Client{
 		opts:       opts,

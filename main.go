@@ -50,7 +50,7 @@ func main() {
 	}
 	defer st.Close()
 
-	svc := app.New(st, directory.New(directory.Options{UserAgent: "radio-desktop/0.2.0"}))
+	svc := app.New(st, directory.New(directory.Options{UserAgent: "radio-desktop/0.2.1"}))
 	mygo.Bind(svc)
 	// HLS manifests, segments and keys use Go's HTTP client, including
 	// streams whose servers do not provide browser CORS headers.

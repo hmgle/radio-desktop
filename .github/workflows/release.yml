@@ -49,7 +49,7 @@ jobs:
           pattern: radio-desktop-*-${{ github.sha }}
           path: packages
           merge-multiple: true
-      - name: Collect packages and checksums
+      - name: Collect packages, source and checksums
         shell: bash
         run: |
           shopt -s globstar nullglob
@@ -61,6 +61,9 @@ jobs:
             test ! -e "$target"
             cp "$file" "$target"
           done
+          version="${GITHUB_REF_NAME#v}"
+          git archive --format=tar.gz --prefix="radio-desktop-$version/" \
+            --output="release-assets/radio-desktop-$version-source.tar.gz" "$GITHUB_SHA"
           cd release-assets
           sha256sum -- * > SHA256SUMS
       - name: Create draft and upload packages
@@ -77,7 +80,7 @@ jobs:
               flags+=(--prerelease)
             fi
             gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
-              --draft --verify-tag --title "$GITHUB_REF_NAME" \
+              --draft --verify-tag --title "Radio Desktop $GITHUB_REF_NAME" \
               --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
           fi
           gh release upload "$GITHUB_REF_NAME" release-assets/* \

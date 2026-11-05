@@ -39,9 +39,11 @@
 
 默认关闭窗口后继续播放，可从托盘重新打开、控制播放或退出。没有可用托盘时关闭窗口会退出。媒体键和 Now Playing 的支持取决于系统和桌面环境。
 
+系统唤醒或网络恢复后，正在播放或连接的电台会按原有退避和候选地址限制重试。恢复信号不会自动拉起已暂停、停止或失败的播放；重试耗尽后请点击播放手动重试。系统已联网不代表目标电台一定可达。
+
 ## 快捷键
 
-macOS 使用 Cmd，Linux 使用 Ctrl。
+macOS 使用 Cmd，Linux 和 Windows 使用 Ctrl。
 
 | 快捷键 | 操作 |
 | --- | --- |
@@ -63,12 +65,15 @@ macOS 使用 Cmd，Linux 使用 Ctrl。
 | --- | --- |
 | macOS | `~/Library/Application Support/radio-desktop/` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/radio-desktop/` |
+| Windows | `%APPDATA%\radio-desktop\` |
 
 备份或恢复前，先**完全退出应用**，再复制整个目录，包括可能残留的 `radio.db-wal`、`radio.db-shm`。隐藏窗口不等于退出。目前没有内置导入导出或云同步。
 
 网络请求包括 Radio Browser 服务器发现与目录下载、目录电台成功起播后的点击上报、音频流、适用时的额外 ICY 元数据连接，以及台标和曲目封面。HLS 资源通过 Go 后端获取。服务方可看到 IP 和相应请求，缓存目录的搜索在本地完成。部分音频流使用未加密的 HTTP。
 
 目录由 Radio Browser 社区维护，电台可用性、信息准确性和广播内容权利由相关提供方负责。
+
+更新应用时，先完全退出，再从 [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest) 下载同平台、同架构的新版安装包安装；Linux `.deb` 安装使用包管理器更新。正常升级保留上述数据目录，必要时请先备份。目前没有应用内自动更新。
 
 ## 常见问题
 
