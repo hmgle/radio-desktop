@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ClearHistoryRow } from "./ClearHistoryRow";
 import { Service } from "../mygo";
@@ -38,7 +38,7 @@ it("requires confirmation and keeps the confirmation open on failure", async () 
   expect(await screen.findByText("Listening history cleared.")).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(refresh).toHaveBeenCalledOnce();
-  expect(document.activeElement).toBe(trigger);
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
 });
 
 it("cancels without touching history and traps keyboard focus", () => {
