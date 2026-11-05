@@ -35,11 +35,13 @@ Screenshots show the Linux desktop application; native controls vary by platform
 
 ## Get started
 
-Download a package for your platform from [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest). macOS packages are unsigned disk images; Linux packages include a `.deb` and a tarball with an installer; Windows x64 packages are unsigned `.exe` installers. To build from source, follow the steps below.
+Download a package for your platform from [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest). macOS packages are unsigned disk images; Linux offers a `.deb` or a tarball plus a separate `install.sh`; Windows x64 packages are unsigned `.exe` installers. To build from source, follow the steps below.
 
 Prebuilt packages support **Linux x86_64**, **macOS Apple Silicon (arm64)**, and **Windows x64**. Other architectures can build from source. On Windows, run `radio-desktop-setup-<version>-amd64.exe`. Windows GUI playback and installation still need validation on a real machine.
 
 Each release includes a matching source archive and `SHA256SUMS`. Download the checksum file and the packages you need into one directory, then verify the matching entries before installation (`sha256sum --ignore-missing --check SHA256SUMS` on Linux, or `shasum -a 256 <file>` on macOS). On Windows, compare `Get-FileHash <file> -Algorithm SHA256` with the corresponding checksum. The app currently updates by downloading and installing a newer package; it does not check for or install updates automatically.
+
+For a Linux user-level installation, download both `install.sh` and the matching tarball, review the script, then run `sh ./install.sh ./radio-desktop-0.2.1-linux-amd64.tar.gz`. Debian/Ubuntu users can install the `.deb` with `sudo apt install ./radio-desktop_0.2.1_amd64.deb`.
 
 Build from source using **Go 1.27.3 or newer** and **Bun 1.4.2** (the version used in CI):
 
@@ -65,7 +67,7 @@ To produce a desktop package:
 bun run build
 ```
 
-Output goes into `build/<platform>-<architecture>/`. macOS builds produce an `.app` and `.dmg`; Linux builds produce an executable, `.deb`, and a tarball with `install.sh`; Windows builds produce an executable and an NSIS `.exe` installer. MyGo downloads NSIS on Windows if it is not installed. Build on the target OS for the simplest setup. See the [development guide](docs/development.md) for checks and packaging details.
+Output goes into `build/<platform>-<architecture>/`. macOS builds produce an `.app` and `.dmg`; Linux builds produce an executable, `.deb`, tarball, and a separate `install.sh`; Windows builds produce an executable and an NSIS `.exe` installer. MyGo downloads NSIS on Windows if it is not installed. Build on the target OS for the simplest setup. See the [development guide](docs/development.md) for checks and packaging details.
 
 ## Start listening
 

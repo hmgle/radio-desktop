@@ -71,9 +71,9 @@ Output is placed under `build/<platform>-<architecture>/`. Cross builds require 
 | --- | --- |
 | Windows x64 | Executable and unsigned `radio-desktop-setup-<version>-amd64.exe` NSIS installer |
 | macOS | `.app`, `.dmg` |
-| Linux | Executable, `.desktop`, `.deb`, tarball with user-level `install.sh`, and `PKGBUILD` |
+| Linux | Executable, `.desktop`, `.deb`, tarball, separate user-level `install.sh`, and `PKGBUILD` |
 
-To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.2.1_amd64.deb`. For the tarball, extract it and review/run its `install.sh`. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
+To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.2.1_amd64.deb`. For the tarball, review the separate script and run `sh ./build/linux-amd64/install.sh ./build/linux-amd64/radio-desktop-0.2.1-linux-amd64.tar.gz`. Release downloads provide `install.sh` as its own asset; it is not inside the tarball. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
 
 Windows installers install for the current user under `%LOCALAPPDATA%\Programs`, create a Start menu shortcut, and provide an uninstaller in Settings > Apps. Run `bun run build` on Windows to build the installer; when cross-compiling from Linux, install NSIS (`makensis`) first. Windows installation, tray behavior, media controls, and MP3/AAC/HLS playback still need a real-machine smoke test.
 

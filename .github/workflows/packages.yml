@@ -52,6 +52,7 @@ jobs:
           path: |
             build/**/*.deb
             build/**/*.tar.gz
+            build/**/install.sh
             build/**/*.dmg
             build/**/*-setup-*.exe
           if-no-files-found: error

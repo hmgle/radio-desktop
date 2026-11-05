@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: |
           shopt -s globstar nullglob
-          files=(packages/**/*.deb packages/**/*.tar.gz packages/**/*.dmg packages/**/*-setup-*.exe)
+          files=(packages/**/*.deb packages/**/*.tar.gz packages/**/*.dmg packages/**/*-setup-*.exe packages/**/install.sh)
           test "${#files[@]}" -gt 0
           mkdir release-assets
           for file in "${files[@]}"; do

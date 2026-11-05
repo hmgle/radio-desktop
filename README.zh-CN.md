@@ -33,11 +33,13 @@ MP3、AAC、HLS 的支持取决于系统 WebView 和编解码器。HLS 优先使
 
 ## 安装与启动
 
-从 [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest) 下载对应平台的安装包。macOS 提供未签名的磁盘映像，Linux 提供 `.deb` 和带安装脚本的 tarball，Windows x64 提供未签名的 `.exe` 安装包。源码构建方法如下。
+从 [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest) 下载对应平台的安装包。macOS 提供未签名的磁盘映像，Linux 提供 `.deb`，或 tarball 与单独的 `install.sh`，Windows x64 提供未签名的 `.exe` 安装包。源码构建方法如下。
 
 预编译安装包支持 **Linux x86_64**、**macOS Apple Silicon（arm64）** 和 **Windows x64**，其他架构可从源码构建。Windows 运行 `radio-desktop-setup-<版本>-amd64.exe`，图形界面播放和安装仍需实机验证。
 
 每个版本随附对应源码及 `SHA256SUMS`。将校验文件与需要的安装包下载到同一目录：Linux 可运行 `sha256sum --ignore-missing --check SHA256SUMS`；macOS 使用 `shasum -a 256 <文件>`；Windows 使用 `Get-FileHash <文件> -Algorithm SHA256`，后两者需与校验文件中的对应条目比较。目前通过下载、安装新版安装包更新，应用尚不支持自动检查或安装更新。
+
+Linux 用户目录安装需同时下载 `install.sh` 和对应 tarball，审阅脚本后运行 `sh ./install.sh ./radio-desktop-0.2.1-linux-amd64.tar.gz`。Debian/Ubuntu 用户也可运行 `sudo apt install ./radio-desktop_0.2.1_amd64.deb`。
 
 安装 **Go 1.27.3 或更新版本**及 **Bun 1.4.2**（与 CI 一致），在项目检出目录执行：
 
@@ -63,7 +65,7 @@ sudo dnf install webkit2gtk4.1 gtk3 pulseaudio-libs
 bun run build
 ```
 
-产物位于 `build/<平台>-<架构>/`。macOS 生成 `.app` 和 `.dmg`，Linux 生成可执行文件、`.deb` 和带 `install.sh` 的 tarball，Windows 生成可执行文件和 NSIS `.exe` 安装包；Windows 未安装 NSIS 时，MyGo 会自动下载。建议在目标系统构建。详见[开发指南](docs/development.md)（英文）。
+产物位于 `build/<平台>-<架构>/`。macOS 生成 `.app` 和 `.dmg`，Linux 生成可执行文件、`.deb`、tarball 和单独的 `install.sh`，Windows 生成可执行文件和 NSIS `.exe` 安装包；Windows 未安装 NSIS 时，MyGo 会自动下载。建议在目标系统构建。详见[开发指南](docs/development.md)（英文）。
 
 ## 开始收听
 
