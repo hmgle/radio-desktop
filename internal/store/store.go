@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/text/language/display"
 	_ "modernc.org/sqlite"
 
 	"radio-desktop/internal/model"
@@ -409,18 +408,7 @@ func (s *Store) Countries(prefix string, limit int) ([]Facet, error) {
 	return facets, err
 }
 
-// Prefix matching and display share one set of Chinese CLDR names.
-var chineseCountryNames = func() map[string]string {
-	names := display.SimplifiedChinese.Regions()
-	labels := make(map[string]string)
-	for _, region := range display.Values.Regions() {
-		code := region.String()
-		if name := names.Name(region); len(code) == 2 && code != "ZZ" && name != "" {
-			labels[code] = name
-		}
-	}
-	return labels
-}()
+//go:generate go run ../../tools/gencountrynames -out country_names_gen.go
 
 // Search aliases supplement CLDR names without changing display labels.
 var chineseCountryAliases = map[string]string{

@@ -42,6 +42,10 @@ jobs:
       - name: Install audio isolation dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpulse0
       - run: RADIO_AUDIO_TEST=1 go test ./...
+      - name: Check generated country names
+        run: |
+          go generate ./internal/store
+          git diff --exit-code -- internal/store/country_names_gen.go
       - name: Check generated bindings
         run: |
           go tool mygo generate
