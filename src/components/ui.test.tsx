@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { CountryFlag, FacetSelect } from "./ui";
 import { Service } from "../mygo";
 import type { Facet } from "../mygo";
+import { messages as m } from "../locales";
 
 vi.mock("../mygo", () => ({ Service: { countries: vi.fn() }, events: {} }));
 
@@ -227,4 +228,76 @@ it("returns focus to the search box when the focused option disappears", async (
   expect(document.activeElement).toBe(search);
   fireEvent.keyDown(search, { key: "ArrowDown" });
   expect(document.activeElement).toBe(screen.getByRole("button", { name: /France/ }));
+});
+
+// The error branch used to bypass the deferred update: showing the error in
+// place of the rows unmounted the button under the pointer.
+it("shows the error when the very first facet query fails", async () => {
+  const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.mocked(Service.countries).mockRejectedValueOnce(new Error("offline"));
+  render(<FacetSelect kind="country" label="Country" value="" onChange={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  await screen.findByText(m.loadFailed(), {}, { timeout: 3000 });
+  expect(screen.getAllByText(m.loadFailed())).toHaveLength(1);
+  errorLog.mockRestore();
+});
+
+it("keeps the pressed option when a prefix query fails", async () => {
+  const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+  let rejectNext: (reason: Error) => void = () => {};
+  vi.mocked(Service.countries)
+    .mockResolvedValueOnce([
+      { value: "DE", label: "Germany", count: 2 },
+      { value: "FR", label: "France", count: 1 },
+    ])
+    .mockImplementationOnce(() => new Promise<Facet[]>((_resolve, reject) => { rejectNext = reject; }));
+
+  const onChange = vi.fn();
+  render(<FacetSelect kind="country" label="Country" value="" onChange={onChange} />);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  const germany = await screen.findByRole("button", { name: /Germany/ }, { timeout: 3000 });
+
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "ge" } });
+  await vi.waitFor(() => expect(Service.countries).toHaveBeenCalledTimes(2), { timeout: 3000 });
+
+  fireEvent.mouseDown(germany);
+  rejectNext(new Error("offline"));
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.queryByRole("button", { name: /Germany/ })).not.toBeNull();
+
+  fireEvent.pointerUp(germany);
+  fireEvent.click(germany);
+  expect(onChange).toHaveBeenCalledWith("DE", "Germany");
+  errorLog.mockRestore();
+});
+
+// An error must not blank the list or strand keyboard focus on <body>; the
+// hint is added alongside the rows that are still usable.
+it("keeps rows and keyboard focus when a prefix query fails", async () => {
+  const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+  let rejectNext: (reason: Error) => void = () => {};
+  vi.mocked(Service.countries)
+    .mockResolvedValueOnce([
+      { value: "DE", label: "Germany", count: 2 },
+      { value: "FR", label: "France", count: 1 },
+    ])
+    .mockImplementationOnce(() => new Promise<Facet[]>((_resolve, reject) => { rejectNext = reject; }));
+
+  render(<FacetSelect kind="country" label="Country" value="" onChange={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Country" }));
+  const search = screen.getByRole("textbox");
+  const germany = await screen.findByRole("button", { name: /Germany/ }, { timeout: 3000 });
+  fireEvent.keyDown(search, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(germany);
+
+  fireEvent.change(search, { target: { value: "ge" } });
+  await vi.waitFor(() => expect(Service.countries).toHaveBeenCalledTimes(2), { timeout: 3000 });
+  rejectNext(new Error("offline"));
+  await screen.findByText(m.loadFailed(), {}, { timeout: 3000 });
+
+  expect(screen.queryByRole("button", { name: /Germany/ })).not.toBeNull();
+  expect(document.activeElement).toBe(germany);
+  fireEvent.keyDown(germany, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: /France/ }));
+  errorLog.mockRestore();
 });

@@ -61,6 +61,9 @@ export function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
+/** Both outcomes of a facet query travel through the same deferred update. */
+type FacetUpdate = { rows: Facet[] } | { error: true };
+
 /**
  * A dropdown that lazy-loads facet values (country/language/tag) from the
  * backend, with a prefix search box. Uses a <button> + absolutely
@@ -85,20 +88,31 @@ export function FacetSelect(props: {
   const searchRef = useRef<HTMLInputElement>(null);
   /** Pointer is down inside the popup: rows must not change under it. */
   const pressing = useRef(false);
-  /** Results that arrived mid-press and wait for the press to finish. */
-  const queued = useRef<Facet[] | null>(null);
-  /** Focus sat inside the popup before the rows were swapped. */
+  /** An update that arrived mid-press and waits for the press to finish. */
+  const queued = useRef<FacetUpdate | null>(null);
+  /** Focus sat inside the popup before the list was updated. */
   const focusInside = useRef(false);
   const panelId = useId();
   const close = () => {
     setOpen(false);
     triggerRef.current?.focus();
   };
-  const apply = useCallback((list: Facet[]) => {
+  const apply = useCallback((update: FacetUpdate) => {
     focusInside.current = panelRef.current?.contains(document.activeElement) ?? false;
-    setFacets(list);
+    if ("rows" in update) {
+      setFacets(update.rows);
+      setFailed(false);
+    } else {
+      setFailed(true);
+    }
     setPending(false);
   }, []);
+  const deliver = useCallback((update: FacetUpdate) => {
+    // Success and failure alike must wait out a press: showing the error in
+    // place of the rows would unmount the button being pressed.
+    if (pressing.current) queued.current = update;
+    else apply(update);
+  }, [apply]);
 
   useEffect(() => {
     if (!open) return;
@@ -114,22 +128,15 @@ export function FacetSelect(props: {
             : kind === "language"
               ? await Service.languages(prefix)
               : await Service.tags(prefix);
-        if (!active) return;
-        // Replacing rows while a press rests on one of them removes the button
-        // before its click is dispatched, so hold the result until release.
-        if (pressing.current) queued.current = list;
-        else apply(list);
+        if (active) deliver({ rows: list });
       } catch (e) {
         console.error("facets failed", e);
-        if (active) {
-          setFailed(true);
-          setPending(false);
-        }
+        if (active) deliver({ error: true });
       }
     };
     const timer = setTimeout(() => void load(), prefix ? 200 : 0);
     return () => { active = false; clearTimeout(timer); };
-  }, [open, kind, prefix, apply]);
+  }, [open, kind, prefix, deliver]);
 
   // Deliver held results only after the press has become a click, so the click
   // still lands on the row it started on.
@@ -139,9 +146,9 @@ export function FacetSelect(props: {
     const release = () => {
       if (!pressing.current) return;
       pressing.current = false;
-      const list = queued.current;
+      const update = queued.current;
       queued.current = null;
-      if (list) timer = setTimeout(() => apply(list), 0);
+      if (update) timer = setTimeout(() => apply(update), 0);
     };
     document.addEventListener("pointerup", release, true);
     document.addEventListener("pointercancel", release, true);
@@ -161,7 +168,7 @@ export function FacetSelect(props: {
     if (!open || !focusInside.current) return;
     focusInside.current = false;
     if (!panelRef.current?.contains(document.activeElement)) searchRef.current?.focus();
-  }, [facets, open]);
+  }, [facets, failed, open]);
 
   useEffect(() => {
     if (!open) {
@@ -255,10 +262,11 @@ export function FacetSelect(props: {
             />
           </div>
           <div className="min-h-20 flex-1 overflow-y-auto overscroll-contain py-1" aria-busy={pending}>
-            {failed ? (
-              <p className="p-3 text-center text-xs text-red-500">{m.loadFailed()}</p>
-            ) : facets === null ? (
-              <p className="p-3 text-center text-xs text-neutral-400">{m.loading()}</p>
+            {failed && facets !== null && (
+              <p role="status" className="px-3 py-1.5 text-[11px] text-red-500">{m.loadFailed()}</p>
+            )}
+            {facets === null ? (
+              <p className={`p-3 text-center text-xs ${failed ? "text-red-500" : "text-neutral-400"}`}>{failed ? m.loadFailed() : m.loading()}</p>
             ) : shown.length === 0 ? (
               <p className="p-3 text-center text-xs text-neutral-400">{m.noMatches()}</p>
             ) : (
