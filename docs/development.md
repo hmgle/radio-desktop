@@ -6,6 +6,7 @@
 
 - Go 1.27.3 or newer (the minimum is recorded in `go.mod`).
 - Bun 1.4.2, matching CI, and Node.js 24 for the Node-based test environment.
+- Windows x64: Microsoft Edge [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/). Install the Evergreen Runtime if missing; it is not bundled with the app. MyGo downloads NSIS when needed for native Windows builds.
 - macOS: Xcode Command Line Tools. Linux: WebKitGTK 4.1, GTK 3, and libpulse runtime libraries; see the README for install commands.
 
 ```sh
@@ -58,10 +59,13 @@ Output is placed under `build/<platform>-<architecture>/`. Cross builds require 
 
 | Target | Output |
 | --- | --- |
+| Windows x64 | Executable and unsigned `radio-desktop-setup-<version>-amd64.exe` NSIS installer |
 | macOS | `.app`, `.dmg` |
 | Linux | Executable, `.desktop`, `.deb`, tarball with user-level `install.sh`, and `PKGBUILD` |
 
 To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.2.0_amd64.deb`. For the tarball, extract it and review/run its `install.sh`. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
+
+Windows installers install for the current user under `%LOCALAPPDATA%\Programs`, create a Start menu shortcut, and provide an uninstaller in Settings > Apps. Run `bun run build` on Windows to build the installer; when cross-compiling from Linux, install NSIS (`makensis`) first. Windows installation, tray behavior, media controls, and MP3/AAC/HLS playback still need a real-machine smoke test.
 
 `mygo.json` controls the app version, identifier, packaging, extra resources, and Linux dependencies. `package.json` declares the SPDX license. Packages include `LICENSE` and `THIRD_PARTY_NOTICES.md`; the frontend also embeds the Twemoji attribution in `third-party-notices.txt`.
 
@@ -72,7 +76,7 @@ When distributing binaries, provide the corresponding source for that exact vers
 ## CI
 
 - **Checks** runs formatting, Go vet, MyGo vet, backend tests, generated binding checks, frontend tests, and the web build on pushes and pull requests. Live network/audio playback tests are opt-in locally.
-- **Desktop packages** runs on manual dispatch, with Linux and macOS builds and downloadable workflow artifacts. It uses read-only repository permissions and does not publish releases.
+- **Desktop packages** runs on manual dispatch, with Linux, macOS, and Windows x64 builds and downloadable workflow artifacts. The Windows job also runs the backend tests and requires an NSIS installer before uploading. It uses read-only repository permissions and does not publish releases.
 
 ## Source map
 

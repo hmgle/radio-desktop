@@ -5,7 +5,7 @@
 <p align="center">Internet radio, at home on your desktop.</p>
 <p align="center">
   <a href="LICENSE"><img alt="License: GPL v3" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
-  <img alt="Platforms: macOS and Linux" src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey">
+  <img alt="Platforms: macOS, Linux and Windows" src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey">
   <img alt="Go and React" src="https://img.shields.io/badge/built_with-Go%20%2B%20React-00ADD8">
 </p>
 <p align="center">English · <a href="README.zh-CN.md">简体中文</a></p>
@@ -35,9 +35,9 @@ Screenshots show the Linux desktop application; native controls vary by platform
 
 ## Get started
 
-Download a package for your platform from [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest). macOS packages are unsigned disk images; Linux packages include a `.deb` and a tarball with an installer. To build from source, follow the steps below.
+Download a package for your platform from [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest). macOS packages are unsigned disk images; Linux packages include a `.deb` and a tarball with an installer; Windows x64 packages are unsigned `.exe` installers. To build from source, follow the steps below.
 
-The documented desktop targets are **macOS and Linux**. Windows has not been validated for this project.
+Windows x64 builds are available through the manually run **Desktop packages** workflow in [GitHub Actions](https://github.com/hmgle/radio-desktop/actions/workflows/packages.yml). Download and extract the Windows artifact, then run `radio-desktop-setup-<version>-amd64.exe`. Windows GUI playback and installation still need validation on a real machine.
 
 Build from source using **Go 1.27.3 or newer** and **Bun 1.4.2** (the version used in CI):
 
@@ -45,6 +45,8 @@ Build from source using **Go 1.27.3 or newer** and **Bun 1.4.2** (the version us
 bun install --frozen-lockfile
 bun run dev
 ```
+
+Windows requires the [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/); install the Evergreen Runtime if it is missing. The app installer does not bundle it.
 
 Run these commands from a checkout of this repository. On macOS, install Xcode Command Line Tools (`xcode-select --install`). On Linux, install the runtime libraries first:
 
@@ -61,7 +63,7 @@ To produce a desktop package:
 bun run build
 ```
 
-Output goes into `build/<platform>-<architecture>/`. macOS builds produce an `.app` and `.dmg`; Linux builds produce an executable, `.deb`, and a tarball with `install.sh`. Build on the target OS for the simplest setup. See the [development guide](docs/development.md) for checks and packaging details.
+Output goes into `build/<platform>-<architecture>/`. macOS builds produce an `.app` and `.dmg`; Linux builds produce an executable, `.deb`, and a tarball with `install.sh`; Windows builds produce an executable and an NSIS `.exe` installer. MyGo downloads NSIS on Windows if it is not installed. Build on the target OS for the simplest setup. See the [development guide](docs/development.md) for checks and packaging details.
 
 ## Start listening
 

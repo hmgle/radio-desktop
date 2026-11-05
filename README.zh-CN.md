@@ -3,7 +3,7 @@
 <p align="center">在桌面上，收听世界各地的网络电台。</p>
 <p align="center">
   <a href="LICENSE"><img alt="GPL v3 许可证" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
-  <img alt="macOS 和 Linux" src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey">
+  <img alt="macOS、Linux 和 Windows" src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey">
   <img alt="Go 和 React" src="https://img.shields.io/badge/built_with-Go%20%2B%20React-00ADD8">
 </p>
 <p align="center"><a href="README.md">English</a> · 简体中文</p>
@@ -33,9 +33,9 @@ MP3、AAC、HLS 的支持取决于系统 WebView 和编解码器。HLS 优先使
 
 ## 安装与启动
 
-从 [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest) 下载对应平台的安装包。macOS 提供未签名的磁盘映像，Linux 提供 `.deb` 和带安装脚本的 tarball。源码构建方法如下。
+从 [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest) 下载对应平台的安装包。macOS 提供未签名的磁盘映像，Linux 提供 `.deb` 和带安装脚本的 tarball，Windows x64 提供未签名的 `.exe` 安装包。源码构建方法如下。
 
-本文档面向 **macOS 和 Linux**，Windows 尚未经过本项目验证。
+Windows x64 构建可通过 [GitHub Actions](https://github.com/hmgle/radio-desktop/actions/workflows/packages.yml) 手动运行 **Desktop packages** 工作流获取。下载并解压 Windows 构建产物后，运行 `radio-desktop-setup-<版本>-amd64.exe`。Windows 图形界面播放和安装仍需实机验证。
 
 安装 **Go 1.27.3 或更新版本**及 **Bun 1.4.2**（与 CI 一致），在项目检出目录执行：
 
@@ -43,6 +43,8 @@ MP3、AAC、HLS 的支持取决于系统 WebView 和编解码器。HLS 优先使
 bun install --frozen-lockfile
 bun run dev
 ```
+
+Windows 需要 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)；若缺失，请安装 Evergreen Runtime。应用安装包不内置此运行库。
 
 macOS 需要 Xcode Command Line Tools（`xcode-select --install`）。Linux 先安装运行库：
 
@@ -59,7 +61,7 @@ sudo dnf install webkit2gtk4.1 gtk3 pulseaudio-libs
 bun run build
 ```
 
-产物位于 `build/<平台>-<架构>/`。macOS 生成 `.app` 和 `.dmg`，Linux 生成可执行文件、`.deb` 和带 `install.sh` 的 tarball。建议在目标系统构建。详见[开发指南](docs/development.md)（英文）。
+产物位于 `build/<平台>-<架构>/`。macOS 生成 `.app` 和 `.dmg`，Linux 生成可执行文件、`.deb` 和带 `install.sh` 的 tarball，Windows 生成可执行文件和 NSIS `.exe` 安装包；Windows 未安装 NSIS 时，MyGo 会自动下载。建议在目标系统构建。详见[开发指南](docs/development.md)（英文）。
 
 ## 开始收听
 
