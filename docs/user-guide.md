@@ -1,0 +1,80 @@
+# User guide
+
+[简体中文](user-guide.zh-CN.md) · [Back to README](../README.md)
+
+## Browse and listen
+
+On first launch, Radio Desktop downloads a small popular-station catalog, then syncs the full Radio Browser directory in the background. The station count changes as the directory changes. Use **Update catalog** to retry if the first download fails. Once cached, you can browse the catalog without a network connection; audio playback still requires one.
+
+Search matches names, countries, languages, and tags. Combine it with country, language, tag, and minimum bitrate filters. Dropdowns have their own search fields. Use **Reset** or **Clear search and filters** to remove restrictions. Scroll to load more stations.
+
+Click a station to play it. The bottom bar has play/pause, stop, favorite, and volume controls. Click the artwork or station information to expand station details. Track titles and artwork appear only when the broadcaster supplies compatible metadata; missing artwork does not mean playback has failed.
+
+**Play URL** previews an HTTP(S) stream without saving it. Use a direct audio or HLS URL, rather than a station's website. **Add station** saves a name, stream URL, and optional homepage to **My stations**. Temporary URL previews cannot be favorited; save them as a custom station first. Deleting a custom station removes its saved entry.
+
+## Favorites, history, and settings
+
+Use the heart beside a station or in the player bar to toggle favorites. **Recently played** keeps up to 1,000 listening records. In Settings, **Clear listening history** removes these records after confirmation; favorites, custom stations, and current playback remain.
+
+Settings apply immediately and persist locally:
+
+| Setting | Behavior |
+| --- | --- |
+| Interface language | English, Simplified Chinese, or system language; also updates menus and tray |
+| Color theme | Light, dark, or system |
+| Playback animation | Enabled by default; disable to reduce CPU use |
+| On startup | Start fresh, restore selection (default), or restore and play; volume is always remembered |
+| Update interval | Check catalog age at startup; default 7 days; 0 disables automatic updates, except the initial catalog download |
+| Closing the window | Hide and keep playing (default), or quit |
+
+The sleep timer stops playback at the deadline, including after switching stations. It resets when you quit the app.
+
+Closing a window usually leaves playback running. Use the tray to reopen it, control playback, or quit. If the desktop has no usable tray, the app quits on close. Media key and Now Playing availability varies by platform and desktop environment.
+
+## Keyboard shortcuts
+
+Use **Cmd** on macOS and **Ctrl** on Linux.
+
+| Shortcut | Action |
+| --- | --- |
+| Space | Play/pause in the station view, outside interactive controls |
+| ↑ / ↓, Enter | Select a station, then play the selection |
+| Cmd/Ctrl+F | Return to the station view and focus search |
+| Cmd/Ctrl+N | Add a custom station |
+| Cmd/Ctrl+L | Play a URL |
+| Cmd/Ctrl+, | Open Settings |
+| Esc | Close a dialog, station details, or Settings |
+
+Filter dropdowns support arrow keys, Home/End, Enter, and Esc. Shortcuts can be intercepted by the OS or desktop environment.
+
+## Network and local data
+
+No Radio Desktop account is required. The app stores the catalog, favorites, custom stations, listening history, volume, and preferences in a local SQLite database, `radio.db`:
+
+| Platform | Default directory |
+| --- | --- |
+| macOS | `~/Library/Application Support/radio-desktop/` |
+| Linux | `${XDG_CONFIG_HOME:-~/.config}/radio-desktop/` |
+
+To back up or restore, **quit the app completely** and copy the entire directory, including any `radio.db-wal` and `radio.db-shm` files that remain. Hiding the window is not quitting. There is currently no built-in import/export or cloud synchronization.
+
+Network connections include Radio Browser server discovery and catalog downloads, a Radio Browser click report when a directory station starts playing, station audio streams, an extra ICY metadata connection where applicable, and station/track artwork requests. HLS resources are requested through the Go backend. Those services can see your IP address and their requested resources. Browsing the cached catalog is local. Some streams use unencrypted HTTP.
+
+Station data is maintained by Radio Browser contributors; availability, metadata accuracy, and broadcast rights are controlled by the relevant providers.
+
+## Troubleshooting
+
+| Symptom | What to try |
+| --- | --- |
+| Empty catalog | Check connectivity, choose Update catalog, and clear search/filters. Expand error details if shown. |
+| One station fails | Try another station or the broadcaster's current direct stream. URLs change, and some streams are region restricted. |
+| Many streams fail | Check volume and output device, system WebView codecs, and network access. A web page URL is not an audio stream. |
+| HLS fails | The WebView needs native HLS or MediaSource plus a compatible codec. Bundled hls.js cannot supply missing decoders. |
+| Linux app does not start | Install WebKitGTK 4.1, GTK 3, and libpulse; run from a terminal for diagnostics. Use a graphical session. |
+| Linux MP3/AAC unavailable | Check your distribution's GStreamer codec packages (often plugins-good, plugins-bad, and libav). Package names and availability vary. |
+| Closing does not stop audio | Default close behavior hides to tray. Choose Quit, or change the close behavior in Settings. |
+| No tray or media controls | Check desktop support and extensions for tray icons/MPRIS; support differs across environments. |
+| High CPU while playing | Disable Playback animation in Settings; test another stream format. |
+| Catalog update rejected | The app retains the old catalog if the new one unexpectedly shrinks by more than 25%; retry later. |
+
+For a bug report, include OS/architecture, app version, steps, and relevant error details. Remove tokens, private stream URLs, and personal data from logs. See [contributing](../CONTRIBUTING.md).
