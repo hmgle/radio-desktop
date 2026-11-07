@@ -74,11 +74,21 @@ No Radio Desktop account is required. The app stores the catalog, favorites, cus
 
 To back up or restore, **quit the app completely** and copy the entire directory, including any `radio.db-wal` and `radio.db-shm` files that remain. Hiding the window is not quitting. There is currently no built-in import/export or cloud synchronization.
 
-Network connections include Radio Browser server discovery and catalog downloads, a Radio Browser click report when a directory station starts playing, station audio streams, an extra ICY metadata connection where applicable, and station/track artwork requests. HLS resources are requested through the Go backend. Those services can see your IP address and their requested resources. Browsing the cached catalog is local. Some streams use unencrypted HTTP.
+Network connections include Radio Browser server discovery and catalog downloads, a Radio Browser click report when a directory station starts playing, station audio streams, an extra ICY metadata connection where applicable, and station/track artwork requests. HLS resources loaded by hls.js are requested through the Go backend. Those services can see your IP address and their requested resources. Browsing the cached catalog is local. Some streams use unencrypted HTTP.
 
 Station data is maintained by Radio Browser contributors; availability, metadata accuracy, and broadcast rights are controlled by the relevant providers.
 
 To update the app, quit it and install the newer package for the same platform and architecture from [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest). Use your package manager for Linux `.deb` installations. Normal upgrades keep the data directory above; back it up first if needed. There is no in-app updater yet.
+
+### Network proxies
+
+The app reads system proxy settings automatically and currently has no separate proxy switch or address setting. No proxy configuration is required on an unrestricted connection. If you need a proxy, configure it in your operating system.
+
+Server discovery, catalog sync, click reports, ICY metadata, system media artwork, and hls.js requests all use MyGo's proxy resolver automatically: explicit proxy environment variables take precedence over system proxy settings, and loopback addresses always connect directly. For environment configuration, set `HTTP_PROXY` and `HTTPS_PROXY`, with `NO_PROXY` as needed (lowercase forms also work); do not set only `ALL_PROXY`. Launching from a desktop icon may not inherit variables exported in a terminal.
+
+Ordinary audio, native HLS, and images in the interface use the system WebView or media components, whose proxy support varies by platform. Setting proxy environment variables for Go requests does not guarantee those requests use the same proxy. After configuring the system proxy, verify catalog access, playback, and images separately. This version does not yet offer a separate proxy setting covering every request.
+
+Changes to the system proxy apply to subsequent Go requests, with resolver results cached for about five seconds. Existing playback connections do not immediately move to the new proxy; reconnect the station or retry catalog sync. If the catalog works but some stations fail, also check proxy rules, exit region, and broadcaster region restrictions.
 
 ## Troubleshooting
 

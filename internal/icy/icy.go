@@ -9,13 +9,14 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/egoist/mygo/netproxy"
 )
 
 // Meta is the metadata pushed on every change.
@@ -116,14 +117,9 @@ func (s *Sidecar) connect(ctx context.Context) error {
 	// Transparent gzip would shift every frame and misalign metaint.
 	req.Header.Set("Accept-Encoding", "identity")
 
-	transport := &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		DialContext:         (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
-		TLSHandshakeTimeout: 10 * time.Second,
-	}
-	if base, ok := http.DefaultTransport.(*http.Transport); ok {
-		transport = base.Clone()
-	}
+	// Use the same system/environment proxy policy as HLS and the directory.
+	// Clone because this long-lived stream owns its header timeout and pool.
+	transport := netproxy.Transport().Clone()
 	transport.ResponseHeaderTimeout = 15 * time.Second
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport} // no overall stream timeout

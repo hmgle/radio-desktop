@@ -37,6 +37,14 @@ RADIO_LIVE=1 RADIO_LIVE_URL=https://example.com/stream go test -run Live ./inter
 
 Replace the example stream with a real test URL. These tests contact external services.
 
+The offline backend tests also verify environment proxy routing through a local server, including catalog requests, click reports, ICY metadata, artwork, loopback bypass, and proxy errors. On Linux with the GIO GNOME proxy resolver and GSettings schemas installed, also verify system proxy routing:
+
+```sh
+RADIO_SYSTEM_PROXY_TEST=1 CGO_ENABLED=0 go test -run '^TestProxyRouting$' -v ./internal/app
+```
+
+This uses a private GSettings keyfile and fresh subprocesses; it does not change desktop settings or contact external servers. The test uses an unresolvable destination served by the local proxy, so successful internet access cannot hide requests bypassing that proxy. Native WebView playback and macOS/Windows system proxy resolution still require platform testing.
+
 Linux audio isolation checks:
 
 ```sh

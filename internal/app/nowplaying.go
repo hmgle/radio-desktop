@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/netproxy"
 )
 
 // EventMediaCommand carries a media-key or menu action to the frontend:
@@ -193,7 +194,7 @@ func (n *nowPlaying) rememberArt(url string, art []byte) {
 	n.artC[url] = art
 }
 
-var npHTTPClient = &http.Client{Timeout: 10 * time.Second}
+var npHTTPClient = &http.Client{Transport: netproxy.Transport(), Timeout: 10 * time.Second}
 
 var (
 	errNotImage = errors.New("not a PNG or JPEG image")

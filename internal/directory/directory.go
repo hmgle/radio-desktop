@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/egoist/mygo/netproxy"
+
 	"radio-desktop/internal/model"
 )
 
@@ -63,7 +65,7 @@ func New(opts Options) *Client {
 	}
 	return &Client{
 		opts:       opts,
-		httpClient: &http.Client{Timeout: requestTimeout},
+		httpClient: &http.Client{Transport: netproxy.Transport(), Timeout: requestTimeout},
 	}
 }
 
