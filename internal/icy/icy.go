@@ -34,6 +34,7 @@ type Sidecar struct {
 	url       string
 	userAgent string
 	onMeta    func(Meta)
+	transport *http.Transport
 
 	mu       sync.Mutex
 	stopped  bool
@@ -45,8 +46,13 @@ type Sidecar struct {
 // Start launches the sidecar goroutine for url. onMeta is called from
 // that goroutine (never from the caller's).
 func Start(url, userAgent string, onMeta func(Meta)) *Sidecar {
+	return StartWithTransport(url, userAgent, onMeta, netproxy.Transport())
+}
+
+// StartWithTransport watches a stream using the application's network policy.
+func StartWithTransport(url, userAgent string, onMeta func(Meta), transport *http.Transport) *Sidecar {
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &Sidecar{url: url, userAgent: userAgent, onMeta: onMeta, cancel: cancel, done: make(chan struct{})}
+	s := &Sidecar{url: url, userAgent: userAgent, onMeta: onMeta, transport: transport, cancel: cancel, done: make(chan struct{})}
 	go func() {
 		defer close(s.done)
 		s.run(ctx)
@@ -119,7 +125,11 @@ func (s *Sidecar) connect(ctx context.Context) error {
 
 	// Use the same system/environment proxy policy as HLS and the directory.
 	// Clone because this long-lived stream owns its header timeout and pool.
-	transport := netproxy.Transport().Clone()
+	base := s.transport
+	if base == nil {
+		base = netproxy.Transport()
+	}
+	transport := base.Clone()
 	transport.ResponseHeaderTimeout = 15 * time.Second
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport} // no overall stream timeout

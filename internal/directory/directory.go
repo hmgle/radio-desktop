@@ -43,6 +43,7 @@ type Options struct {
 	ServersURL string // endpoint listing API servers
 	APIURL     string // fixed API base URL, overriding discovery
 	UserAgent  string
+	Transport  http.RoundTripper
 }
 
 // Client is a Radio Browser API client with sticky-server failover.
@@ -63,9 +64,12 @@ func New(opts Options) *Client {
 	if opts.UserAgent == "" {
 		opts.UserAgent = "radio-desktop/0.2.1"
 	}
+	if opts.Transport == nil {
+		opts.Transport = netproxy.Transport()
+	}
 	return &Client{
 		opts:       opts,
-		httpClient: &http.Client{Transport: netproxy.Transport(), Timeout: requestTimeout},
+		httpClient: &http.Client{Transport: opts.Transport, Timeout: requestTimeout},
 	}
 }
 

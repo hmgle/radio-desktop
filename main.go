@@ -8,6 +8,7 @@ package main
 import (
 	_ "embed"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,7 +18,6 @@ import (
 
 	"radio-desktop/internal/app"
 	"radio-desktop/internal/audio"
-	"radio-desktop/internal/directory"
 	"radio-desktop/internal/store"
 	"radio-desktop/locales"
 )
@@ -50,11 +50,16 @@ func main() {
 	}
 	defer st.Close()
 
-	svc := app.New(st, directory.New(directory.Options{UserAgent: "radio-desktop/0.2.1"}))
+	svc := app.New(st, nil)
+	network, err := app.StartNetwork(svc)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer network.Close()
 	mygo.Bind(svc)
 	// HLS manifests, segments and keys use Go's HTTP client, including
 	// streams whose servers do not provide browser CORS headers.
-	mygo.Use(fetch.Plugin)
+	mygo.Use(fetch.New(fetch.Options{Client: &http.Client{Transport: network.Transport}}))
 
 	mygo.App.WhenReady(func() {
 		app.WatchPlaybackRecovery()

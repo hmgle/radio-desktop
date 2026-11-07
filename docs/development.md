@@ -43,7 +43,9 @@ The offline backend tests also verify environment proxy routing through a local 
 RADIO_SYSTEM_PROXY_TEST=1 CGO_ENABLED=0 go test -run '^TestProxyRouting$' -v ./internal/app
 ```
 
-This uses a private GSettings keyfile and fresh subprocesses; it does not change desktop settings or contact external servers. The test uses an unresolvable destination served by the local proxy, so successful internet access cannot hide requests bypassing that proxy. Native WebView playback and macOS/Windows system proxy resolution still require platform testing.
+This uses a private GSettings keyfile and fresh subprocesses; it does not change desktop settings or contact external servers. The test uses an unresolvable destination served by the local proxy, so successful internet access cannot hide requests bypassing that proxy. macOS/Windows native playback and system proxy resolution still require platform testing.
+
+The network package also tests explicit HTTP proxies, HTTPS CONNECT, SOCKS5 remote DNS, direct mode, continuous stream cancellation, byte ranges, and proxy failure without direct fallback. Native HLS relay tests traverse redirected master playlists, alternate audio, media playlists, segments, initialization maps, and encryption keys. Relay access requires a signed URL and the exact loopback Host; unsupported external references fail instead of escaping the configured policy. Network preferences take effect at the next launch so active streams keep a consistent policy.
 
 Linux audio isolation checks:
 
@@ -63,7 +65,7 @@ uv run --no-project tools/test-desktop.py
 dbus-run-session -- xvfb-run -a uv run --no-project tools/test-desktop.py
 ```
 
-This builds the app with the `radio_e2e` tag and the inspector enabled, then uses MyGo Automation to open settings through the native menu, change the theme and language, quit normally, and verify the preferences after restart. It needs the ordinary Linux runtime libraries, Go, Bun, uv, and a display. The test uses private temporary XDG directories and a private automation socket, and routes directory requests to a local proxy that rejects external requests. No live streams or audio services are required. Failures print app logs and page text. The test currently supports Linux; normal builds exclude the automation import.
+This builds the app with the `radio_e2e` tag and the inspector enabled, then uses MyGo Automation to change the theme, language, and proxy through settings and verify them after restart. A local proxy serves synthetic audio and artwork for an unresolvable destination, rejects other requests, and verifies a real native media request. The second launch has conflicting proxy environment variables to verify the saved manual policy takes precedence. Playback is muted. It needs the ordinary Linux runtime libraries, Go, Bun, uv, a graphical session, and working media components; no public streams are used. Private temporary XDG directories and an automation socket isolate app state. Failures print app logs and page text. Set `RADIO_DESKTOP_CAPTURE` to a PNG path to capture the settings page. The test currently supports Linux; normal builds exclude the automation import.
 
 ## Packages
 

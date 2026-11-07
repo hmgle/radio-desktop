@@ -4,6 +4,7 @@ import { Service, events, type Settings, type SettingsPatch } from "./mygo";
 export const defaultSettings: Settings = {
   language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide",
   playbackAnimations: true,
+  proxyMode: "auto", proxyURL: "",
 };
 
 interface SettingsState {

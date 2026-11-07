@@ -199,7 +199,7 @@ it.each(["off", "selection", "play"])("restores startup mode %s", async (resume)
   const { Service } = await import("./mygo");
   const { player } = await import("./player");
   const { useRadio } = await import("./store");
-  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume, autoSyncDays: 7, closeBehavior: "hide", playbackAnimations: false });
+  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume, autoSyncDays: 7, closeBehavior: "hide", playbackAnimations: false, proxyMode: "auto", proxyURL: "" });
   vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "favorites", lastStationUUID: "last", lastSyncAt: 0, catalogSize: 1, syncing: false });
   const station = { stationuuid: "last", name: "Last" } as Station;
   vi.mocked(Service.getPlayInfo).mockResolvedValue({ station, candidates: ["https://test/stream"], sessionId: 0 });
@@ -217,7 +217,7 @@ it("does not arm an old startup selection after the listener stops", async () =>
   const { Service } = await import("./mygo");
   const { player } = await import("./player");
   const { useRadio } = await import("./store");
-  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide", playbackAnimations: false });
+  vi.mocked(Service.getSettings).mockResolvedValue({ language: "system", appearance: "system", resume: "selection", autoSyncDays: 7, closeBehavior: "hide", playbackAnimations: false, proxyMode: "auto", proxyURL: "" });
   vi.mocked(Service.getStatus).mockResolvedValue({ volume: 80, lastSource: "all", lastStationUUID: "last", lastSyncAt: 0, catalogSize: 1, syncing: false });
   const info = deferred<Awaited<ReturnType<typeof Service.getPlayInfo>>>();
   vi.mocked(Service.getPlayInfo).mockReturnValue(info.promise);

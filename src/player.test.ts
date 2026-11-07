@@ -98,6 +98,25 @@ function states(): string[] {
 }
 
 describe("player state machine", () => {
+  it("uses the backend media route for native audio while preserving HLS source addresses", () => {
+    const original = "https://station.example/stream";
+    const native = "http://127.0.0.1:12345/synthetic/media";
+    playerApi.play({ ...info([original]), nativeCandidates: [native] });
+    expect(audio.src).toBe(native);
+  });
+
+  it("retries relayed native HLS failures through the original HLS loader", async () => {
+    const original = "https://station.example/extensionless";
+    vi.mocked(nativeFetch).mockResolvedValue(new Response(null, { headers: { "Content-Type": "application/vnd.apple.mpegurl" } }));
+    playerApi.play({ ...info([original]), nativeCandidates: ["http://127.0.0.1:12345/synthetic/media"] });
+    audio.error = { code: 2, message: "native playlist rejected" };
+    audio.dispatch("error");
+    await vi.advanceTimersByTimeAsync(0);
+    const { attachHls } = await import("./hls");
+    expect(nativeFetch).toHaveBeenCalledWith(original, expect.anything());
+    expect(attachHls).toHaveBeenCalledWith(audio, original, expect.any(Function));
+  });
+
   it("can recover successful listening sessions repeatedly without accumulating failures", async () => {
     playerApi.play(info(["https://a/1"]));
     audio.readyState = 3;

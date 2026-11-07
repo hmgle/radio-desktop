@@ -29,7 +29,7 @@ Click a station to play it. The bottom bar has play/pause, stop, favorite, and v
 
 Use the heart beside a station or in the player bar to toggle favorites. **Recently played** keeps up to 1,000 listening records. In Settings, **Clear listening history** removes these records after confirmation; favorites, custom stations, and current playback remain.
 
-Settings apply immediately and persist locally:
+Settings persist locally. Network proxy changes require fully quitting and reopening the app; other settings apply immediately:
 
 | Setting | Behavior |
 | --- | --- |
@@ -39,6 +39,7 @@ Settings apply immediately and persist locally:
 | On startup | Start fresh, restore selection (default), or restore and play; volume is always remembered |
 | Update interval | Check catalog age at startup; default 7 days; 0 disables automatic updates, except the initial catalog download |
 | Closing the window | Hide and keep playing (default), or quit |
+| Network proxy | Automatic (default), manual proxy, or direct; restart after applying changes |
 
 The sleep timer stops playback at the deadline, including after switching stations. It resets when you quit the app.
 
@@ -82,13 +83,19 @@ To update the app, quit it and install the newer package for the same platform a
 
 ### Network proxies
 
-The app reads system proxy settings automatically and currently has no separate proxy switch or address setting. No proxy configuration is required on an unrestricted connection. If you need a proxy, configure it in your operating system.
+Choose a mode in **Settings → Network** and select **Apply**. **Fully quit and reopen the app after changing it**; closing the window may only hide it to the tray. Automatic is the default, and unrestricted connections need no configuration.
 
-Server discovery, catalog sync, click reports, ICY metadata, system media artwork, and hls.js requests all use MyGo's proxy resolver automatically: explicit proxy environment variables take precedence over system proxy settings, and loopback addresses always connect directly. For environment configuration, set `HTTP_PROXY` and `HTTPS_PROXY`, with `NO_PROXY` as needed (lowercase forms also work); do not set only `ALL_PROXY`. Launching from a desktop icon may not inherit variables exported in a terminal.
+| Mode | Behavior |
+| --- | --- |
+| Automatic | Follow system proxy settings; Go requests give explicit proxy environment variables precedence |
+| Manual proxy | Use the specified proxy for the catalog, playback, images, and track information, overriding system and environment proxies; a failed proxy does not fall back to direct |
+| Direct connection | Use no application proxy for those requests; system routing, firewalls, and VPN policies still apply |
 
-Ordinary audio, native HLS, and images in the interface use the system WebView or media components, whose proxy support varies by platform. Setting proxy environment variables for Go requests does not guarantee those requests use the same proxy. After configuring the system proxy, verify catalog access, playback, and images separately. This version does not yet offer a separate proxy setting covering every request.
+Manual addresses support `http://`, `https://`, `socks5://`, and `socks5h://` with a port, for example `http://proxy.example:8080`. An HTTP proxy also carries HTTPS stations using CONNECT; SOCKS5 resolves station hostnames at the proxy. Manual proxy usernames, passwords, and PAC addresses are not currently supported. Use Automatic with operating system settings for automatic proxy configuration. Addresses are stored in local preferences; remove private proxy addresses before sharing diagnostics.
 
-Changes to the system proxy apply to subsequent Go requests, with resolver results cached for about five seconds. Existing playback connections do not immediately move to the new proxy; reconnect the station or retry catalog sync. If the catalog works but some stations fail, also check proxy rules, exit region, and broadcaster region restrictions.
+In Automatic mode, Go requests read `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` (lowercase forms also work), always bypassing proxies for loopback addresses. Do not set only `ALL_PROXY`. Desktop launches may not inherit terminal variables. Ordinary audio, native HLS, and interface images use system WebView or media components, whose automatic proxy behavior varies by platform; environment configuration alone does not guarantee they use the same proxy. Use Manual when the app needs one explicit proxy across those requests. Station homepages opened in your default browser follow that browser's settings.
+
+Manual and Direct modes support ordinary audio, standard HLS playlists and their segments, keys, and artwork. Some native HLS playlists using variable substitution or content steering need hls.js fallback and a compatible system decoder. Unsupported streams fail without bypassing the specified proxy. In Automatic mode, system proxy changes may be cached for about five seconds; reconnect existing streams. If only some stations fail, check proxy rules, exit region, and broadcaster region restrictions.
 
 ## Troubleshooting
 

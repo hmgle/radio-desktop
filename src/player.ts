@@ -94,7 +94,8 @@ class RadioPlayer {
       // Try hls.js only for identified HLS. Unknown URLs get one bounded
       // header probe per candidate, including extensionless redirects.
       const url = this.info?.candidates[this.candIdx];
-      if (err.code === 4 && url && !this.hls && !this.hlsFallback.has(url)) {
+      const relayed = url && this.info?.nativeCandidates?.[this.candIdx] && this.info.nativeCandidates[this.candIdx] !== url;
+      if ((err.code === 4 || (err.code === 2 && relayed)) && url && !this.hls && !this.hlsFallback.has(url)) {
         this.hlsFallback.set(url, false);
         if (this.hasHlsHint(url) || isHlsURL(a.currentSrc)) {
           this.hlsFallback.set(url, true);
@@ -278,7 +279,7 @@ class RadioPlayer {
         this.onStreamEnded(myGen);
       });
     } else {
-      this.audio.src = url;
+      this.audio.src = this.info?.nativeCandidates?.[this.candIdx] ?? url;
       this.startAudio(myGen, loadID);
     }
   }

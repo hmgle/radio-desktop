@@ -711,6 +711,50 @@ export interface Messages {
    * `URL preview`
    */
   temporaryStation(): string;
+  /**
+   * `Network`
+   */
+  networkGroup(): string;
+  /**
+   * `Network proxy`
+   */
+  networkProxy(): string;
+  /**
+   * `Proxy mode`
+   */
+  proxyMode(): string;
+  /**
+   * `Automatic`
+   */
+  proxyAuto(): string;
+  /**
+   * `Manual proxy`
+   */
+  proxyManual(): string;
+  /**
+   * `Direct connection`
+   */
+  proxyDirect(): string;
+  /**
+   * `Proxy address`
+   */
+  proxyAddress(): string;
+  /**
+   * `HTTP, HTTPS or SOCKS5 URL with a port. Proxy authentication is not supported.`
+   */
+  proxyAddressHint(): string;
+  /**
+   * `Applies to the catalog, playback, images and track information. Automatic follows system settings and proxy environment variables.`
+   */
+  proxyScope(): string;
+  /**
+   * `Fully quit and reopen the app after applying changes.`
+   */
+  proxyRestart(): string;
+  /**
+   * `Ignores application proxy settings; system routing still applies.`
+   */
+  proxyDirectHint(): string;
 }
 
 const catalog = createCatalog<Messages>({
@@ -898,6 +942,17 @@ const catalog = createCatalog<Messages>({
     "openHomepage": [],
     "openHomepageFailed": [],
     "temporaryStation": [],
+    "networkGroup": [],
+    "networkProxy": [],
+    "proxyMode": [],
+    "proxyAuto": [],
+    "proxyManual": [],
+    "proxyDirect": [],
+    "proxyAddress": [],
+    "proxyAddressHint": [],
+    "proxyScope": [],
+    "proxyRestart": [],
+    "proxyDirectHint": [],
   },
   messages: {
     "en": {
@@ -1078,6 +1133,17 @@ const catalog = createCatalog<Messages>({
       "openHomepage": "Open homepage",
       "openHomepageFailed": "Could not open the homepage. Copy the address and open it in your browser.",
       "temporaryStation": "URL preview",
+      "networkGroup": "Network",
+      "networkProxy": "Network proxy",
+      "proxyMode": "Proxy mode",
+      "proxyAuto": "Automatic",
+      "proxyManual": "Manual proxy",
+      "proxyDirect": "Direct connection",
+      "proxyAddress": "Proxy address",
+      "proxyAddressHint": "HTTP, HTTPS or SOCKS5 URL with a port. Proxy authentication is not supported.",
+      "proxyScope": "Applies to the catalog, playback, images and track information. Automatic follows system settings and proxy environment variables.",
+      "proxyRestart": "Fully quit and reopen the app after applying changes.",
+      "proxyDirectHint": "Ignores application proxy settings; system routing still applies.",
     },
     "zh-CN": {
       "errorDetails": "错误详情",
@@ -1257,6 +1323,17 @@ const catalog = createCatalog<Messages>({
       "openHomepage": "打开主页",
       "openHomepageFailed": "无法打开主页，请复制地址后在浏览器中打开。",
       "temporaryStation": "链接试听",
+      "networkGroup": "网络",
+      "networkProxy": "网络代理",
+      "proxyMode": "代理模式",
+      "proxyAuto": "自动",
+      "proxyManual": "手动代理",
+      "proxyDirect": "直连",
+      "proxyAddress": "代理地址",
+      "proxyAddressHint": "填写带端口的 HTTP、HTTPS 或 SOCKS5 地址。暂不支持代理认证。",
+      "proxyScope": "适用于目录、播放、图片和曲目信息。自动模式遵循系统设置及代理环境变量。",
+      "proxyRestart": "应用更改后，请完全退出并重新打开应用。",
+      "proxyDirectHint": "忽略应用层代理设置；系统路由仍然有效。",
     },
   },
 });
