@@ -104,6 +104,10 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid media target", http.StatusBadRequest)
 		return
 	}
+	if err := mergeDeliveryDirectives(u, req.URL.RawQuery); err != nil {
+		http.Error(w, "invalid HLS delivery directives", http.StatusBadRequest)
+		return
+	}
 	method := req.Method
 	knownPlaylist := playlistURL(u)
 	if knownPlaylist {
