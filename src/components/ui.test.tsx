@@ -158,6 +158,26 @@ it("navigates facet options with arrows and returns focus on selection or Escape
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
 });
 
+it("removes the facet popup before restoring focus to its trigger", async () => {
+  vi.mocked(Service.countries).mockResolvedValue([{ value: "DE", label: "Germany", count: 2 }]);
+  render(<FacetSelect kind="country" label="Country" value="" onChange={() => {}} />);
+  const trigger = screen.getByRole("button", { name: "Country" });
+  fireEvent.click(trigger);
+  const option = await screen.findByRole("button", { name: /Germany/ });
+  option.focus();
+  const focus = trigger.focus.bind(trigger);
+  let popupRemoved = false;
+  const spy = vi.spyOn(trigger, "focus").mockImplementation(() => {
+    popupRemoved = screen.queryByRole("dialog") === null;
+    focus();
+  });
+  fireEvent.click(option);
+  expect(spy).toHaveBeenCalled();
+  expect(popupRemoved).toBe(true);
+  expect(document.activeElement).toBe(trigger);
+  spy.mockRestore();
+});
+
 it("closes a facet when focus tabs out without pulling focus back", async () => {
   vi.mocked(Service.countries).mockResolvedValue([]);
   render(<><FacetSelect kind="country" label="Country" value="" onChange={() => {}} /><button>Next</button></>);

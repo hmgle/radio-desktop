@@ -1,5 +1,5 @@
 import { messages as m } from "../locales";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Service } from "../mygo";
 import type { Facet } from "../mygo";
 import { countryFlagUrl } from "../flags";
@@ -102,11 +102,20 @@ export function FacetSelect(props: {
   const queued = useRef<FacetUpdate | null>(null);
   /** Focus sat inside the popup before the list was updated. */
   const focusInside = useRef(false);
+  const restoreFocus = useRef(false);
   const panelId = useId();
-  const close = () => {
+  const close = useCallback(() => {
+    restoreFocus.current = true;
     setOpen(false);
-    triggerRef.current?.focus();
-  };
+  }, []);
+  // Restore focus after React removes the focused option. Moving it during
+  // the click can be undone by the DOM commit and leave focus on the body.
+  useLayoutEffect(() => {
+    if (!open && restoreFocus.current) {
+      restoreFocus.current = false;
+      triggerRef.current?.focus();
+    }
+  }, [open]);
   const apply = useCallback((update: FacetUpdate) => {
     focusInside.current = panelRef.current?.contains(document.activeElement) ?? false;
     if ("rows" in update) {
@@ -200,8 +209,7 @@ export function FacetSelect(props: {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        setOpen(false);
-        triggerRef.current?.focus();
+        close();
       }
     };
     document.addEventListener("mousedown", onDown);
@@ -210,7 +218,7 @@ export function FacetSelect(props: {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, close]);
 
   const shown = facets ?? [];
   const locale = currentLocale();
