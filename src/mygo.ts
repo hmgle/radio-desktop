@@ -26,6 +26,7 @@ export interface PlayInfo {
   sessionId: number;
   station: Station;
   candidates: string[];
+  nativeCandidates?: string[];
 }
 
 /** PlaybackMeta identifies the playback session that produced the metadata. */
@@ -68,6 +69,8 @@ export interface Settings {
   autoSyncDays: number;
   closeBehavior: string;
   playbackAnimations: boolean;
+  proxyMode: string;
+  proxyURL: string;
 }
 
 /**
@@ -81,6 +84,8 @@ export interface SettingsPatch {
   autoSyncDays?: number;
   closeBehavior?: string;
   playbackAnimations?: boolean;
+  proxyMode?: string;
+  proxyURL?: string;
 }
 
 /**

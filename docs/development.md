@@ -37,6 +37,40 @@ RADIO_LIVE=1 RADIO_LIVE_URL=https://example.com/stream go test -run Live ./inter
 
 Replace the example stream with a real test URL. These tests contact external services.
 
+The offline backend tests also verify environment proxy routing through a local server, including catalog requests, click reports, ICY metadata, artwork, loopback bypass, and proxy errors. On Linux with the GIO GNOME proxy resolver and GSettings schemas installed, also verify system proxy routing:
+
+```sh
+RADIO_SYSTEM_PROXY_TEST=1 CGO_ENABLED=0 go test -run '^TestProxyRouting$' -v ./internal/app
+```
+
+This uses a private GSettings keyfile and fresh subprocesses; it does not change desktop settings or contact external servers. The test uses an unresolvable destination served by the local proxy, so successful internet access cannot hide requests bypassing that proxy. macOS/Windows native playback and system proxy resolution still require platform testing.
+
+The network package also tests explicit HTTP proxies, HTTPS CONNECT, SOCKS5 remote DNS, direct mode, continuous stream cancellation, byte ranges, and proxy failure without direct fallback. Native HLS relay tests traverse redirected master playlists, alternate audio, media playlists, segments, initialization maps, and encryption keys. Relay access requires a signed URL and the exact loopback Host; unsupported external references fail instead of escaping the configured policy. Network preferences take effect at the next launch so active streams keep a consistent policy.
+
+### HLS playback and relay boundaries
+
+For identified HLS streams under Manual or Direct proxy mode, prefer hls.js with `RadioHlsLoader` when `Hls.isSupported()` succeeds. This uses the original upstream URLs and the selected Go network policy for playlists, segments, and keys. Platforms with native HLS and no compatible MSE implementation use the native media relay. Automatic mode retains the platform's native HLS preference. Unknown formats are probed after a native failure, through the existing bounded fallback path.
+
+The native relay supports the following request and playlist behavior:
+
+| Area | Supported behavior |
+| --- | --- |
+| Playlist references | Rewrite HTTP(S) URI lines and quoted `URI`/`*-URI` attributes against the final redirect URL, including variant playlists, alternate audio, keys, initialization maps, parts, preload hints, and rendition reports; inline `data:` references stay inline |
+| Resource types | Signed routes carry the resource type: directory HLS hints and `.m3u`/`.m3u8` identify root playlists; variant, alternate, I-frame, and rendition-report references identify child playlists; segments, keys, maps, parts, preload hints, and artwork are binary regardless of extension or content prefix |
+| Unknown resources | A complete GET probes an unknown target from its final URL, MIME type, or initial `#EXTM3U` bytes, including when its first request is HEAD or Range; recognized media/binary MIME classifications and successfully validated playlists are shared by subsequent requests; HTML, JSON, text, other non-media responses, and failed probes do not establish a cached type |
+| Type changes | MIME, final redirect URLs, and prefixes propose a playlist type without changing the cache; cache it only after a complete 200 response passes size, text, and reference-rewriting checks; a complete GET is reused, while HEAD or a partial response requires a full playlist fetch; failed reads, invalid bodies, unsupported references, and upstream errors make learned routes eligible for another probe; explicitly signed references keep their original type |
+| Concurrent classification | Cache updates are conditional on the observed revision, so an older in-flight response cannot replace a newer accepted result; record outcomes before sending responses so a retry observes the completed update; the probe gate is separate from the cache lock, allowing another request to recover while a candidate playlist body remains incomplete |
+| Playlist text | Require an exact `#EXTM3U` first line, valid UTF-8, LF or CRLF line endings, and no prohibited control characters before rewriting; these checks cover relay input and references, rather than full HLS semantic conformance |
+| Playlist ranges | Fetch a complete playlist before rewriting; byte, suffix, multiple, and unsatisfiable ranges are evaluated over the rewritten representation; HEAD describes its length and If-Range uses its generated ETag |
+| Media ranges | Forward identified binary Range and If-Range requests and preserve upstream status, body, and validators; without an explicit HLS type-change signal, multipart 206 and 416 responses never trigger a speculative full GET or wait for body sniffing |
+| Low latency reloads | Merge appended `_HLS_msn`, `_HLS_part`, and `_HLS_skip` into the signed upstream URL, preserving authentication parameter encoding and order; media sequence and part values are unsigned 64-bit integers, part requires a sequence, and skip accepts `YES` or `v2` |
+| Query boundary | Appended query fields outside those three directives, duplicate directives, and invalid values return 400; original signed query fields remain intact |
+| Limits | Playlists are capped at 2 MiB; unknown-type classification has a 2-second budget including waiting for a concurrent probe, response headers, and the initial prefix (504 on timeout); identified streams continue without that probe deadline; other upstream response headers have a 15-second deadline; disconnects cancel the upstream request |
+
+Variable substitution, content steering, malformed/unquoted URI attributes, and non-HTTP(S) external references are rejected by the native relay. hls.js handles supported extensions directly when available; an unsupported native playlist may trigger that existing fallback. These bounds do not establish full low latency HLS conformance. Native HLS behavior on macOS and Windows still needs real-machine validation.
+
+Classification regression tests cover unknown, learned binary, and learned playlist entries across GET, HEAD, and Range. They exercise upstream errors, partial and truncated bodies, size and text validation, unsupported references, failed refetches, cancellation, and concurrent results arriving out of order, followed by recovery to ordinary audio. UTF-8 and line-ending requirements are described in [RFC 8216 section 4.1](https://www.rfc-editor.org/rfc/rfc8216.html#section-4.1).
+
 Linux audio isolation checks:
 
 ```sh
@@ -55,7 +89,7 @@ uv run --no-project tools/test-desktop.py
 dbus-run-session -- xvfb-run -a uv run --no-project tools/test-desktop.py
 ```
 
-This builds the app with the `radio_e2e` tag and the inspector enabled, then uses MyGo Automation to open settings through the native menu, change the theme and language, quit normally, and verify the preferences after restart. It needs the ordinary Linux runtime libraries, Go, Bun, uv, and a display. The test uses private temporary XDG directories and a private automation socket, and routes directory requests to a local proxy that rejects external requests. No live streams or audio services are required. Failures print app logs and page text. The test currently supports Linux; normal builds exclude the automation import.
+This builds the app with the `radio_e2e` tag and the inspector enabled, then uses MyGo Automation to change the theme, language, and proxy through settings and verify them after restart. A local proxy serves synthetic audio and artwork for an unresolvable destination, rejects other requests, and verifies a real native media request. The second launch has conflicting proxy environment variables to verify the saved manual policy takes precedence. Playback is muted. It needs the ordinary Linux runtime libraries, Go, Bun, uv, a graphical session, and working media components; no public streams are used. Private temporary XDG directories and an automation socket isolate app state. Failures print app logs and page text. Set `RADIO_DESKTOP_CAPTURE` to a PNG path to capture the settings page. The test currently supports Linux; normal builds exclude the automation import.
 
 ## Packages
 
@@ -73,7 +107,7 @@ Output is placed under `build/<platform>-<architecture>/`. Cross builds require 
 | macOS | `.app`, `.dmg` |
 | Linux | Executable, `.desktop`, `.deb`, tarball, separate user-level `install.sh`, and `PKGBUILD` |
 
-To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.2.1_amd64.deb`. For the tarball, review the separate script and run `sh ./build/linux-amd64/install.sh ./build/linux-amd64/radio-desktop-0.2.1-linux-amd64.tar.gz`. Release downloads provide `install.sh` as its own asset; it is not inside the tarball. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
+To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.3.0_amd64.deb`. For the tarball, review the separate script and run `sh ./build/linux-amd64/install.sh ./build/linux-amd64/radio-desktop-0.3.0-linux-amd64.tar.gz`. Release downloads provide `install.sh` as its own asset; it is not inside the tarball. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
 
 Windows installers install for the current user under `%LOCALAPPDATA%\Programs`, create a Start menu shortcut, and provide an uninstaller in Settings > Apps. Run `bun run build` on Windows to build the installer; when cross-compiling from Linux, install NSIS (`makensis`) first. Windows installation, tray behavior, media controls, and MP3/AAC/HLS playback still need a real-machine smoke test.
 
@@ -95,13 +129,13 @@ When distributing binaries, provide the corresponding source for that exact vers
 Update `mygo.json`, the application and directory User-Agent strings, and the version section in `CHANGELOG.md`. Keep both READMEs and user guides aligned with download formats and behavior. Run the checks above and validate release metadata before committing and tagging:
 
 ```sh
-go run ./tools/release -tag v0.2.1 -notes /tmp/radio-release-notes.md
-git tag -a v0.2.1 -m "Radio Desktop v0.2.1"
+go run ./tools/release -tag v0.3.0 -notes /tmp/radio-release-notes.md
+git tag -a v0.3.0 -m "Radio Desktop v0.3.0"
 ```
 
 Push the reviewed commit and tag to the GitHub remote. The release workflow builds Linux x86_64, macOS Apple Silicon (arm64), and Windows x64 from the same commit. Wait for it to finish, run the manual Desktop smoke test for that tag, and download the draft's assets. Check the SHA256 entries, package versions and architectures, bundled licenses, source contents, and platform runtime requirements before publishing. The source archive is generated with `git archive` from the tagged commit and includes tracked build inputs and lockfiles. It is covered by the same checksum file as the installers.
 
-Publish the reviewed draft from GitHub or with `gh release edit v0.2.1 --draft=false --latest`. Record validation limits in the release notes, particularly unsigned macOS/Windows packages and any platform installation or playback checks that were not run. A newer package preserves the normal user-data directory; there is no in-app update mechanism yet.
+Publish the reviewed draft from GitHub or with `gh release edit v0.3.0 --draft=false --latest`. Record validation limits in the release notes, particularly unsigned macOS/Windows packages and any platform installation or playback checks that were not run. A newer package preserves the normal user-data directory; there is no in-app update mechanism yet.
 
 ## Source map
 

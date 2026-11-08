@@ -176,5 +176,16 @@
   "copyFailed": "Could not copy. Select the address to copy it manually.",
   "openHomepage": "Open homepage",
   "openHomepageFailed": "Could not open the homepage. Copy the address and open it in your browser.",
-  "temporaryStation": "URL preview"
+  "temporaryStation": "URL preview",
+  "networkGroup": "Network",
+  "networkProxy": "Network proxy",
+  "proxyMode": "Proxy mode",
+  "proxyAuto": "Automatic",
+  "proxyManual": "Manual proxy",
+  "proxyDirect": "Direct connection",
+  "proxyAddress": "Proxy address",
+  "proxyAddressHint": "HTTP, HTTPS or SOCKS5 URL with a port. Proxy authentication is not supported.",
+  "proxyScope": "Applies to the catalog, playback, images and track information. Automatic follows system settings and proxy environment variables.",
+  "proxyRestart": "Fully quit and reopen the app after applying changes.",
+  "proxyDirectHint": "Ignores application proxy settings; system routing still applies."
 }

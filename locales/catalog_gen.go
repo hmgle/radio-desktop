@@ -1806,3 +1806,113 @@ func TemporaryStation() string { return In(i18n.Locale()).TemporaryStation() }
 func (msgs Messages) TemporaryStation() string {
 	return Catalog.Format(msgs.locale, "temporaryStation", nil)
 }
+
+// NetworkGroup says "Network"
+// in the language the app shows.
+func NetworkGroup() string { return In(i18n.Locale()).NetworkGroup() }
+
+// NetworkGroup says "Network"
+// in the language of msgs.
+func (msgs Messages) NetworkGroup() string {
+	return Catalog.Format(msgs.locale, "networkGroup", nil)
+}
+
+// NetworkProxy says "Network proxy"
+// in the language the app shows.
+func NetworkProxy() string { return In(i18n.Locale()).NetworkProxy() }
+
+// NetworkProxy says "Network proxy"
+// in the language of msgs.
+func (msgs Messages) NetworkProxy() string {
+	return Catalog.Format(msgs.locale, "networkProxy", nil)
+}
+
+// ProxyMode says "Proxy mode"
+// in the language the app shows.
+func ProxyMode() string { return In(i18n.Locale()).ProxyMode() }
+
+// ProxyMode says "Proxy mode"
+// in the language of msgs.
+func (msgs Messages) ProxyMode() string {
+	return Catalog.Format(msgs.locale, "proxyMode", nil)
+}
+
+// ProxyAuto says "Automatic"
+// in the language the app shows.
+func ProxyAuto() string { return In(i18n.Locale()).ProxyAuto() }
+
+// ProxyAuto says "Automatic"
+// in the language of msgs.
+func (msgs Messages) ProxyAuto() string {
+	return Catalog.Format(msgs.locale, "proxyAuto", nil)
+}
+
+// ProxyManual says "Manual proxy"
+// in the language the app shows.
+func ProxyManual() string { return In(i18n.Locale()).ProxyManual() }
+
+// ProxyManual says "Manual proxy"
+// in the language of msgs.
+func (msgs Messages) ProxyManual() string {
+	return Catalog.Format(msgs.locale, "proxyManual", nil)
+}
+
+// ProxyDirect says "Direct connection"
+// in the language the app shows.
+func ProxyDirect() string { return In(i18n.Locale()).ProxyDirect() }
+
+// ProxyDirect says "Direct connection"
+// in the language of msgs.
+func (msgs Messages) ProxyDirect() string {
+	return Catalog.Format(msgs.locale, "proxyDirect", nil)
+}
+
+// ProxyAddress says "Proxy address"
+// in the language the app shows.
+func ProxyAddress() string { return In(i18n.Locale()).ProxyAddress() }
+
+// ProxyAddress says "Proxy address"
+// in the language of msgs.
+func (msgs Messages) ProxyAddress() string {
+	return Catalog.Format(msgs.locale, "proxyAddress", nil)
+}
+
+// ProxyAddressHint says "HTTP, HTTPS or SOCKS5 URL with a port. Proxy authentication is not supported."
+// in the language the app shows.
+func ProxyAddressHint() string { return In(i18n.Locale()).ProxyAddressHint() }
+
+// ProxyAddressHint says "HTTP, HTTPS or SOCKS5 URL with a port. Proxy authentication is not supported."
+// in the language of msgs.
+func (msgs Messages) ProxyAddressHint() string {
+	return Catalog.Format(msgs.locale, "proxyAddressHint", nil)
+}
+
+// ProxyScope says "Applies to the catalog, playback, images and track information. Automatic follows system settings and proxy environme…"
+// in the language the app shows.
+func ProxyScope() string { return In(i18n.Locale()).ProxyScope() }
+
+// ProxyScope says "Applies to the catalog, playback, images and track information. Automatic follows system settings and proxy environme…"
+// in the language of msgs.
+func (msgs Messages) ProxyScope() string {
+	return Catalog.Format(msgs.locale, "proxyScope", nil)
+}
+
+// ProxyRestart says "Fully quit and reopen the app after applying changes."
+// in the language the app shows.
+func ProxyRestart() string { return In(i18n.Locale()).ProxyRestart() }
+
+// ProxyRestart says "Fully quit and reopen the app after applying changes."
+// in the language of msgs.
+func (msgs Messages) ProxyRestart() string {
+	return Catalog.Format(msgs.locale, "proxyRestart", nil)
+}
+
+// ProxyDirectHint says "Ignores application proxy settings; system routing still applies."
+// in the language the app shows.
+func ProxyDirectHint() string { return In(i18n.Locale()).ProxyDirectHint() }
+
+// ProxyDirectHint says "Ignores application proxy settings; system routing still applies."
+// in the language of msgs.
+func (msgs Messages) ProxyDirectHint() string {
+	return Catalog.Format(msgs.locale, "proxyDirectHint", nil)
+}

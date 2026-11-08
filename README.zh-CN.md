@@ -19,9 +19,10 @@ Radio Desktop 是 [radio-cli](https://github.com/hmgle/radio-cli) 的 GUI 姊妹
 - **曲目信息**：显示电台提供的 ICY 曲名、封面和电台详情。
 - **桌面集成**：托盘、媒体播放/暂停键、Now Playing；可用性取决于系统与桌面环境。
 - **收听体验**：音量记忆、淡入淡出、启动恢复、睡眠定时器。
+- **网络代理**：自动跟随系统、手动 HTTP/HTTPS/SOCKS5 代理或直连，覆盖目录、播放、封面和曲目信息；应用更改后重启生效。
 - **个性设置**：中英文界面、浅色/深色/跟随系统主题、键盘导航与可关闭的播放动效。
 
-MP3、AAC、HLS 的支持取决于系统 WebView 和编解码器。HLS 优先使用系统支持，否则尝试内置 hls.js。部分电台可能失效或有地区限制。
+MP3、AAC、HLS 的支持取决于系统 WebView 和编解码器。HLS 优先使用系统支持，否则尝试内置 hls.js；手动代理与直连模式在支持时优先使用 hls.js。部分电台可能失效或有地区限制。代理配置与平台限制见[网络代理说明](docs/user-guide.zh-CN.md#网络代理)。
 
 <details>
 <summary>设置界面</summary>
@@ -39,7 +40,7 @@ MP3、AAC、HLS 的支持取决于系统 WebView 和编解码器。HLS 优先使
 
 每个版本随附对应源码及 `SHA256SUMS`。将校验文件与需要的安装包下载到同一目录：Linux 可运行 `sha256sum --ignore-missing --check SHA256SUMS`；macOS 使用 `shasum -a 256 <文件>`；Windows 使用 `Get-FileHash <文件> -Algorithm SHA256`，后两者需与校验文件中的对应条目比较。目前通过下载、安装新版安装包更新，应用尚不支持自动检查或安装更新。
 
-Linux 用户目录安装需同时下载 `install.sh` 和对应 tarball，审阅脚本后运行 `sh ./install.sh ./radio-desktop-0.2.1-linux-amd64.tar.gz`。Debian/Ubuntu 用户也可运行 `sudo apt install ./radio-desktop_0.2.1_amd64.deb`。
+Linux 用户目录安装需同时下载 `install.sh` 和对应 tarball，审阅脚本后运行 `sh ./install.sh ./radio-desktop-0.3.0-linux-amd64.tar.gz`。Debian/Ubuntu 用户也可运行 `sudo apt install ./radio-desktop_0.3.0_amd64.deb`。
 
 安装 **Go 1.27.3 或更新版本**及 **Bun 1.4.2**（与 CI 一致），在项目检出目录执行：
 

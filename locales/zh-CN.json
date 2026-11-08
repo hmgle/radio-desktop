@@ -176,5 +176,16 @@
   "copyFailed": "复制失败，请选中地址手动复制。",
   "openHomepage": "打开主页",
   "openHomepageFailed": "无法打开主页，请复制地址后在浏览器中打开。",
-  "temporaryStation": "链接试听"
+  "temporaryStation": "链接试听",
+  "networkGroup": "网络",
+  "networkProxy": "网络代理",
+  "proxyMode": "代理模式",
+  "proxyAuto": "自动",
+  "proxyManual": "手动代理",
+  "proxyDirect": "直连",
+  "proxyAddress": "代理地址",
+  "proxyAddressHint": "填写带端口的 HTTP、HTTPS 或 SOCKS5 地址。暂不支持代理认证。",
+  "proxyScope": "适用于目录、播放、图片和曲目信息。自动模式遵循系统设置及代理环境变量。",
+  "proxyRestart": "应用更改后，请完全退出并重新打开应用。",
+  "proxyDirectHint": "忽略应用层代理设置；系统路由仍然有效。"
 }

@@ -1,8 +1,10 @@
 import Hls from "hls.js";
 import { RadioHlsLoader } from "./hls-loader";
 
+export function supportsHls() { return Hls.isSupported(); }
+
 export function attachHls(audio: HTMLAudioElement, url: string, failed: (reason: string) => void) {
-  if (!Hls.isSupported()) throw new Error("radio:errorHlsUnsupported");
+  if (!supportsHls()) throw new Error("radio:errorHlsUnsupported");
   const hls = new Hls({
     loader: RadioHlsLoader,
     // The ESM build runs transmuxing locally. No CDN or external worker

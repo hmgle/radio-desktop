@@ -21,9 +21,10 @@ Browse stations around the world, find a favorite, and keep listening from the s
 - **Live track information.** ICY titles and artwork when supplied by the broadcaster, plus an expanded station details view.
 - **Desktop controls.** System tray, media play/pause keys, and Now Playing integration where supported by the OS and desktop environment.
 - **Comfortable listening.** Volume memory, playback fades, startup restore options, and a sleep timer.
+- **Network proxy settings.** Automatic system proxy, a manual HTTP/HTTPS/SOCKS5 proxy, or direct connections for the catalog, playback, artwork, and track information. Restart after applying a change.
 - **Make it yours.** English and Simplified Chinese, light/dark/system themes, keyboard navigation, and optional playback animations.
 
-MP3, AAC, and HLS playback depends on the system WebView and installed codecs. HLS uses native support when available, with bundled hls.js as a fallback. Some stations may be unavailable or restricted in your region.
+MP3, AAC, and HLS playback depends on the system WebView and installed codecs. HLS uses native support when available, with bundled hls.js as a fallback; Manual and Direct proxy modes prefer hls.js when supported. Some stations may be unavailable or restricted in your region. See [network proxies](docs/user-guide.md#network-proxies) for configuration and platform limits.
 
 <details>
 <summary>Settings</summary>
@@ -41,7 +42,7 @@ Prebuilt packages support **Linux x86_64**, **macOS Apple Silicon (arm64)**, and
 
 Each release includes a matching source archive and `SHA256SUMS`. Download the checksum file and the packages you need into one directory, then verify the matching entries before installation (`sha256sum --ignore-missing --check SHA256SUMS` on Linux, or `shasum -a 256 <file>` on macOS). On Windows, compare `Get-FileHash <file> -Algorithm SHA256` with the corresponding checksum. The app currently updates by downloading and installing a newer package; it does not check for or install updates automatically.
 
-For a Linux user-level installation, download both `install.sh` and the matching tarball, review the script, then run `sh ./install.sh ./radio-desktop-0.2.1-linux-amd64.tar.gz`. Debian/Ubuntu users can install the `.deb` with `sudo apt install ./radio-desktop_0.2.1_amd64.deb`.
+For a Linux user-level installation, download both `install.sh` and the matching tarball, review the script, then run `sh ./install.sh ./radio-desktop-0.3.0-linux-amd64.tar.gz`. Debian/Ubuntu users can install the `.deb` with `sudo apt install ./radio-desktop_0.3.0_amd64.deb`.
 
 Build from source using **Go 1.27.3 or newer** and **Bun 1.4.2** (the version used in CI):
 

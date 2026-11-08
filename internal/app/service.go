@@ -15,17 +15,19 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/netproxy"
 
 	"radio-desktop/internal/directory"
 	"radio-desktop/internal/icy"
 	"radio-desktop/internal/model"
+	"radio-desktop/internal/network"
 	"radio-desktop/internal/store"
 )
 
 const (
 	// defaultVolume matches radio-cli's default.
 	defaultVolume = 80
-	userAgent     = "radio-desktop/0.2.1"
+	userAgent     = "radio-desktop/0.3.0"
 )
 
 // Events pushed to the frontend. Subscribe with the generated client.
@@ -50,9 +52,10 @@ type SyncResult struct {
 // PlayInfo is returned by PlayStation/PlayURL: what to load into the
 // <audio> element and in which order to fall back.
 type PlayInfo struct {
-	SessionID  uint64        `json:"sessionId"`
-	Station    model.Station `json:"station"`
-	Candidates []string      `json:"candidates"`
+	SessionID        uint64        `json:"sessionId"`
+	Station          model.Station `json:"station"`
+	Candidates       []string      `json:"candidates"`
+	NativeCandidates []string      `json:"nativeCandidates,omitempty"`
 }
 
 // PlaybackMeta identifies the playback session that produced the metadata.
@@ -74,9 +77,10 @@ type Status struct {
 // Service is bound to the frontend with mygo.Bind. All methods are safe
 // to call from the UI.
 type Service struct {
-	store *store.Store
-	dir   *directory.Client
-	np    *nowPlaying
+	store   *store.Store
+	dir     *directory.Client
+	np      *nowPlaying
+	network *network.Session
 
 	// OnUIStateChange, when set, runs after anything the tray and the
 	// menu bar show changes: the current station, its playback state or
@@ -173,7 +177,11 @@ func (s *Service) StartupSync() {
 
 // Search runs a station list query.
 func (s *Service) Search(req store.SearchRequest) (store.SearchResult, error) {
-	return s.store.Search(req)
+	result, err := s.store.Search(req)
+	for i := range result.Items {
+		result.Items[i].Favicon = s.mediaURL(result.Items[i].Favicon)
+	}
+	return result, err
 }
 
 // GetStation returns one station by uuid.
@@ -185,6 +193,7 @@ func (s *Service) GetStation(uuid string) (model.Station, error) {
 	if !ok {
 		return model.Station{}, fmt.Errorf("station %s not found", uuid)
 	}
+	st.Favicon = s.mediaURL(st.Favicon)
 	return st, nil
 }
 
@@ -251,6 +260,11 @@ func (s *Service) RemoveCustomStation(uuid string) error { return s.store.Remove
 // GetPlayInfo returns a station with its candidate URLs without starting
 // playback — used to arm the last session's station on startup.
 func (s *Service) GetPlayInfo(uuid string) (PlayInfo, error) {
+	info, err := s.playInfo(uuid)
+	return s.preparePlayInfo(info), err
+}
+
+func (s *Service) playInfo(uuid string) (PlayInfo, error) {
 	st, ok, err := s.store.GetStation(uuid)
 	if err != nil {
 		return PlayInfo{}, err
@@ -265,7 +279,7 @@ func (s *Service) GetPlayInfo(uuid string) (PlayInfo, error) {
 // the last-station preference is saved; the frontend <audio> plays
 // Candidates in order.
 func (s *Service) PlayStation(uuid string) (PlayInfo, error) {
-	info, err := s.GetPlayInfo(uuid)
+	info, err := s.playInfo(uuid)
 	if err != nil {
 		return PlayInfo{}, err
 	}
@@ -278,7 +292,7 @@ func (s *Service) PlayStation(uuid string) (PlayInfo, error) {
 	if err := s.store.SetMeta("pref_last_station", uuid); err != nil {
 		log.Printf("save last station: %v", err)
 	}
-	return info, nil
+	return s.preparePlayInfo(info), nil
 }
 
 // PlayURL plays an arbitrary stream URL without adding it to the catalog.
@@ -295,7 +309,7 @@ func (s *Service) PlayURL(url string) (PlayInfo, error) {
 	s.np.announce()
 	s.uiChanged()
 	// Ephemeral streams are not persisted as the last station.
-	return info, nil
+	return s.preparePlayInfo(info), nil
 }
 
 // ReportStarted is called by the frontend once the <audio> element is
@@ -489,11 +503,17 @@ func (s *Service) startSidecar(info *PlayInfo) {
 	s.np.setArtURL(info.Station.Favicon)
 	s.np.setState(mygo.PlaybackPaused)
 	s.playingURL = info.Candidates[0]
-	s.sidecar = icy.Start(s.playingURL, userAgent, func(m icy.Meta) {
-		EventICYMeta.Broadcast(PlaybackMeta{SessionID: sessionID, Meta: m})
+	transport := netproxy.Transport()
+	if s.network != nil {
+		transport = s.network.Transport
+	}
+	s.sidecar = icy.StartWithTransport(s.playingURL, userAgent, func(m icy.Meta) {
+		publicMeta := m
+		publicMeta.ArtworkURL = s.mediaURL(m.ArtworkURL)
+		EventICYMeta.Broadcast(PlaybackMeta{SessionID: sessionID, Meta: publicMeta})
 		s.np.setMeta(m.Title, m.ArtworkURL)
 		s.np.announce()
-	})
+	}, transport)
 }
 
 func (s *Service) lastSyncTime() (time.Time, error) {

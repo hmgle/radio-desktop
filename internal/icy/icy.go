@@ -9,13 +9,14 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/egoist/mygo/netproxy"
 )
 
 // Meta is the metadata pushed on every change.
@@ -33,6 +34,7 @@ type Sidecar struct {
 	url       string
 	userAgent string
 	onMeta    func(Meta)
+	transport *http.Transport
 
 	mu       sync.Mutex
 	stopped  bool
@@ -44,8 +46,13 @@ type Sidecar struct {
 // Start launches the sidecar goroutine for url. onMeta is called from
 // that goroutine (never from the caller's).
 func Start(url, userAgent string, onMeta func(Meta)) *Sidecar {
+	return StartWithTransport(url, userAgent, onMeta, netproxy.Transport())
+}
+
+// StartWithTransport watches a stream using the application's network policy.
+func StartWithTransport(url, userAgent string, onMeta func(Meta), transport *http.Transport) *Sidecar {
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &Sidecar{url: url, userAgent: userAgent, onMeta: onMeta, cancel: cancel, done: make(chan struct{})}
+	s := &Sidecar{url: url, userAgent: userAgent, onMeta: onMeta, transport: transport, cancel: cancel, done: make(chan struct{})}
 	go func() {
 		defer close(s.done)
 		s.run(ctx)
@@ -116,14 +123,13 @@ func (s *Sidecar) connect(ctx context.Context) error {
 	// Transparent gzip would shift every frame and misalign metaint.
 	req.Header.Set("Accept-Encoding", "identity")
 
-	transport := &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		DialContext:         (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
-		TLSHandshakeTimeout: 10 * time.Second,
+	// Use the same system/environment proxy policy as HLS and the directory.
+	// Clone because this long-lived stream owns its header timeout and pool.
+	base := s.transport
+	if base == nil {
+		base = netproxy.Transport()
 	}
-	if base, ok := http.DefaultTransport.(*http.Transport); ok {
-		transport = base.Clone()
-	}
+	transport := base.Clone()
 	transport.ResponseHeaderTimeout = 15 * time.Second
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport} // no overall stream timeout

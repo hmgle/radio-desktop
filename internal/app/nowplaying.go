@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/netproxy"
 )
 
 // EventMediaCommand carries a media-key or menu action to the frontend:
@@ -41,11 +42,12 @@ type nowPlaying struct {
 	publishing     bool
 	artCancel      context.CancelFunc
 
-	artC map[string][]byte // artwork bytes by URL
+	artC       map[string][]byte // artwork bytes by URL
+	httpClient *http.Client
 }
 
 func newNowPlaying() *nowPlaying {
-	return &nowPlaying{state: mygo.PlaybackStopped, artC: map[string][]byte{}}
+	return &nowPlaying{state: mygo.PlaybackStopped, artC: map[string][]byte{}, httpClient: npHTTPClient}
 }
 
 // setStation is called when playback selects a station.
@@ -161,7 +163,7 @@ func (n *nowPlaying) publish() {
 		n.artCancel = cancel
 		n.mu.Unlock()
 		if !cached && artURL != "" {
-			if fetched, err := fetchArtworkContext(ctx, artURL); err == nil {
+			if fetched, err := fetchArtworkWithClient(ctx, artURL, n.httpClient); err == nil {
 				n.rememberArt(artURL, fetched)
 				art = fetched
 			} else if ctx.Err() == nil {
@@ -193,7 +195,7 @@ func (n *nowPlaying) rememberArt(url string, art []byte) {
 	n.artC[url] = art
 }
 
-var npHTTPClient = &http.Client{Timeout: 10 * time.Second}
+var npHTTPClient = &http.Client{Transport: netproxy.Transport(), Timeout: 10 * time.Second}
 
 var (
 	errNotImage = errors.New("not a PNG or JPEG image")
@@ -207,6 +209,10 @@ func fetchArtwork(rawURL string) ([]byte, error) {
 }
 
 func fetchArtworkContext(parent context.Context, rawURL string) ([]byte, error) {
+	return fetchArtworkWithClient(parent, rawURL, npHTTPClient)
+}
+
+func fetchArtworkWithClient(parent context.Context, rawURL string, client *http.Client) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
@@ -214,7 +220,7 @@ func fetchArtworkContext(parent context.Context, rawURL string) ([]byte, error) 
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
-	resp, err := npHTTPClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

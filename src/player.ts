@@ -94,7 +94,8 @@ class RadioPlayer {
       // Try hls.js only for identified HLS. Unknown URLs get one bounded
       // header probe per candidate, including extensionless redirects.
       const url = this.info?.candidates[this.candIdx];
-      if (err.code === 4 && url && !this.hls && !this.hlsFallback.has(url)) {
+      const relayed = url && this.info?.nativeCandidates?.[this.candIdx] && this.info.nativeCandidates[this.candIdx] !== url;
+      if ((err.code === 4 || (err.code === 2 && relayed)) && url && !this.hls && !this.hlsFallback.has(url)) {
         this.hlsFallback.set(url, false);
         if (this.hasHlsHint(url) || isHlsURL(a.currentSrc)) {
           this.hlsFallback.set(url, true);
@@ -252,7 +253,12 @@ class RadioPlayer {
     this.buffering = true;
     this.level = 0; // fades in as playback actually starts
     this.applyVolume();
-    if (this.hlsFallback.get(url) || (this.hasHlsHint(url) && !this.audio.canPlayType("application/vnd.apple.mpegurl"))) {
+    const nativeURL = this.info?.nativeCandidates?.[this.candIdx] ?? url;
+    // An explicit network policy already provides a Go loader for HLS.
+    // Prefer it when supported to avoid rewriting playlists for native
+    // playback. Keep native HLS available on platforms without MSE.
+    const preferHlsLoader = this.hasHlsHint(url) && nativeURL !== url;
+    if (this.hlsFallback.get(url) || (this.hasHlsHint(url) && (preferHlsLoader || !this.audio.canPlayType("application/vnd.apple.mpegurl")))) {
       // Module setup has its own deadline; playback progress only starts
       // counting once a source is attached to the element.
       this.sourceTimer = setTimeout(() => {
@@ -261,8 +267,14 @@ class RadioPlayer {
         this.error = "radio:errorHlsTimeout";
         this.onStreamEnded(myGen);
       }, STALL_MS);
-      void import("./hls").then(({ attachHls }) => {
+      void import("./hls").then(({ attachHls, supportsHls }) => {
         if (loadID !== this.loadID || myGen !== this.gen) return;
+        if (preferHlsLoader && !this.hlsFallback.get(url) && !supportsHls() && this.audio.canPlayType("application/vnd.apple.mpegurl")) {
+          this.audio.src = nativeURL;
+          this.clearSourceTimer();
+          this.startAudio(myGen, loadID);
+          return;
+        }
         const hls = attachHls(this.audio, url, (reason) => {
           if (loadID !== this.loadID || myGen !== this.gen) return;
           this.error = reason;
@@ -278,7 +290,7 @@ class RadioPlayer {
         this.onStreamEnded(myGen);
       });
     } else {
-      this.audio.src = url;
+      this.audio.src = nativeURL;
       this.startAudio(myGen, loadID);
     }
   }

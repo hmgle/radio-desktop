@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"strings"
 
 	"github.com/egoist/mygo"
+	"radio-desktop/internal/network"
 	"radio-desktop/internal/store"
 )
 
@@ -18,6 +20,8 @@ type Settings struct {
 	AutoSyncDays       int    `json:"autoSyncDays"`
 	CloseBehavior      string `json:"closeBehavior"`
 	PlaybackAnimations bool   `json:"playbackAnimations"`
+	ProxyMode          string `json:"proxyMode"`
+	ProxyURL           string `json:"proxyURL"`
 }
 
 // SettingsPatch changes only supplied fields, avoiding lost updates when
@@ -29,6 +33,8 @@ type SettingsPatch struct {
 	AutoSyncDays       *int    `json:"autoSyncDays,omitempty"`
 	CloseBehavior      *string `json:"closeBehavior,omitempty"`
 	PlaybackAnimations *bool   `json:"playbackAnimations,omitempty"`
+	ProxyMode          *string `json:"proxyMode,omitempty"`
+	ProxyURL           *string `json:"proxyURL,omitempty"`
 }
 
 type savedSettings struct {
@@ -39,7 +45,7 @@ type savedSettings struct {
 var EventSettingsChanged = mygo.NewEvent[Settings]("settingsChanged")
 
 func defaultSettings() Settings {
-	return Settings{Language: "system", Appearance: "system", Resume: "selection", AutoSyncDays: 7, CloseBehavior: "hide", PlaybackAnimations: true}
+	return Settings{Language: "system", Appearance: "system", Resume: "selection", AutoSyncDays: 7, CloseBehavior: "hide", PlaybackAnimations: true, ProxyMode: "auto"}
 }
 
 func loadSettings(st *store.Store) Settings {
@@ -79,7 +85,7 @@ func (v Settings) validate() error {
 	if v.AutoSyncDays < 0 || v.AutoSyncDays > 365 {
 		return errors.New("radio:invalidSettings")
 	}
-	return nil
+	return (network.Config{Mode: v.ProxyMode, URL: v.ProxyURL}).Validate()
 }
 
 // GetSettings returns the current persisted settings.
@@ -117,6 +123,12 @@ func (s *Service) UpdateSettings(p SettingsPatch) (Settings, error) {
 	}
 	if p.PlaybackAnimations != nil {
 		next.PlaybackAnimations = *p.PlaybackAnimations
+	}
+	if p.ProxyMode != nil {
+		next.ProxyMode = *p.ProxyMode
+	}
+	if p.ProxyURL != nil {
+		next.ProxyURL = strings.TrimSpace(*p.ProxyURL)
 	}
 	if err := next.validate(); err != nil {
 		return s.settings, err

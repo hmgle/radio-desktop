@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/egoist/mygo/netproxy"
+
 	"radio-desktop/internal/model"
 )
 
@@ -41,6 +43,7 @@ type Options struct {
 	ServersURL string // endpoint listing API servers
 	APIURL     string // fixed API base URL, overriding discovery
 	UserAgent  string
+	Transport  http.RoundTripper
 }
 
 // Client is a Radio Browser API client with sticky-server failover.
@@ -59,11 +62,14 @@ func New(opts Options) *Client {
 		opts.ServersURL = defaultServersURL
 	}
 	if opts.UserAgent == "" {
-		opts.UserAgent = "radio-desktop/0.2.1"
+		opts.UserAgent = "radio-desktop/0.3.0"
+	}
+	if opts.Transport == nil {
+		opts.Transport = netproxy.Transport()
 	}
 	return &Client{
 		opts:       opts,
-		httpClient: &http.Client{Timeout: requestTimeout},
+		httpClient: &http.Client{Transport: opts.Transport, Timeout: requestTimeout},
 	}
 }
 

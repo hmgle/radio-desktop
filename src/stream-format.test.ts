@@ -1,12 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetch as nativeFetch } from "@mygo-plugins/fetch";
-import { probeHls } from "./stream-format";
+import { isHlsURL, probeHls } from "./stream-format";
 
 vi.mock("@mygo-plugins/fetch", () => ({ fetch: vi.fn() }));
 
 describe("stream format probe", () => {
   beforeEach(() => { vi.mocked(nativeFetch).mockReset(); });
   afterEach(() => { vi.restoreAllMocks(); });
+
+  it.each(["https://a/live.m3u", "https://a/live.M3U?token=1", "https://a/live.m3u8#live"])("recognizes the HLS playlist URL %s", (url) => {
+    expect(isHlsURL(url)).toBe(true);
+  });
+
+  it.each(["https://a/live.m3u80", "https://a/live.m3u/segment", "https://a/live.mp3"])("does not classify the media URL %s as a playlist", (url) => {
+    expect(isHlsURL(url)).toBe(false);
+  });
 
   it.each([
     ["application/vnd.apple.mpegurl", true],

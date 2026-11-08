@@ -29,7 +29,7 @@ Click a station to play it. The bottom bar has play/pause, stop, favorite, and v
 
 Use the heart beside a station or in the player bar to toggle favorites. **Recently played** keeps up to 1,000 listening records. In Settings, **Clear listening history** removes these records after confirmation; favorites, custom stations, and current playback remain.
 
-Settings apply immediately and persist locally:
+Settings persist locally. Network proxy changes require fully quitting and reopening the app; other settings apply immediately:
 
 | Setting | Behavior |
 | --- | --- |
@@ -39,6 +39,7 @@ Settings apply immediately and persist locally:
 | On startup | Start fresh, restore selection (default), or restore and play; volume is always remembered |
 | Update interval | Check catalog age at startup; default 7 days; 0 disables automatic updates, except the initial catalog download |
 | Closing the window | Hide and keep playing (default), or quit |
+| Network proxy | Automatic (default), manual proxy, or direct; restart after applying changes |
 
 The sleep timer stops playback at the deadline, including after switching stations. It resets when you quit the app.
 
@@ -74,11 +75,27 @@ No Radio Desktop account is required. The app stores the catalog, favorites, cus
 
 To back up or restore, **quit the app completely** and copy the entire directory, including any `radio.db-wal` and `radio.db-shm` files that remain. Hiding the window is not quitting. There is currently no built-in import/export or cloud synchronization.
 
-Network connections include Radio Browser server discovery and catalog downloads, a Radio Browser click report when a directory station starts playing, station audio streams, an extra ICY metadata connection where applicable, and station/track artwork requests. HLS resources are requested through the Go backend. Those services can see your IP address and their requested resources. Browsing the cached catalog is local. Some streams use unencrypted HTTP.
+Network connections include Radio Browser server discovery and catalog downloads, a Radio Browser click report when a directory station starts playing, station audio streams, an extra ICY metadata connection where applicable, and station/track artwork requests. HLS resources loaded by hls.js are requested through the Go backend. Those services can see your IP address and their requested resources. Browsing the cached catalog is local. Some streams use unencrypted HTTP.
 
 Station data is maintained by Radio Browser contributors; availability, metadata accuracy, and broadcast rights are controlled by the relevant providers.
 
 To update the app, quit it and install the newer package for the same platform and architecture from [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest). Use your package manager for Linux `.deb` installations. Normal upgrades keep the data directory above; back it up first if needed. There is no in-app updater yet.
+
+### Network proxies
+
+Choose a mode in **Settings → Network** and select **Apply**. **Fully quit and reopen the app after changing it**; closing the window may only hide it to the tray. Automatic is the default, and unrestricted connections need no configuration.
+
+| Mode | Behavior |
+| --- | --- |
+| Automatic | Follow system proxy settings; Go requests give explicit proxy environment variables precedence |
+| Manual proxy | Use the specified proxy for the catalog, playback, images, and track information, overriding system and environment proxies; a failed proxy does not fall back to direct |
+| Direct connection | Use no application proxy for those requests; system routing, firewalls, and VPN policies still apply |
+
+Manual addresses support `http://`, `https://`, `socks5://`, and `socks5h://` with a port, for example `http://proxy.example:8080`. An HTTP proxy also carries HTTPS stations using CONNECT; SOCKS5 resolves station hostnames at the proxy. Manual proxy usernames, passwords, and PAC addresses are not currently supported. Use Automatic with operating system settings for automatic proxy configuration. Addresses are stored in local preferences; remove private proxy addresses before sharing diagnostics.
+
+In Automatic mode, Go requests read `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` (lowercase forms also work), always bypassing proxies for loopback addresses. Do not set only `ALL_PROXY`. Desktop launches may not inherit terminal variables. Ordinary audio, native HLS, and interface images use system WebView or media components, whose automatic proxy behavior varies by platform; environment configuration alone does not guarantee they use the same proxy. Use Manual when the app needs one explicit proxy across those requests. Station homepages opened in your default browser follow that browser's settings.
+
+Manual and Direct modes support ordinary audio, standard HLS playlists and their segments, keys, and artwork. Identified HLS streams prefer hls.js when supported, otherwise using native HLS; both follow the selected network mode. Some advanced playlists require hls.js and a compatible system decoder. Unsupported streams fail without bypassing the specified proxy. In Automatic mode, system proxy changes may be cached for about five seconds; reconnect existing streams. If only some stations fail, check proxy rules, exit region, and broadcaster region restrictions.
 
 ## Troubleshooting
 

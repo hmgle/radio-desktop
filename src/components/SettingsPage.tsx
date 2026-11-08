@@ -1,6 +1,7 @@
 import { SleepTimerControl } from "./SleepTimerControl";
 import { ClearHistoryRow } from "./ClearHistoryRow";
 import { ErrorDetails } from "./ErrorDetails";
+import { ProxySettings } from "./ProxySettings";
 import type { ReactNode } from "react";
 import { messages as m } from "../locales";
 import { useSettings } from "../settings";
@@ -68,6 +69,7 @@ export function SettingsPage() {
             </select>
           </SettingsRow>
         </SettingsGroup>
+        <ProxySettings />
         <SettingsGroup title={m.dataGroup()}>
           <ClearHistoryRow />
           <SettingsRow label={m.autoSyncDays()} hint={m.autoSyncHint()}>
