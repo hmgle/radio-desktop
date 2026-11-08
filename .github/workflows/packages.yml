@@ -2,13 +2,18 @@ name: Desktop packages
 
 on:
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Source tag or commit to package (defaults to this workflow's commit)"
+        required: false
+        type: string
   workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: packages-${{ github.ref }}
+  group: packages-${{ inputs.source_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -16,13 +21,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15, windows-2025]
+        os: [ubuntu-24.04, macos-15, macos-15-intel, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     env:
       CGO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+      - name: Record source commit
+        id: source
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -30,11 +41,39 @@ jobs:
         with:
           bun-version: "1.4.2"
       - run: bun install --frozen-lockfile
-      - name: Test Windows backend
-        if: runner.os == 'Windows'
+      - name: Test platform backend
+        if: runner.os == 'Windows' || runner.os == 'macOS'
         run: go test ./...
       - name: Build desktop packages
         run: bun run build
+      - name: Check macOS disk image
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          arch=$(go env GOARCH)
+          case "$arch" in
+            amd64) expected=x86_64 ;;
+            arm64) expected=arm64 ;;
+            *) echo "Unexpected macOS architecture: $arch" >&2; exit 1 ;;
+          esac
+          binary="radio-desktop.app/Contents/MacOS/radio-desktop"
+          test "$(lipo -archs "build/darwin-$arch/$binary")" = "$expected"
+          info=$(go version -m "build/darwin-$arch/$binary")
+          printf '%s\n' "$info"
+          [[ "$info" == *"vcs.revision=$SOURCE_SHA"* ]]
+          [[ "$info" == *"vcs.modified=false"* ]]
+          images=(build/darwin-"$arch"/*-"$arch".dmg)
+          test "${#images[@]}" -eq 1
+          hdiutil verify "${images[0]}"
+          mountpoint=$(mktemp -d "$RUNNER_TEMP/radio-dmg.XXXXXX")
+          hdiutil attach "${images[0]}" -readonly -nobrowse -mountpoint "$mountpoint"
+          trap 'hdiutil detach "$mountpoint"' EXIT
+          cmp "build/darwin-$arch/$binary" "$mountpoint/$binary"
+          version=$(jq -r .version mygo.json)
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mountpoint/radio-desktop.app/Contents/Info.plist")" = "$version"
+          codesign --verify --deep --strict "$mountpoint/radio-desktop.app"
       - name: Check Windows installer
         if: runner.os == 'Windows'
         shell: pwsh
@@ -48,7 +87,7 @@ jobs:
       - name: Upload packages
         uses: actions/upload-artifact@v7
         with:
-          name: radio-desktop-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          name: radio-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.source.outputs.sha }}
           path: |
             build/**/*.deb
             build/**/*.tar.gz

@@ -31,9 +31,11 @@
   Linux 真实桌面测试覆盖设置重启恢复、手动代理优先级、原生音频请求及封面加载。
 - 更新中英文网络使用说明和安装示例。代理设置不支持手动认证或 PAC 地址；
   部分高级 HLS 播放列表依赖 hls.js 和系统解码器。
-- 提供 Linux x86_64、macOS Apple Silicon（arm64）及 Windows x64 安装包、
+- 提供 Linux x86_64、macOS Apple Silicon（arm64）与 Intel（x86_64）及 Windows x64 安装包、
   对应源码与 SHA256 校验文件。macOS/Windows 安装包未签名，原生播放及系统代理
   行为仍需实机验证；Windows 交互安装也仍需实机验证。
+- macOS 两种架构均通过原生 runner 运行后端测试，校验 DMG、包内可执行文件架构
+  及源码提交；Intel 安装包由 v0.3.0 原标签源码补建，加入现有发布与校验文件。
 
 ## 0.2.1 — 2026-11-05
 

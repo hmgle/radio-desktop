@@ -36,7 +36,7 @@ MP3、AAC、HLS 的支持取决于系统 WebView 和编解码器。HLS 优先使
 
 从 [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest) 下载对应平台的安装包。macOS 提供未签名的磁盘映像，Linux 提供 `.deb`，或 tarball 与单独的 `install.sh`，Windows x64 提供未签名的 `.exe` 安装包。源码构建方法如下。
 
-预编译安装包支持 **Linux x86_64**、**macOS Apple Silicon（arm64）** 和 **Windows x64**，其他架构可从源码构建。Windows 运行 `radio-desktop-setup-<版本>-amd64.exe`，图形界面播放和安装仍需实机验证。
+预编译安装包支持 **Linux x86_64**、**macOS Apple Silicon（arm64）与 Intel（x86_64）** 和 **Windows x64**。macOS 用户按芯片选择：Apple Silicon 下载 `radio-desktop-<版本>-arm64.dmg`，Intel 下载 `radio-desktop-<版本>-amd64.dmg`。其他架构可从源码构建。Windows 运行 `radio-desktop-setup-<版本>-amd64.exe`，图形界面播放和安装仍需实机验证。
 
 每个版本随附对应源码及 `SHA256SUMS`。将校验文件与需要的安装包下载到同一目录：Linux 可运行 `sha256sum --ignore-missing --check SHA256SUMS`；macOS 使用 `shasum -a 256 <文件>`；Windows 使用 `Get-FileHash <文件> -Algorithm SHA256`，后两者需与校验文件中的对应条目比较。目前通过下载、安装新版安装包更新，应用尚不支持自动检查或安装更新。
 

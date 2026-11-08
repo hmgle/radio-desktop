@@ -38,7 +38,7 @@ Screenshots show the Linux desktop application; native controls vary by platform
 
 Download a package for your platform from [GitHub Releases](https://github.com/hmgle/radio-desktop/releases/latest). macOS packages are unsigned disk images; Linux offers a `.deb` or a tarball plus a separate `install.sh`; Windows x64 packages are unsigned `.exe` installers. To build from source, follow the steps below.
 
-Prebuilt packages support **Linux x86_64**, **macOS Apple Silicon (arm64)**, and **Windows x64**. Other architectures can build from source. On Windows, run `radio-desktop-setup-<version>-amd64.exe`. Windows GUI playback and installation still need validation on a real machine.
+Prebuilt packages support **Linux x86_64**, **macOS Apple Silicon (arm64) and Intel (x86_64)**, and **Windows x64**. On macOS, choose `radio-desktop-<version>-arm64.dmg` for Apple Silicon or `radio-desktop-<version>-amd64.dmg` for Intel. Other architectures can build from source. On Windows, run `radio-desktop-setup-<version>-amd64.exe`. Windows GUI playback and installation still need validation on a real machine.
 
 Each release includes a matching source archive and `SHA256SUMS`. Download the checksum file and the packages you need into one directory, then verify the matching entries before installation (`sha256sum --ignore-missing --check SHA256SUMS` on Linux, or `shasum -a 256 <file>` on macOS). On Windows, compare `Get-FileHash <file> -Algorithm SHA256` with the corresponding checksum. The app currently updates by downloading and installing a newer package; it does not check for or install updates automatically.
 
