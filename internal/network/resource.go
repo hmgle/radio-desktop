@@ -50,8 +50,9 @@ func (r *relay) request(req *http.Request, target *url.URL, kind resourceKind) (
 }
 
 // open classifies an unknown signed target before issuing its HEAD or Range
-// request. Once identified, the same route keeps its representation across
-// methods. Typed playlist references never need a classification request.
+// request. Recognized media types are shared across methods, but an error
+// page cannot establish a lasting binary classification. Typed playlist
+// references never need a classification request.
 func (r *relay) open(req *http.Request, target *url.URL, kind resourceKind, identity string) (resourceKind, *http.Response, error) {
 	if kind != resourceUnknown {
 		resp, err := r.request(req, target, kind)
@@ -75,11 +76,10 @@ func (r *relay) open(req *http.Request, target *url.URL, kind resourceKind, iden
 	if state.kind != resourceUnknown && state.kind != "" {
 		kind = state.kind
 		unlock()
-		resp, err := r.request(req, target, kind)
-		return kind, resp, err
+		return r.requestDetected(req, target, kind, state)
 	}
 	kind, resp, err := r.probe(req, target, time.Until(deadline))
-	if err == nil && kind != resourceUnknown {
+	if err == nil && (kind == resourcePlaylist || kind == resourceBinary && cacheableBinaryResponse(resp)) {
 		state.kind = kind
 	}
 	unlock()
@@ -91,9 +91,45 @@ func (r *relay) open(req *http.Request, target *url.URL, kind resourceKind, iden
 		// known do we issue a binary range request; nothing can replace a
 		// successful response with the outcome of a speculative refetch.
 		resp.Body.Close()
-		resp, err = r.request(req, target, kind)
+		return r.requestDetected(req, target, kind, state)
 	}
 	return kind, resp, err
+}
+
+// requestDetected rechecks header-level HLS signals on learned binary routes.
+// Explicitly signed segments and keys bypass this path: their MIME type or
+// byte prefix cannot change their role in the playlist.
+func (r *relay) requestDetected(req *http.Request, target *url.URL, kind resourceKind, state *resourceType) (resourceKind, *http.Response, error) {
+	resp, err := r.request(req, target, kind)
+	if err != nil || kind != resourceBinary || !playlistResponse(resp) {
+		return kind, resp, err
+	}
+	select {
+	case state.access <- struct{}{}:
+		state.kind = resourcePlaylist
+		<-state.access
+	case <-req.Context().Done():
+		resp.Body.Close()
+		return resourceUnknown, nil, req.Context().Err()
+	}
+	if req.Method == http.MethodHead || resp.StatusCode == http.StatusPartialContent || resp.StatusCode == http.StatusRequestedRangeNotSatisfiable {
+		// Only a positive playlist signal can trigger a full refetch.
+		// A complete GET response can be rewritten without another request.
+		resp.Body.Close()
+		resp, err = r.request(req, target, resourcePlaylist)
+	}
+	return resourcePlaylist, resp, err
+}
+
+func cacheableBinaryResponse(resp *http.Response) bool {
+	typeName := strings.ToLower(strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0]))
+	// A successful HTML/JSON/text error page is not evidence of binary
+	// media. Unrecognized types stay eligible for a later bounded probe.
+	switch typeName {
+	case "application/octet-stream", "binary/octet-stream", "application/ogg", "application/mp4":
+		return true
+	}
+	return strings.HasPrefix(typeName, "audio/") || strings.HasPrefix(typeName, "video/") || strings.HasPrefix(typeName, "image/")
 }
 
 func (r *relay) probe(req *http.Request, target *url.URL, timeout time.Duration) (resourceKind, *http.Response, error) {

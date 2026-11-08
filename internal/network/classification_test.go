@@ -154,6 +154,7 @@ func TestBinaryRangeHeadersDoNotWaitForBody(t *testing.T) {
 			proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				if req.Header.Get("Range") == "" {
 					fullGETs.Add(1)
+					w.Header().Set("Content-Type", "application/octet-stream")
 					fmt.Fprint(w, "0123456789abcdef")
 					return
 				}
@@ -235,6 +236,7 @@ func TestUnknownBinaryConcurrentRangesShareClassification(t *testing.T) {
 		if req.Header.Get("Range") == "" {
 			fullGETs.Add(1)
 		}
+		w.Header().Set("Content-Type", "application/octet-stream")
 		http.ServeContent(w, req, "binary", time.Time{}, strings.NewReader("0123456789abcdef"))
 	}))
 	defer proxy.Close()
