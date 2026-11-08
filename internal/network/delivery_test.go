@@ -29,27 +29,25 @@ func TestRelayForwardsHLSDeliveryDirectives(t *testing.T) {
 			if w.Code != http.StatusPartialContent || w.Body.String() != "#E" {
 				t.Fatalf("delivery request failed: %d %s", w.Code, w.Body.String())
 			}
-			// Both the original probe and the complete playlist refetch
-			// must preserve directives without re-encoding auth parameters.
-			for i := 0; i < 2; i++ {
-				select {
-				case got := <-seen:
-					if !strings.HasPrefix(got, auth+"&") {
-						t.Fatalf("authentication query was changed: %s", got)
-					}
-					upstream := httptest.NewRequest(http.MethodGet, "http://station.invalid/?"+got, nil).URL.Query()
-					incoming := req.URL.Query()
-					for key, values := range incoming {
-						if len(upstream[key]) != 1 || upstream.Get(key) != values[0] {
-							t.Fatalf("directive %s = %v; want %v", key, upstream[key], values)
-						}
-					}
-					if incoming.Get("_HLS_msn") == "" && upstream.Get("_HLS_msn") != "1" {
-						t.Fatal("an untouched original directive was lost")
-					}
-				default:
-					t.Fatal("upstream did not receive both playlist requests")
+			// The complete playlist probe preserves the directives without
+			// re-encoding authentication parameters.
+			select {
+			case got := <-seen:
+				if !strings.HasPrefix(got, auth+"&") {
+					t.Fatalf("authentication query was changed: %s", got)
 				}
+				upstream := httptest.NewRequest(http.MethodGet, "http://station.invalid/?"+got, nil).URL.Query()
+				incoming := req.URL.Query()
+				for key, values := range incoming {
+					if len(upstream[key]) != 1 || upstream.Get(key) != values[0] {
+						t.Fatalf("directive %s = %v; want %v", key, upstream[key], values)
+					}
+				}
+				if incoming.Get("_HLS_msn") == "" && upstream.Get("_HLS_msn") != "1" {
+					t.Fatal("an untouched original directive was lost")
+				}
+			default:
+				t.Fatal("upstream did not receive the playlist request")
 			}
 		})
 	}

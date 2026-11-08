@@ -1,7 +1,7 @@
 import { fetch as nativeFetch } from "@mygo-plugins/fetch";
 
 export function isHlsURL(url: string) {
-  return /\.m3u8(?:$|[?#])/i.test(url);
+  return /\.m3u8?(?:$|[?#])/i.test(url);
 }
 
 /** Inspect response headers only after native playback rejects an unknown

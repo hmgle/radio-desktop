@@ -9,8 +9,38 @@ import (
 	"time"
 
 	"radio-desktop/internal/model"
+	"radio-desktop/internal/network"
 	"radio-desktop/internal/store"
 )
+
+func TestPlayInfoCarriesHLSHintToExtensionlessNativeURL(t *testing.T) {
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet || req.Header.Get("Range") != "" {
+			t.Error("hinted playlist was not fetched in full")
+		}
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Write([]byte("#EXTM3U\n#EXTINF:6,\nsegment.ts\n"))
+	}))
+	defer proxy.Close()
+	n, err := network.New(network.Config{Mode: "manual", URL: proxy.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer n.Close()
+	s := &Service{network: n}
+	info := s.preparePlayInfo(PlayInfo{
+		Station: model.Station{HLS: 1}, Candidates: []string{"http://station.invalid/live"},
+	})
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodHead, info.NativeCandidates[0], nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "application/vnd.apple.mpegurl" || resp.ContentLength <= 30 {
+		t.Fatalf("HEAD did not describe rewritten HLS: %d %v", resp.StatusCode, resp.Header)
+	}
+}
 
 func TestNetworkPreferencesPersistenceAndMediaCoverage(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "radio.db")

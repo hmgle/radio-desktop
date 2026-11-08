@@ -78,7 +78,7 @@ func TestManualRelayLoadsAllPlaylistResources(t *testing.T) {
 		case "/start":
 			http.Redirect(w, req, "http://station.invalid/base/master.m3u8", http.StatusFound)
 		case "/base/master.m3u8":
-			fmt.Fprint(w, "#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI=\"audio.m3u8\"\nvideo.m3u8\n")
+			fmt.Fprint(w, "#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI=\"audio.m3u8\"\n#EXT-X-STREAM-INF:BANDWIDTH=128000\nvideo.m3u8\n")
 		case "/base/video.m3u8":
 			fmt.Fprint(w, "#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI=\"/key?k=1\"\n#EXT-X-MAP:URI=\"init.mp4\"\nsegment.ts?token=example\n#EXT-X-ENDLIST\n")
 		case "/base/audio.m3u8":

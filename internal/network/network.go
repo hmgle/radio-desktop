@@ -81,6 +81,22 @@ func (s *Session) MediaURL(raw string) string {
 	return s.relay.mediaURL(raw)
 }
 
+// StreamURL carries the directory's HLS hint even for extensionless URLs.
+func (s *Session) StreamURL(raw string, hls bool) string {
+	if s == nil || s.relay == nil || raw == "" || !hls {
+		return s.MediaURL(raw)
+	}
+	return s.relay.typedURL(raw, resourcePlaylist)
+}
+
+// ResourceURL signs artwork as binary so HEAD and ranges need no body probe.
+func (s *Session) ResourceURL(raw string) string {
+	if s == nil || s.relay == nil || raw == "" {
+		return raw
+	}
+	return s.relay.typedURL(raw, resourceBinary)
+}
+
 func (s *Session) Close() {
 	if s.relay != nil {
 		s.relay.server.Close()

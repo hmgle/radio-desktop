@@ -23,7 +23,7 @@ func StartNetwork(s *Service) (*network.Session, error) {
 }
 
 func (s *Service) mediaURL(raw string) string {
-	return s.network.MediaURL(raw)
+	return s.network.ResourceURL(raw)
 }
 
 func (s *Service) preparePlayInfo(info PlayInfo) PlayInfo {
@@ -31,7 +31,7 @@ func (s *Service) preparePlayInfo(info PlayInfo) PlayInfo {
 	if s.network != nil {
 		info.NativeCandidates = make([]string, len(info.Candidates))
 		for i, raw := range info.Candidates {
-			info.NativeCandidates[i] = s.mediaURL(raw)
+			info.NativeCandidates[i] = s.network.StreamURL(raw, info.Station.HLS == 1)
 		}
 	}
 	return info

@@ -167,7 +167,7 @@ func TestRelayPreservesBinaryRangeResponses(t *testing.T) {
 	}
 }
 
-func TestRelayRejectsIncompletePlaylistRefetch(t *testing.T) {
+func TestRelayRejectsIncompletePlaylistProbe(t *testing.T) {
 	for _, status := range []int{http.StatusPartialContent, http.StatusBadGateway} {
 		t.Run(strconv.Itoa(status), func(t *testing.T) {
 			var requests atomic.Int32
@@ -189,8 +189,8 @@ func TestRelayRejectsIncompletePlaylistRefetch(t *testing.T) {
 			req.Header.Set("Range", "bytes=0-1")
 			w := httptest.NewRecorder()
 			s.relay.ServeHTTP(w, req)
-			if w.Code != http.StatusBadGateway || w.Header().Get("Content-Range") != "" || requests.Load() != 2 {
-				t.Fatalf("partial playlist refetch: %d %v, requests=%d", w.Code, w.Header(), requests.Load())
+			if w.Code != http.StatusBadGateway || w.Header().Get("Content-Range") != "" || requests.Load() != 1 {
+				t.Fatalf("partial playlist probe: %d %v, requests=%d", w.Code, w.Header(), requests.Load())
 			}
 		})
 	}

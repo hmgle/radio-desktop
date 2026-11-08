@@ -1,7 +1,6 @@
 package network
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/hmac"
 	"crypto/rand"
@@ -15,14 +14,17 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
 type relay struct {
-	secret [32]byte
-	base   string
-	server *http.Server
-	client *http.Client
+	secret       [32]byte
+	base         string
+	server       *http.Server
+	client       *http.Client
+	types        sync.Map
+	probeTimeout time.Duration
 }
 
 func newRelay(t *http.Transport) (*relay, error) {
@@ -30,7 +32,7 @@ func newRelay(t *http.Transport) (*relay, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &relay{base: "http://" + l.Addr().String()}
+	r := &relay{base: "http://" + l.Addr().String(), probeTimeout: defaultProbeTimeout}
 	if _, err := rand.Read(r.secret[:]); err != nil {
 		l.Close()
 		return nil, err
@@ -52,24 +54,27 @@ func remoteURL(raw string) (*url.URL, error) {
 	return u, nil
 }
 
-func (r *relay) signature(target string) []byte {
+func (r *relay) signature(target string, kind resourceKind) []byte {
 	h := hmac.New(sha256.New, r.secret[:])
-	h.Write([]byte(target))
+	h.Write([]byte(string(kind) + "\x00" + target))
 	return h.Sum(nil)
 }
 
 func (r *relay) mediaURL(raw string) string {
-	u, err := remoteURL(raw)
-	if err != nil {
-		return "" // never let an unsupported target bypass the policy
+	kind := resourceUnknown
+	if u, err := remoteURL(raw); err == nil && playlistURL(u) {
+		kind = resourcePlaylist
+	}
+	return r.typedURL(raw, kind)
+}
+
+func (r *relay) typedURL(raw string, kind resourceKind) string {
+	if _, err := remoteURL(raw); err != nil {
+		return ""
 	}
 	encoded := base64.RawURLEncoding.EncodeToString([]byte(raw))
-	sig := base64.RawURLEncoding.EncodeToString(r.signature(encoded))
-	name := "media"
-	if strings.HasSuffix(strings.ToLower(u.Path), ".m3u8") {
-		name += ".m3u8"
-	}
-	return r.base + "/" + sig + "/" + encoded + "/" + name
+	sig := base64.RawURLEncoding.EncodeToString(r.signature(encoded, kind))
+	return r.base + "/" + sig + "/" + encoded + "/" + string(kind)
 }
 
 func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -89,8 +94,13 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
+	kind := resourceKind(parts[2])
+	if kind != resourceUnknown && kind != resourcePlaylist && kind != resourceBinary {
+		http.Error(w, "invalid media type", http.StatusForbidden)
+		return
+	}
 	sig, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil || !hmac.Equal(sig, r.signature(parts[1])) {
+	if err != nil || !hmac.Equal(sig, r.signature(parts[1], kind)) {
 		http.Error(w, "invalid media token", http.StatusForbidden)
 		return
 	}
@@ -108,84 +118,25 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid HLS delivery directives", http.StatusBadRequest)
 		return
 	}
-	method := req.Method
-	knownPlaylist := playlistURL(u)
-	if knownPlaylist {
-		// A playlist is a different representation after rewriting. Fetch
-		// its complete body even for HEAD and evaluate ranges locally.
-		method = http.MethodGet
-	}
-	upstream, err := http.NewRequestWithContext(req.Context(), method, u.String(), nil)
+	kind, resp, err := r.open(req, u, kind, parts[1])
 	if err != nil {
-		http.Error(w, "invalid media target", http.StatusBadRequest)
+		status := http.StatusBadGateway
+		if errors.Is(err, errProbeTimeout) {
+			status = http.StatusGatewayTimeout
+		}
+		http.Error(w, "media connection failed", status)
 		return
 	}
-	for _, key := range []string{"Range", "If-Range", "Accept"} {
-		if knownPlaylist && key != "Accept" {
-			continue
-		}
-		if v := req.Header.Get(key); v != "" {
-			upstream.Header.Set(key, v)
-		}
-	}
-	upstream.Header.Set("User-Agent", "radio-desktop/0.2.1")
-	upstream.Header.Set("Accept-Encoding", "identity")
-	resp, err := r.client.Do(upstream)
-	if err != nil {
-		// Do not expose target credentials or proxy internals to a page.
-		http.Error(w, "media connection failed", http.StatusBadGateway)
-		return
-	}
-	defer func() { resp.Body.Close() }()
+	defer resp.Body.Close()
 	w.Header().Set("Cache-Control", "no-store")
-	body := bufio.NewReader(resp.Body)
-	playlist := knownPlaylist || playlistResponse(resp)
-	if !playlist && resp.Request.Method != http.MethodHead && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		prefix, _ := body.Peek(7)
-		playlist = string(prefix) == "#EXTM3U"
-	}
-	probeUnsatisfiedRange := resp.StatusCode == http.StatusRequestedRangeNotSatisfiable && req.Header.Get("Range") != ""
-	probeMultipart := resp.StatusCode == http.StatusPartialContent && strings.HasPrefix(resp.Header.Get("Content-Type"), "multipart/byteranges")
-	if (playlist && (resp.StatusCode == http.StatusPartialContent || resp.Request.Method == http.MethodHead)) || probeUnsatisfiedRange || probeMultipart {
-		// An extensionless or redirected playlist may only be recognized
-		// after a range probe. Never rewrite its partial response as a
-		// complete manifest, or reuse its validators for the relay body.
-		original := resp
-		full := upstream.Clone(req.Context())
-		full.Method, full.URL = http.MethodGet, resp.Request.URL
-		full.Header.Del("Range")
-		full.Header.Del("If-Range")
-		next, err := r.client.Do(full)
-		if err != nil {
-			http.Error(w, "media connection failed", http.StatusBadGateway)
-			return
-		}
-		nextBody := bufio.NewReader(next.Body)
-		if !playlist {
-			// Error and multipart responses hide the original MIME type.
-			// Inspect a full response: an offset may exist only after URI
-			// rewriting. Keep the original response for binary resources.
-			prefix, _ := nextBody.Peek(7)
-			playlist = playlistResponse(next) || string(prefix) == "#EXTM3U"
-		}
-		if playlist {
-			original.Body.Close()
-			resp, body = next, nextBody
-			if resp.StatusCode != http.StatusOK {
-				http.Error(w, "incomplete media playlist", http.StatusBadGateway)
-				return
-			}
-		} else {
-			next.Body.Close()
-		}
-	}
-	if playlist && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+
+	if kind == resourcePlaylist && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if resp.StatusCode != http.StatusOK {
 			http.Error(w, "incomplete media playlist", http.StatusBadGateway)
 			return
 		}
 		const maxPlaylist = 2 << 20
-		data, err := io.ReadAll(io.LimitReader(body, maxPlaylist+1))
+		data, err := io.ReadAll(io.LimitReader(resp.Body, maxPlaylist+1))
 		if err != nil || len(data) > maxPlaylist || !bytes.HasPrefix(data, []byte("#EXTM3U")) {
 			http.Error(w, "invalid media playlist", http.StatusBadGateway)
 			return
@@ -210,16 +161,7 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	http.NewResponseController(w).Flush()
-	io.Copy(flushingWriter{w}, body)
-}
-
-func playlistURL(u *url.URL) bool {
-	return strings.HasSuffix(strings.ToLower(u.Path), ".m3u8")
-}
-
-func playlistResponse(resp *http.Response) bool {
-	typeName := strings.ToLower(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
-	return strings.Contains(typeName, "mpegurl") || playlistURL(resp.Request.URL)
+	io.Copy(flushingWriter{w}, resp.Body)
 }
 
 type flushingWriter struct{ http.ResponseWriter }
@@ -237,7 +179,7 @@ var playlistURIAttribute = regexp.MustCompile(`\b(?:[A-Z-]*URI)=`)
 
 func (r *relay) rewritePlaylist(data []byte, base *url.URL) ([]byte, error) {
 	var rewriteErr error
-	rewrite := func(ref string) string {
+	rewrite := func(ref string, kind resourceKind) string {
 		if strings.HasPrefix(ref, "data:") {
 			return ref
 		}
@@ -246,21 +188,37 @@ func (r *relay) rewritePlaylist(data []byte, base *url.URL) ([]byte, error) {
 			rewriteErr = errors.New("unsupported playlist reference")
 			return ""
 		}
-		result := r.mediaURL(base.ResolveReference(u).String())
+		result := r.typedURL(base.ResolveReference(u).String(), kind)
 		if result == "" {
 			rewriteErr = errors.New("unsupported playlist protocol")
 		}
 		return result
 	}
 	lines := strings.Split(string(data), "\n")
+	variant := false
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "#EXT-X-CONTENT-STEERING:") {
 			return nil, errors.New("unsupported content steering")
 		}
 		if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
-			lines[i] = rewrite(trimmed)
+			kind := resourceBinary
+			if variant {
+				kind = resourcePlaylist
+			}
+			lines[i] = rewrite(trimmed, kind)
+			variant = false
 		} else {
+			tag, _, _ := strings.Cut(trimmed, ":")
+			kind := resourceUnknown
+			switch tag {
+			case "#EXT-X-STREAM-INF":
+				variant = true
+			case "#EXT-X-MEDIA", "#EXT-X-I-FRAME-STREAM-INF", "#EXT-X-RENDITION-REPORT", "#EXT-X-IMAGE-STREAM-INF":
+				kind = resourcePlaylist
+			case "#EXT-X-KEY", "#EXT-X-SESSION-KEY", "#EXT-X-MAP", "#EXT-X-PART", "#EXT-X-PRELOAD-HINT":
+				kind = resourceBinary
+			}
 			// Native parsers may accept malformed unquoted URI attributes.
 			// Refuse any attribute we cannot rewrite, rather than allowing
 			// an upstream URL to reach a platform's own network stack.
@@ -269,7 +227,7 @@ func (r *relay) rewritePlaylist(data []byte, base *url.URL) ([]byte, error) {
 			}
 			lines[i] = playlistURI.ReplaceAllStringFunc(line, func(attr string) string {
 				pos := strings.Index(attr, `="`)
-				return attr[:pos+2] + rewrite(attr[pos+2:len(attr)-1]) + `"`
+				return attr[:pos+2] + rewrite(attr[pos+2:len(attr)-1], kind) + `"`
 			})
 		}
 	}
