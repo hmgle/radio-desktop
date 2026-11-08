@@ -100,7 +100,11 @@ func TestManualRelayLoadsAllPlaylistResources(t *testing.T) {
 	t.Setenv("HTTP_PROXY", "http://127.0.0.1:1")
 	var walk func(string)
 	walk = func(raw string) {
-		code, body := readResponse(t, raw, http.Header{"Range": {"bytes=2-3"}, "Cookie": {"secret"}, "Authorization": {"secret"}})
+		headers := http.Header{"Cookie": {"secret"}, "Authorization": {"secret"}}
+		if !strings.HasSuffix(raw, ".m3u8") && raw != s.MediaURL("http://station.invalid/start") {
+			headers.Set("Range", "bytes=2-3")
+		}
+		code, body := readResponse(t, raw, headers)
 		if code != http.StatusOK && code != http.StatusPartialContent {
 			t.Fatalf("relay status %d: %s", code, body)
 		}

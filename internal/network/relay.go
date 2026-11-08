@@ -2,17 +2,18 @@ package network
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -103,12 +104,22 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid media target", http.StatusBadRequest)
 		return
 	}
-	upstream, err := http.NewRequestWithContext(req.Context(), req.Method, u.String(), nil)
+	method := req.Method
+	knownPlaylist := playlistURL(u)
+	if knownPlaylist {
+		// A playlist is a different representation after rewriting. Fetch
+		// its complete body even for HEAD and evaluate ranges locally.
+		method = http.MethodGet
+	}
+	upstream, err := http.NewRequestWithContext(req.Context(), method, u.String(), nil)
 	if err != nil {
 		http.Error(w, "invalid media target", http.StatusBadRequest)
 		return
 	}
 	for _, key := range []string{"Range", "If-Range", "Accept"} {
+		if knownPlaylist && key != "Accept" {
+			continue
+		}
 		if v := req.Header.Get(key); v != "" {
 			upstream.Header.Set(key, v)
 		}
@@ -121,30 +132,57 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "media connection failed", http.StatusBadGateway)
 		return
 	}
-	defer resp.Body.Close()
-	for _, key := range []string{"Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified"} {
-		if v := resp.Header.Get(key); v != "" {
-			w.Header().Set(key, v)
+	defer func() { resp.Body.Close() }()
+	w.Header().Set("Cache-Control", "no-store")
+	body := bufio.NewReader(resp.Body)
+	playlist := knownPlaylist || playlistResponse(resp)
+	if !playlist && resp.Request.Method != http.MethodHead && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		prefix, _ := body.Peek(7)
+		playlist = string(prefix) == "#EXTM3U"
+	}
+	probeUnsatisfiedRange := resp.StatusCode == http.StatusRequestedRangeNotSatisfiable && req.Header.Get("Range") != ""
+	probeMultipart := resp.StatusCode == http.StatusPartialContent && strings.HasPrefix(resp.Header.Get("Content-Type"), "multipart/byteranges")
+	if (playlist && (resp.StatusCode == http.StatusPartialContent || resp.Request.Method == http.MethodHead)) || probeUnsatisfiedRange || probeMultipart {
+		// An extensionless or redirected playlist may only be recognized
+		// after a range probe. Never rewrite its partial response as a
+		// complete manifest, or reuse its validators for the relay body.
+		original := resp
+		full := upstream.Clone(req.Context())
+		full.Method, full.URL = http.MethodGet, resp.Request.URL
+		full.Header.Del("Range")
+		full.Header.Del("If-Range")
+		next, err := r.client.Do(full)
+		if err != nil {
+			http.Error(w, "media connection failed", http.StatusBadGateway)
+			return
+		}
+		nextBody := bufio.NewReader(next.Body)
+		if !playlist {
+			// Error and multipart responses hide the original MIME type.
+			// Inspect a full response: an offset may exist only after URI
+			// rewriting. Keep the original response for binary resources.
+			prefix, _ := nextBody.Peek(7)
+			playlist = playlistResponse(next) || string(prefix) == "#EXTM3U"
+		}
+		if playlist {
+			original.Body.Close()
+			resp, body = next, nextBody
+			if resp.StatusCode != http.StatusOK {
+				http.Error(w, "incomplete media playlist", http.StatusBadGateway)
+				return
+			}
+		} else {
+			next.Body.Close()
 		}
 	}
-	w.Header().Set("Cache-Control", "no-store")
-	if req.Method == http.MethodHead {
-		w.WriteHeader(resp.StatusCode)
-		return
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		w.Header().Del("Content-Length")
-		w.WriteHeader(resp.StatusCode)
-		return
-	}
-	body := bufio.NewReader(resp.Body)
-	prefix, _ := body.Peek(7)
-	typeName := strings.ToLower(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
-	playlist := strings.EqualFold(typeName, "application/vnd.apple.mpegurl") || strings.Contains(typeName, "mpegurl") || string(prefix) == "#EXTM3U"
-	if playlist {
+	if playlist && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if resp.StatusCode != http.StatusOK {
+			http.Error(w, "incomplete media playlist", http.StatusBadGateway)
+			return
+		}
 		const maxPlaylist = 2 << 20
 		data, err := io.ReadAll(io.LimitReader(body, maxPlaylist+1))
-		if err != nil || len(data) > maxPlaylist {
+		if err != nil || len(data) > maxPlaylist || !bytes.HasPrefix(data, []byte("#EXTM3U")) {
 			http.Error(w, "invalid media playlist", http.StatusBadGateway)
 			return
 		}
@@ -153,17 +191,31 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "unsupported media playlist", http.StatusBadGateway)
 			return
 		}
-		w.Header().Del("Content-Range")
-		w.Header().Del("ETag")
 		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
-		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-		w.WriteHeader(http.StatusOK)
-		w.Write(data)
+		w.Header().Set("ETag", fmt.Sprintf(`"%x"`, sha256.Sum256(data)))
+		http.ServeContent(w, req, "playlist.m3u8", time.Time{}, bytes.NewReader(data))
 		return
 	}
+	for _, key := range []string{"Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified"} {
+		if v := resp.Header.Get(key); v != "" {
+			w.Header().Set(key, v)
+		}
+	}
 	w.WriteHeader(resp.StatusCode)
+	if req.Method == http.MethodHead {
+		return
+	}
 	http.NewResponseController(w).Flush()
 	io.Copy(flushingWriter{w}, body)
+}
+
+func playlistURL(u *url.URL) bool {
+	return strings.HasSuffix(strings.ToLower(u.Path), ".m3u8")
+}
+
+func playlistResponse(resp *http.Response) bool {
+	typeName := strings.ToLower(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
+	return strings.Contains(typeName, "mpegurl") || playlistURL(resp.Request.URL)
 }
 
 type flushingWriter struct{ http.ResponseWriter }
