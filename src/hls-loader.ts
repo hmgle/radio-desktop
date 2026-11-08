@@ -16,7 +16,7 @@ export class RadioHlsLoader extends BaseLoader {
     stats.aborted = false;
     stats.loading.first = stats.loaded = 0;
     const headers = new Headers(context.headers);
-    headers.set("User-Agent", "radio-desktop/0.1.0");
+    headers.set("User-Agent", "radio-desktop/0.3.0");
     if (context.rangeEnd && context.rangeEnd > (context.rangeStart ?? 0)) {
       headers.set("Range", `bytes=${context.rangeStart ?? 0}-${context.rangeEnd - 1}`);
     }

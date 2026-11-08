@@ -96,7 +96,7 @@ func (r *relay) request(req *http.Request, target *url.URL, kind resourceKind) (
 			upstream.Header.Set(key, value)
 		}
 	}
-	upstream.Header.Set("User-Agent", "radio-desktop/0.2.1")
+	upstream.Header.Set("User-Agent", "radio-desktop/0.3.0")
 	upstream.Header.Set("Accept-Encoding", "identity")
 	return r.client.Do(upstream)
 }

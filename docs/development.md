@@ -107,7 +107,7 @@ Output is placed under `build/<platform>-<architecture>/`. Cross builds require 
 | macOS | `.app`, `.dmg` |
 | Linux | Executable, `.desktop`, `.deb`, tarball, separate user-level `install.sh`, and `PKGBUILD` |
 
-To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.2.1_amd64.deb`. For the tarball, review the separate script and run `sh ./build/linux-amd64/install.sh ./build/linux-amd64/radio-desktop-0.2.1-linux-amd64.tar.gz`. Release downloads provide `install.sh` as its own asset; it is not inside the tarball. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
+To install a locally built Debian/Ubuntu package, use `sudo apt install ./build/linux-amd64/radio-desktop_0.3.0_amd64.deb`. For the tarball, review the separate script and run `sh ./build/linux-amd64/install.sh ./build/linux-amd64/radio-desktop-0.3.0-linux-amd64.tar.gz`. Release downloads provide `install.sh` as its own asset; it is not inside the tarball. Use the matching architecture. macOS users can copy the app from the disk image to Applications. Locally built macOS packages are not automatically signed or notarized.
 
 Windows installers install for the current user under `%LOCALAPPDATA%\Programs`, create a Start menu shortcut, and provide an uninstaller in Settings > Apps. Run `bun run build` on Windows to build the installer; when cross-compiling from Linux, install NSIS (`makensis`) first. Windows installation, tray behavior, media controls, and MP3/AAC/HLS playback still need a real-machine smoke test.
 
@@ -129,13 +129,13 @@ When distributing binaries, provide the corresponding source for that exact vers
 Update `mygo.json`, the application and directory User-Agent strings, and the version section in `CHANGELOG.md`. Keep both READMEs and user guides aligned with download formats and behavior. Run the checks above and validate release metadata before committing and tagging:
 
 ```sh
-go run ./tools/release -tag v0.2.1 -notes /tmp/radio-release-notes.md
-git tag -a v0.2.1 -m "Radio Desktop v0.2.1"
+go run ./tools/release -tag v0.3.0 -notes /tmp/radio-release-notes.md
+git tag -a v0.3.0 -m "Radio Desktop v0.3.0"
 ```
 
 Push the reviewed commit and tag to the GitHub remote. The release workflow builds Linux x86_64, macOS Apple Silicon (arm64), and Windows x64 from the same commit. Wait for it to finish, run the manual Desktop smoke test for that tag, and download the draft's assets. Check the SHA256 entries, package versions and architectures, bundled licenses, source contents, and platform runtime requirements before publishing. The source archive is generated with `git archive` from the tagged commit and includes tracked build inputs and lockfiles. It is covered by the same checksum file as the installers.
 
-Publish the reviewed draft from GitHub or with `gh release edit v0.2.1 --draft=false --latest`. Record validation limits in the release notes, particularly unsigned macOS/Windows packages and any platform installation or playback checks that were not run. A newer package preserves the normal user-data directory; there is no in-app update mechanism yet.
+Publish the reviewed draft from GitHub or with `gh release edit v0.3.0 --draft=false --latest`. Record validation limits in the release notes, particularly unsigned macOS/Windows packages and any platform installation or playback checks that were not run. A newer package preserves the normal user-data directory; there is no in-app update mechanism yet.
 
 ## Source map
 

@@ -62,7 +62,7 @@ func New(opts Options) *Client {
 		opts.ServersURL = defaultServersURL
 	}
 	if opts.UserAgent == "" {
-		opts.UserAgent = "radio-desktop/0.2.1"
+		opts.UserAgent = "radio-desktop/0.3.0"
 	}
 	if opts.Transport == nil {
 		opts.Transport = netproxy.Transport()
