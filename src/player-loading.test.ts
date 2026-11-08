@@ -25,7 +25,7 @@ const info = { station: { stationuuid: "", name: "Test HLS", hls: 1 }, candidate
 describe("HLS source initialization", () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.doMock("./hls", async () => await moduleLoad.promise);
+    vi.doMock("./hls", async () => ({ supportsHls: () => true, ...await moduleLoad.promise as object }));
     vi.useFakeTimers();
     vi.stubGlobal("Audio", FakeAudio);
   });

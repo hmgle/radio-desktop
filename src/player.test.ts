@@ -10,7 +10,7 @@ import { fetch as nativeFetch } from "@mygo-plugins/fetch";
 vi.mock("./mygo", () => ({
   Service: { reportStarted: vi.fn().mockResolvedValue(undefined) },
 }));
-vi.mock("./hls", () => ({ attachHls: vi.fn(() => ({ destroy: vi.fn() })) }));
+vi.mock("./hls", () => ({ attachHls: vi.fn(() => ({ destroy: vi.fn() })), supportsHls: vi.fn(() => true) }));
 vi.mock("@mygo-plugins/fetch", () => ({ fetch: vi.fn() }));
 
 // The fake element: events fire by hand, play() resolves like a
@@ -65,8 +65,9 @@ beforeEach(async () => {
   audio = (fresh as unknown as { audio: FakeAudio }).audio;
   const { Service } = await import("./mygo");
   vi.mocked(Service.reportStarted).mockClear();
-  const { attachHls } = await import("./hls");
+  const { attachHls, supportsHls } = await import("./hls");
   vi.mocked(attachHls).mockClear();
+  vi.mocked(supportsHls).mockReset().mockReturnValue(true);
   vi.mocked(nativeFetch).mockReset().mockImplementation(async () => new Response(null, { headers: { "Content-Type": "audio/ogg" } }));
   const mod = fresh as unknown as {
     onSnapshot: ((s: { state: string; station: { name: string } | null; error: string }) => void) | null;
@@ -103,6 +104,41 @@ describe("player state machine", () => {
     const native = "http://127.0.0.1:12345/synthetic/media";
     playerApi.play({ ...info([original]), nativeCandidates: [native] });
     expect(audio.src).toBe(native);
+  });
+
+  it("prefers the Go HLS loader for relayed HLS even when native HLS is available", async () => {
+    const original = "https://station.example/live.m3u8";
+    audio.canPlayType.mockReturnValue("probably");
+    playerApi.play({ ...info([original]), nativeCandidates: ["http://127.0.0.1:12345/synthetic/media.m3u8"] });
+    await vi.dynamicImportSettled();
+    const { attachHls } = await import("./hls");
+    expect(attachHls).toHaveBeenCalledWith(audio, original, expect.any(Function));
+    expect(audio.src).toBe("");
+    expect(audio.playCalls).toBe(1);
+  });
+
+  it("keeps native HLS on the relay when MSE is unavailable", async () => {
+    const original = "https://station.example/live.m3u8";
+    const native = "http://127.0.0.1:12345/synthetic/media.m3u8";
+    audio.canPlayType.mockReturnValue("probably");
+    const { supportsHls, attachHls } = await import("./hls");
+    vi.mocked(supportsHls).mockReturnValue(false);
+    playerApi.play({ ...info([original]), nativeCandidates: [native] });
+    await vi.dynamicImportSettled();
+    expect(attachHls).not.toHaveBeenCalled();
+    expect(audio.src).toBe(native);
+    expect(audio.playCalls).toBe(1);
+  });
+
+  it("keeps the native HLS preference for automatic network settings", async () => {
+    const original = "https://station.example/live.m3u8";
+    audio.canPlayType.mockReturnValue("probably");
+    playerApi.play({ ...info([original]), nativeCandidates: [original] });
+    await vi.dynamicImportSettled();
+    const { attachHls, supportsHls } = await import("./hls");
+    expect(supportsHls).not.toHaveBeenCalled();
+    expect(attachHls).not.toHaveBeenCalled();
+    expect(audio.src).toBe(original);
   });
 
   it("retries relayed native HLS failures through the original HLS loader", async () => {

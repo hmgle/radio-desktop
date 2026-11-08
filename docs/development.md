@@ -47,6 +47,23 @@ This uses a private GSettings keyfile and fresh subprocesses; it does not change
 
 The network package also tests explicit HTTP proxies, HTTPS CONNECT, SOCKS5 remote DNS, direct mode, continuous stream cancellation, byte ranges, and proxy failure without direct fallback. Native HLS relay tests traverse redirected master playlists, alternate audio, media playlists, segments, initialization maps, and encryption keys. Relay access requires a signed URL and the exact loopback Host; unsupported external references fail instead of escaping the configured policy. Network preferences take effect at the next launch so active streams keep a consistent policy.
 
+### HLS playback and relay boundaries
+
+For identified HLS streams under Manual or Direct proxy mode, prefer hls.js with `RadioHlsLoader` when `Hls.isSupported()` succeeds. This uses the original upstream URLs and the selected Go network policy for playlists, segments, and keys. Platforms with native HLS and no compatible MSE implementation use the native media relay. Automatic mode retains the platform's native HLS preference. Unknown formats are probed after a native failure, through the existing bounded fallback path.
+
+The native relay supports the following request and playlist behavior:
+
+| Area | Supported behavior |
+| --- | --- |
+| Playlist references | Rewrite HTTP(S) URI lines and quoted `URI`/`*-URI` attributes against the final redirect URL, including variant playlists, alternate audio, keys, initialization maps, parts, preload hints, and rendition reports; inline `data:` references stay inline |
+| Playlist ranges | Fetch a complete playlist before rewriting; byte, suffix, multiple, and unsatisfiable ranges are evaluated over the rewritten representation; HEAD describes its length and If-Range uses its generated ETag |
+| Media ranges | Forward binary segment Range and If-Range requests and preserve upstream status, body, and validators |
+| Low latency reloads | Merge appended `_HLS_msn`, `_HLS_part`, and `_HLS_skip` into the signed upstream URL, preserving authentication parameter encoding and order; media sequence and part values are unsigned 64-bit integers, part requires a sequence, and skip accepts `YES` or `v2` |
+| Query boundary | Appended query fields outside those three directives, duplicate directives, and invalid values return 400; original signed query fields remain intact |
+| Limits | Playlists are capped at 2 MiB; upstream response headers have a 15-second deadline; disconnects cancel the upstream request |
+
+Variable substitution, content steering, malformed/unquoted URI attributes, and non-HTTP(S) external references are rejected by the native relay. hls.js handles supported extensions directly when available; an unsupported native playlist may trigger that existing fallback. These bounds do not establish full low latency HLS conformance. Native HLS behavior on macOS and Windows still needs real-machine validation.
+
 Linux audio isolation checks:
 
 ```sh
