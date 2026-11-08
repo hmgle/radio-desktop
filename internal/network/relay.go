@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 type relay struct {
@@ -118,13 +119,22 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid HLS delivery directives", http.StatusBadRequest)
 		return
 	}
-	kind, resp, err := r.open(req, u, kind, parts[1])
+	kind, resp, observation, err := r.open(req, u, kind, parts[1])
+	// Every error and unsupported response leaves learned routes eligible
+	// for another probe. Successful paths finish the observation explicitly.
+	defer observation.finish(resourceUnknown)
+	fail := func(message string, status int) {
+		// Publish the outcome before the client can observe the error and
+		// start a retry; deferred cleanup alone would leave a race window.
+		observation.finish(resourceUnknown)
+		http.Error(w, message, status)
+	}
 	if err != nil {
 		status := http.StatusBadGateway
 		if errors.Is(err, errProbeTimeout) {
 			status = http.StatusGatewayTimeout
 		}
-		http.Error(w, "media connection failed", status)
+		fail("media connection failed", status)
 		return
 	}
 	defer resp.Body.Close()
@@ -132,25 +142,32 @@ func (r *relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if kind == resourcePlaylist && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if resp.StatusCode != http.StatusOK {
-			http.Error(w, "incomplete media playlist", http.StatusBadGateway)
+			fail("incomplete media playlist", http.StatusBadGateway)
 			return
 		}
 		const maxPlaylist = 2 << 20
 		data, err := io.ReadAll(io.LimitReader(resp.Body, maxPlaylist+1))
-		if err != nil || len(data) > maxPlaylist || !bytes.HasPrefix(data, []byte("#EXTM3U")) {
-			http.Error(w, "invalid media playlist", http.StatusBadGateway)
+		if err != nil || req.Context().Err() != nil || len(data) > maxPlaylist || !validPlaylistText(data) {
+			fail("invalid media playlist", http.StatusBadGateway)
 			return
 		}
 		data, err = r.rewritePlaylist(data, resp.Request.URL)
 		if err != nil {
-			http.Error(w, "unsupported media playlist", http.StatusBadGateway)
+			fail("unsupported media playlist", http.StatusBadGateway)
 			return
 		}
+		// MIME, redirects, and a prefix are provisional until the complete
+		// supported representation has been read, validated, and rewritten.
+		observation.finish(resourcePlaylist)
 		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 		w.Header().Set("ETag", fmt.Sprintf(`"%x"`, sha256.Sum256(data)))
 		http.ServeContent(w, req, "playlist.m3u8", time.Time{}, bytes.NewReader(data))
 		return
 	}
+	if kind == resourceBinary {
+		observation.acceptBinary(resp)
+	}
+	observation.finish(resourceUnknown)
 	for _, key := range []string{"Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified"} {
 		if v := resp.Header.Get(key); v != "" {
 			w.Header().Set(key, v)
@@ -176,6 +193,23 @@ func (w flushingWriter) Write(p []byte) (int, error) {
 
 var playlistURI = regexp.MustCompile(`\b(?:[A-Z-]*URI)="([^"]*)"`)
 var playlistURIAttribute = regexp.MustCompile(`\b(?:[A-Z-]*URI)=`)
+
+func validPlaylistText(data []byte) bool {
+	header, _, _ := bytes.Cut(data, []byte{'\n'})
+	if !utf8.Valid(data) || !bytes.Equal(bytes.TrimSuffix(header, []byte{'\r'}), []byte("#EXTM3U")) {
+		return false
+	}
+	for i, c := range string(data) {
+		if c == '\r' {
+			if i+1 == len(data) || data[i+1] != '\n' {
+				return false
+			}
+		} else if c < 0x20 && c != '\n' || c >= 0x7f && c <= 0x9f {
+			return false
+		}
+	}
+	return true
+}
 
 func (r *relay) rewritePlaylist(data []byte, base *url.URL) ([]byte, error) {
 	var rewriteErr error

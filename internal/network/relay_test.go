@@ -129,14 +129,18 @@ func TestRelayPlaylistRangesUseRewrittenRepresentation(t *testing.T) {
 
 func TestRelayPreservesBinaryRangeResponses(t *testing.T) {
 	const data = "0123456789abcdef"
+	var fullGETs atomic.Int32
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Range") == "" {
+			fullGETs.Add(1)
+		}
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("ETag", `"binary"`)
 		http.ServeContent(w, req, "segment", time.Time{}, strings.NewReader(data))
 	}))
 	defer proxy.Close()
 	s := session(t, "manual", proxy.URL)
-	for _, value := range []string{"bytes=2-3", "bytes=0-1,4-5", "bytes=1000-"} {
+	for _, value := range []string{"bytes=2-3", "bytes=0-1,4-5", "bytes=1000-", "bytes=2-3"} {
 		req := httptest.NewRequest(http.MethodGet, s.MediaURL("http://station.invalid/segment"), nil)
 		req.Header.Set("Range", value)
 		got := httptest.NewRecorder()
@@ -164,6 +168,9 @@ func TestRelayPreservesBinaryRangeResponses(t *testing.T) {
 		} else if got.Body.String() != want.Body.String() {
 			t.Fatal("binary range body changed")
 		}
+	}
+	if fullGETs.Load() != 1 {
+		t.Fatalf("binary classification was lost after multipart or 416: %d probes", fullGETs.Load())
 	}
 }
 

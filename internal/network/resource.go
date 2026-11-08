@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,8 +22,59 @@ const (
 )
 
 type resourceType struct {
-	access chan struct{}
-	kind   resourceKind // protected by access
+	probe    chan struct{}
+	mu       sync.Mutex
+	kind     resourceKind
+	revision uint64
+}
+
+// An observation proposes a type for one response. Only a validated result
+// may replace the cache version it observed; older in-flight responses cannot
+// overwrite a newer result. The object itself belongs to one request.
+type typeObservation struct {
+	state          *resourceType
+	revision       uint64
+	binaryVerified bool
+	done           bool
+}
+
+func (s *resourceType) observe() (resourceKind, *typeObservation) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.kind, &typeObservation{state: s, revision: s.revision, binaryVerified: s.kind == resourceBinary}
+}
+
+func (o *typeObservation) publish(kind resourceKind) {
+	if kind == resourceBinary {
+		o.binaryVerified = true
+	}
+	o.state.mu.Lock()
+	defer o.state.mu.Unlock()
+	if o.revision == o.state.revision {
+		o.state.kind = kind
+		o.state.revision++
+		o.revision = o.state.revision
+	}
+}
+
+func (o *typeObservation) finish(kind resourceKind) {
+	if o == nil || o.done {
+		return
+	}
+	o.done = true
+	o.publish(kind)
+}
+
+func (o *typeObservation) acceptBinary(resp *http.Response) {
+	if o == nil {
+		return
+	}
+	// Multipart and 416 responses can preserve an established type, but
+	// cannot establish it after a non-media probe such as an HTML page.
+	if resp.StatusCode == http.StatusOK && cacheableBinaryResponse(resp) ||
+		o.binaryVerified && (resp.StatusCode == http.StatusPartialContent || resp.StatusCode == http.StatusRequestedRangeNotSatisfiable) {
+		o.finish(resourceBinary)
+	}
 }
 
 var errProbeTimeout = errors.New("media type probe timed out")
@@ -53,64 +105,65 @@ func (r *relay) request(req *http.Request, target *url.URL, kind resourceKind) (
 // request. Recognized media types are shared across methods, but an error
 // page cannot establish a lasting binary classification. Typed playlist
 // references never need a classification request.
-func (r *relay) open(req *http.Request, target *url.URL, kind resourceKind, identity string) (resourceKind, *http.Response, error) {
+func (r *relay) open(req *http.Request, target *url.URL, kind resourceKind, identity string) (resourceKind, *http.Response, *typeObservation, error) {
 	if kind != resourceUnknown {
 		resp, err := r.request(req, target, kind)
-		return kind, resp, err
+		return kind, resp, nil, err
 	}
 	// Entries exist only for signed targets actually requested by a player.
 	// A failed probe is not cached, so a later attempt can recover.
-	value, _ := r.types.LoadOrStore(identity, &resourceType{access: make(chan struct{}, 1)})
+	value, _ := r.types.LoadOrStore(identity, &resourceType{probe: make(chan struct{}, 1), kind: resourceUnknown})
 	state := value.(*resourceType)
+	kind, observation := state.observe()
+	if kind != resourceUnknown {
+		return r.requestDetected(req, target, kind, observation)
+	}
 	deadline := time.Now().Add(r.probeTimeout)
 	wait := time.NewTimer(r.probeTimeout)
 	defer wait.Stop()
 	select {
-	case state.access <- struct{}{}:
+	case state.probe <- struct{}{}:
 	case <-req.Context().Done():
-		return resourceUnknown, nil, req.Context().Err()
+		return resourceUnknown, nil, nil, req.Context().Err()
 	case <-wait.C:
-		return resourceUnknown, nil, errProbeTimeout
+		return resourceUnknown, nil, nil, errProbeTimeout
 	}
-	unlock := func() { <-state.access }
-	if state.kind != resourceUnknown && state.kind != "" {
-		kind = state.kind
+	unlock := func() { <-state.probe }
+	kind, observation = state.observe()
+	if kind != resourceUnknown {
 		unlock()
-		return r.requestDetected(req, target, kind, state)
+		return r.requestDetected(req, target, kind, observation)
 	}
 	kind, resp, err := r.probe(req, target, time.Until(deadline))
-	if err == nil && (kind == resourcePlaylist || kind == resourceBinary && cacheableBinaryResponse(resp)) {
-		state.kind = kind
+	if err == nil && kind == resourceBinary && cacheableBinaryResponse(resp) {
+		// Binary streams need not end. The successful full response and
+		// prefix probe establish their type before concurrent ranges start.
+		observation.publish(resourceBinary)
 	}
 	unlock()
 	if err != nil || kind == resourceUnknown {
-		return kind, resp, err
+		return kind, resp, observation, err
 	}
 	if kind == resourceBinary && req.Method == http.MethodGet && req.Header.Get("Range") != "" {
 		// No ranged response has been requested yet. Only after the type is
 		// known do we issue a binary range request; nothing can replace a
 		// successful response with the outcome of a speculative refetch.
 		resp.Body.Close()
-		return r.requestDetected(req, target, kind, state)
+		return r.requestDetected(req, target, kind, observation)
 	}
-	return kind, resp, err
+	return kind, resp, observation, err
 }
 
 // requestDetected rechecks header-level HLS signals on learned binary routes.
 // Explicitly signed segments and keys bypass this path: their MIME type or
 // byte prefix cannot change their role in the playlist.
-func (r *relay) requestDetected(req *http.Request, target *url.URL, kind resourceKind, state *resourceType) (resourceKind, *http.Response, error) {
+func (r *relay) requestDetected(req *http.Request, target *url.URL, kind resourceKind, observation *typeObservation) (resourceKind, *http.Response, *typeObservation, error) {
 	resp, err := r.request(req, target, kind)
 	if err != nil || kind != resourceBinary || !playlistResponse(resp) {
-		return kind, resp, err
+		return kind, resp, observation, err
 	}
-	select {
-	case state.access <- struct{}{}:
-		state.kind = resourcePlaylist
-		<-state.access
-	case <-req.Context().Done():
-		resp.Body.Close()
-		return resourceUnknown, nil, req.Context().Err()
+	if (resp.StatusCode < 200 || resp.StatusCode >= 300) && resp.StatusCode != http.StatusRequestedRangeNotSatisfiable {
+		return kind, resp, observation, err
 	}
 	if req.Method == http.MethodHead || resp.StatusCode == http.StatusPartialContent || resp.StatusCode == http.StatusRequestedRangeNotSatisfiable {
 		// Only a positive playlist signal can trigger a full refetch.
@@ -118,7 +171,7 @@ func (r *relay) requestDetected(req *http.Request, target *url.URL, kind resourc
 		resp.Body.Close()
 		resp, err = r.request(req, target, resourcePlaylist)
 	}
-	return resourcePlaylist, resp, err
+	return resourcePlaylist, resp, observation, err
 }
 
 func cacheableBinaryResponse(resp *http.Response) bool {
